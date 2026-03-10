@@ -1,0 +1,52 @@
+/* Styles for authentication-related pages: forgot/reset password */
+.container, .auth-box {
+    max-width: 480px;
+    margin: 60px auto;
+    background: #fff;
+    padding: 24px;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+.container h2, .auth-box h2 {
+    margin-top: 0;
+}
+
+label, input, button {
+    display: block;
+    width: 100%;
+}
+
+input[type="email"], input[type="password"], input[type="text"] {
+    padding: 10px;
+    margin: 10px 0 16px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+button, input[type="submit"] {
+    background-color: #28a745;
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+button:hover, input[type="submit"]:hover {
+    background-color: #218838;
+}
+
+.info {
+    font-size:0.95em;
+    color:#555;
+}
+
+.auth-link {
+    margin-top: 12px;
+    display: block;
+}
+
+.message-success { color: green; }
+.message-error { color: red; }

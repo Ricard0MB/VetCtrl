@@ -1,0 +1,241 @@
+/* ======================================================= */
+/* === ESTILOS ELABORADOS PARA pet_register.php (FORMULARIO PACIENTES) === */
+/* ======================================================= */
+
+/* --- Colores Temáticos --- */
+/* Azul Branding: #3F51B5 */
+/* Verde Éxito: #4CAF50 */
+/* Gris de Fondo: #F0F2F5 */
+/* Gris Claro de Borde: #DDE0E5 */
+/* Sombra Ligera: rgba(0, 0, 0, 0.08) */
+
+/* ------------------------------------------------ */
+/* 1. Fondo de la Página Completa */
+/* ------------------------------------------------ */
+body {
+    background-color: #F0F2F5;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+/* ------------------------------------------------ */
+/* 2. Contenedor Principal del Formulario */
+/* ------------------------------------------------ */
+.dashboard-container {
+    padding: 30px 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: calc(100vh - 70px); /* Altura mínima considerando navbar */
+}
+
+.main-content {
+    background-color: #FFFFFF;
+    padding: 40px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    max-width: 800px;
+    width: 100%;
+    box-sizing: border-box;
+    animation: fadeIn 0.8s ease-out;
+    overflow: hidden; /* Evita desbordes internos */
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ------------------------------------------------ */
+/* 3. Título Principal */
+/* ------------------------------------------------ */
+.main-content h1 {
+    color: #3F51B5;
+    font-size: 2.2em;
+    text-align: center;
+    margin-bottom: 30px;
+    position: relative;
+    padding-bottom: 15px;
+    border-bottom: none;
+    word-wrap: break-word;
+}
+
+.main-content h1::after {
+    content: ' ';
+    display: block;
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(to right, #4CAF50, #3F51B5);
+    margin: 10px auto 0;
+    border-radius: 2px;
+}
+
+.main-content h1 .paw-icon {
+    font-size: 0.8em;
+    vertical-align: middle;
+    margin-left: 10px;
+    color: #4CAF50;
+}
+
+/* ------------------------------------------------ */
+/* 4. Estilos de los Formularios (Inputs, Select, Textarea) */
+/* ------------------------------------------------ */
+.main-content form label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #333333;
+    font-size: 1.05em;
+    margin-top: 20px;
+}
+
+.main-content form input[type="text"],
+.main-content form input[type="date"],
+.main-content form select,
+.main-content form textarea {
+    width: 100%; /* Cambiado de calc(100% - 24px) a 100% */
+    padding: 12px;
+    border: 1px solid #DDE0E5;
+    border-radius: 8px;
+    font-size: 1em;
+    color: #555555;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    background-color: #F9F9F9;
+    box-sizing: border-box; /* Asegura que padding no desborde */
+}
+
+.main-content form input[type="text"]:focus,
+.main-content form input[type="date"]:focus,
+.main-content form select:focus,
+.main-content form textarea:focus {
+    border-color: #3F51B5;
+    box-shadow: 0 0 0 3px rgba(63, 81, 181, 0.2);
+    outline: none;
+    background-color: #FFFFFF;
+}
+
+.main-content form select {
+    appearance: none;
+    background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%233F51B5%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13.2-5.4H18.6c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.5c0%205%201.8%209.3%205.4%2012.9l118.2%20118.2c3.6%203.6%207.8%205.4%2012.9%205.4s9.3-1.8%2012.9-5.4L287%2095.4c3.6-3.6%205.4-7.8%205.4-12.9s-1.8-9.3-5.4-12.9z%22%2F%3E%3C%2Fsvg%3E');
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 12px;
+    padding-right: 30px;
+}
+
+.main-content form textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+/* ------------------------------------------------ */
+/* 5. Botón de Enviar (Primario) */
+/* ------------------------------------------------ */
+.btn-primary {
+    display: block;
+    width: auto;
+    max-width: 100%; /* Evita desborde */
+    margin: 30px auto 15px;
+    background-color: #4CAF50;
+    color: white;
+    padding: 15px 30px;
+    border: none;
+    border-radius: 10px;
+    font-size: 1.2em;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s, box-shadow 0.3s;
+    box-shadow: 0 4px 10px rgba(76, 175, 80, 0.3);
+    box-sizing: border-box;
+    text-align: center;
+}
+
+.btn-primary:hover {
+    background-color: #388E3C;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(76, 175, 80, 0.4);
+}
+
+/* ------------------------------------------------ */
+/* 6. Botón Secundario (Ej: Volver, Ver listado) */
+/* ------------------------------------------------ */
+.btn-secondary {
+    display: inline-block;
+    background-color: #6c757d;
+    color: white;
+    padding: 12px 25px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: background-color 0.3s;
+    max-width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+    margin-top: 20px;
+    border: none;
+    cursor: pointer;
+    font-size: 1em;
+}
+
+.btn-secondary:hover {
+    background-color: #5a6268;
+    text-decoration: none;
+    color: white;
+}
+
+/* Para enlaces que parecen botones */
+a.btn-secondary {
+    display: inline-block;
+}
+
+/* ------------------------------------------------ */
+/* 7. Enlace Volver al Dashboard (estilo original) */
+/* ------------------------------------------------ */
+.main-content p a {
+    color: #3F51B5;
+    text-decoration: none;
+    display: block;
+    text-align: center;
+    margin-top: 25px;
+    font-size: 1.05em;
+    transition: color 0.2s;
+    word-wrap: break-word;
+}
+
+.main-content p a:hover {
+    color: #4CAF50;
+    text-decoration: underline;
+}
+
+/* ------------------------------------------------ */
+/* 8. Mensajes de Éxito y Error */
+/* ------------------------------------------------ */
+.success-message {
+    background-color: #E8F5E9;
+    color: #2E7D32;
+    border: 1px solid #A5D6A7;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 25px;
+    font-weight: bold;
+    text-align: center;
+    animation: slideInFromTop 0.5s ease-out;
+}
+
+.error-message {
+    background-color: #FFEBEE;
+    color: #C62828;
+    border: 1px solid #EF9A9A;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 25px;
+    font-weight: bold;
+    text-align: center;
+    animation: slideInFromTop 0.5s ease-out;
+}
+
+@keyframes slideInFromTop {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}

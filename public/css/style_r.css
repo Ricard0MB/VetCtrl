@@ -1,0 +1,133 @@
+/* --------------------------------------------
+   ESTILOS PARA REGISTRO
+   Fondo verde sólido + imagen PNG como objeto
+-------------------------------------------- */
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', sans-serif;
+    background-color: #2d6a4f; /* Verde sólido */
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Objeto PNG: imagen de mascotas superpuesta */
+.bg-pets {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url('../images/fondo-mascotas.png'); /* Cambia a .png */
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0.15;
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* Contenedor del formulario (siempre encima de la imagen) */
+.register-container {
+    position: relative;
+    z-index: 1;
+    background-color: rgba(255, 255, 255, 0.95);
+    padding: 30px 25px;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    width: 350px;
+    max-width: 90%;
+    margin: 20px auto;
+    text-align: center;
+    backdrop-filter: blur(2px);
+}
+
+.register-container h2 {
+    margin-bottom: 20px;
+    color: #1b4332;
+    font-weight: 600;
+}
+
+.register-container label {
+    display: block;
+    text-align: left;
+    margin-bottom: 5px;
+    color: #2d3e3f;
+    font-weight: 500;
+}
+
+.register-container input[type="email"],
+.register-container input[type="password"],
+.register-container input[type="text"] {
+    width: calc(100% - 22px);
+    padding: 12px;
+    margin-bottom: 18px;
+    border: 1px solid #cbd5e0;
+    border-radius: 8px;
+    font-size: 15px;
+    transition: border-color 0.2s;
+}
+
+.register-container input[type="email"]:focus,
+.register-container input[type="password"]:focus,
+.register-container input[type="text"]:focus {
+    border-color: #2d6a4f;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(45, 106, 79, 0.1);
+}
+
+.register-container input[type="submit"] {
+    background-color: #2d6a4f;
+    color: white;
+    padding: 12px 18px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 17px;
+    font-weight: 600;
+    width: 100%;
+    transition: background-color 0.2s;
+}
+
+.register-container input[type="submit"]:hover {
+    background-color: #1b4332;
+}
+
+.success-message {
+    color: #155724;
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    padding: 10px;
+    border-radius: 6px;
+    margin: 15px 0 10px;
+    font-size: 14px;
+}
+
+.error-message {
+    color: #b22222;
+    background-color: #ffeaea;
+    border: 1px solid #ffb3b3;
+    padding: 10px;
+    border-radius: 6px;
+    margin: 15px 0 10px;
+    font-size: 14px;
+}
+
+.login-link {
+    margin-top: 18px;
+    font-size: 14px;
+}
+
+.login-link a {
+    color: #2d6a4f;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.login-link a:hover {
+    text-decoration: underline;
+}
