@@ -1,26 +1,26 @@
 <?php
-// Conexión a MySQL en Aiven usando variables de entorno de Render
+// includes/conexion.php
 
 $host = getenv('DB_HOST');
 $port = getenv('DB_PORT');
 $dbname = getenv('DB_NAME');
 $user = getenv('DB_USER');
-$pass = getenv('DB_PASSWORD');
-
-// Si las variables no existen, muestra error claro
-if (!$host || !$port || !$dbname || !$user || $pass === false) {
-    die("Error: Faltan variables de entorno. Verifica DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD en Render.");
-}
+$password = getenv('DB_PASSWORD');
+$ssl_ca = getenv('SSL_CA');
 
 try {
-    // ¡IMPORTANTE! Usamos host y port EXPLÍCITAMENTE
-    $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=utf8mb4";
+    // Opción 1: Usando PDO (Recomendado)
+    $dsn = "mysql:host=$host;port=$port;dbname=$dbname";
+    $options = [
+        PDO::MYSQL_ATTR_SSL_CA => $ssl_ca,
+        PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => false, // Cambia a true en producción
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    ];
     
-    $pdo = new PDO($dsn, $user, $pass);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $conn = new PDO($dsn, $user, $password, $options);
     
-    // Opcional: probar conexión
-    // echo "Conexión exitosa a la base de datos";
+    // echo "Conexión exitosa"; // Puedes descomentar para probar
     
 } catch (PDOException $e) {
     die("Error de conexión: " . $e->getMessage());
