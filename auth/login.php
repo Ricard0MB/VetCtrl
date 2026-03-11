@@ -5,6 +5,12 @@ session_start();
 require_once __DIR__ . '/../includes/conexion.php';
 require_once '../includes/bitacora_function.php';
 
+// 🔴 NUEVA VALIDACIÓN: Verificar que la conexión existe
+if (!isset($conn) || $conn === null) {
+    die("ERROR CRÍTICO: No se pudo establecer la conexión a la base de datos. 
+         Verifica las variables de entorno y el certificado SSL.");
+}
+
 $error = '';
 $user_input_value = '';
 
