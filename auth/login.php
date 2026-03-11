@@ -2,7 +2,7 @@
 session_start();
 
 // Inclusiones de archivos
-require_once '../includes/config.php';
+require_once __DIR__ . '/../includes/conexion.php';
 require_once '../includes/bitacora_function.php';
 
 $error = '';
