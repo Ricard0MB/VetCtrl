@@ -2,11 +2,11 @@
 session_start();
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
 $username = $_SESSION["username"] ?? 'Veterinario';
 $user_id = $_SESSION['user_id'] ?? 0;
@@ -21,38 +21,29 @@ if ($role_name !== 'Veterinario' && $role_name !== 'admin') {
 $vaccines = [];
 $message = '';
 
-$sql = "SELECT 
-            v.*, 
-            p.name AS pet_name,
-            p.id AS pet_id,
-            pt.name AS species_name,      
-            b.name AS breed_name,         
-            vt.name AS vaccine_name        
-        FROM vaccines v
-        JOIN pets p ON v.pet_id = p.id
-        LEFT JOIN pet_types pt ON p.type_id = pt.id 
-        LEFT JOIN breeds b ON p.breed_id = b.id      
-        JOIN vaccine_types vt ON v.vaccine_type_id = vt.id 
-        WHERE v.attendant_id = ? 
-        ORDER BY v.application_date DESC";
+try {
+    $sql = "SELECT 
+                v.*, 
+                p.name AS pet_name,
+                p.id AS pet_id,
+                pt.name AS species_name,      
+                b.name AS breed_name,         
+                vt.name AS vaccine_name        
+            FROM vaccines v
+            JOIN pets p ON v.pet_id = p.id
+            LEFT JOIN pet_types pt ON p.type_id = pt.id 
+            LEFT JOIN breeds b ON p.breed_id = b.id      
+            JOIN vaccine_types vt ON v.vaccine_type_id = vt.id 
+            WHERE v.attendant_id = :attendant_id 
+            ORDER BY v.application_date DESC";
 
-if ($stmt = $conn->prepare($sql)) {
-    $stmt->bind_param("i", $user_id);
-    if ($stmt->execute()) {
-        $result = $stmt->get_result();
-        while ($row = $result->fetch_assoc()) {
-            $vaccines[] = $row;
-        }
-        $result->free();
-    } else {
-        $message = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Error: " . $stmt->error . "</div>";
-    }
-    $stmt->close();
-} else {
-    $message = "<div class='alert alert-danger'>Error de preparación: " . $conn->error . "</div>";
+    $stmt = $conn->prepare($sql);
+    $stmt->bindValue(':attendant_id', $user_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $vaccines = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $message = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Error al cargar vacunas: " . htmlspecialchars($e->getMessage()) . "</div>";
 }
-
-$conn->close();
 ?>
 <!DOCTYPE html>
 <html lang="es">
