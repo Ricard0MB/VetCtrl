@@ -1,10 +1,10 @@
 <?php
 session_start();
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 require_once '../includes/bitacora_function.php';
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
@@ -19,29 +19,41 @@ if (!in_array($role_name, ['Propietario', 'Veterinario', 'admin'])) {
     exit;
 }
 
-$pet_types = $conn->query("SELECT id, name FROM pet_types ORDER BY name")->fetch_all(MYSQLI_ASSOC);
-$breeds = $conn->query("SELECT id, name, type_id FROM breeds ORDER BY name")->fetch_all(MYSQLI_ASSOC);
-
+$pet_types = [];
+$breeds = [];
+$owners = [];
 $error = '';
 $success = '';
 
-// Para veterinario/admin, permitir seleccionar dueño
-$owners = [];
-if (in_array($role_name, ['Veterinario', 'admin'])) {
-    $owners = $conn->query("SELECT id, username, first_name, last_name FROM users WHERE role_id = 3 ORDER BY first_name")->fetch_all(MYSQLI_ASSOC);
+try {
+    // Obtener tipos de mascota
+    $stmtTypes = $conn->query("SELECT id, name FROM pet_types ORDER BY name");
+    $pet_types = $stmtTypes->fetchAll(PDO::FETCH_ASSOC);
+
+    // Obtener razas
+    $stmtBreeds = $conn->query("SELECT id, name, type_id FROM breeds ORDER BY name");
+    $breeds = $stmtBreeds->fetchAll(PDO::FETCH_ASSOC);
+
+    // Para veterinario/admin, permitir seleccionar dueño
+    if (in_array($role_name, ['Veterinario', 'admin'])) {
+        $stmtOwners = $conn->query("SELECT id, username, first_name, last_name FROM users WHERE role_id = 3 ORDER BY first_name");
+        $owners = $stmtOwners->fetchAll(PDO::FETCH_ASSOC);
+    }
+} catch (PDOException $e) {
+    $error = "Error al cargar datos: " . $e->getMessage();
 }
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $name = trim($_POST['name']);
-    $type_id = intval($_POST['type_id']);
-    $breed_id = intval($_POST['breed_id']) ?: null;
-    $gender = $_POST['gender'] ?: null;
-    $dob = $_POST['dob'] ?: null;
-    $medical_history = trim($_POST['medical_history']) ?: null;
+if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
+    $name = trim($_POST['name'] ?? '');
+    $type_id = intval($_POST['type_id'] ?? 0);
+    $breed_id = !empty($_POST['breed_id']) ? intval($_POST['breed_id']) : null;
+    $gender = !empty($_POST['gender']) ? $_POST['gender'] : null;
+    $dob = !empty($_POST['dob']) ? $_POST['dob'] : null;
+    $medical_history = !empty($_POST['medical_history']) ? trim($_POST['medical_history']) : null;
 
     // Determinar owner_id
     if (in_array($role_name, ['Veterinario', 'admin'])) {
-        $owner_id = intval($_POST['owner_id']);
+        $owner_id = intval($_POST['owner_id'] ?? 0);
         if ($owner_id <= 0) {
             $error = "Debe seleccionar un dueño para la mascota.";
         }
@@ -54,25 +66,30 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     if (empty($error)) {
-        $sql = "INSERT INTO pets (name, owner_id, attendant_id, type_id, breed_id, gender, date_of_birth, medical_history) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("siiiisss", $name, $owner_id, $user_id, $type_id, $breed_id, $gender, $dob, $medical_history);
-        if ($stmt->execute()) {
-            $new_id = $stmt->insert_id;
+        try {
+            $sql = "INSERT INTO pets (name, owner_id, attendant_id, type_id, breed_id, gender, date_of_birth, medical_history) 
+                    VALUES (:name, :owner_id, :attendant_id, :type_id, :breed_id, :gender, :dob, :medical_history)";
+            $stmt = $conn->prepare($sql);
+            $stmt->bindValue(':name', $name);
+            $stmt->bindValue(':owner_id', $owner_id, PDO::PARAM_INT);
+            $stmt->bindValue(':attendant_id', $user_id, PDO::PARAM_INT);
+            $stmt->bindValue(':type_id', $type_id, PDO::PARAM_INT);
+            $stmt->bindValue(':breed_id', $breed_id, PDO::PARAM_INT);
+            $stmt->bindValue(':gender', $gender);
+            $stmt->bindValue(':dob', $dob);
+            $stmt->bindValue(':medical_history', $medical_history);
+            $stmt->execute();
+
+            $new_id = $conn->lastInsertId();
             $action = "Nueva mascota registrada: $name (ID $new_id)";
             log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
             $success = "Mascota registrada correctamente.";
-            // Limpiar POST
-            $_POST = [];
-        } else {
-            $error = "Error al registrar: " . $stmt->error;
+            $_POST = []; // Limpiar formulario
+        } catch (PDOException $e) {
+            $error = "Error al registrar: " . $e->getMessage();
         }
-        $stmt->close();
     }
 }
-
-$conn->close();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -213,7 +230,7 @@ $conn->close();
         }
     </style>
     <script>
-        const allBreeds = <?php echo json_encode($breeds); ?>;
+        const allBreeds = <?php echo json_encode($breeds, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         function filterBreeds() {
             const typeSelect = document.getElementById('type_id');
             const breedSelect = document.getElementById('breed_id');
@@ -225,6 +242,8 @@ $conn->close();
                     const opt = document.createElement('option');
                     opt.value = b.id;
                     opt.textContent = b.name;
+                    // Si hay POST, mantener selección
+                    if (b.id == <?php echo json_encode($_POST['breed_id'] ?? 0); ?>) opt.selected = true;
                     breedSelect.appendChild(opt);
                 });
             }
@@ -262,7 +281,9 @@ $conn->close();
                         $owner_name = trim($owner['first_name'] . ' ' . $owner['last_name']);
                         if (empty($owner_name)) $owner_name = $owner['username'];
                     ?>
-                        <option value="<?php echo $owner['id']; ?>"><?php echo htmlspecialchars($owner_name); ?></option>
+                        <option value="<?php echo $owner['id']; ?>" <?php echo (isset($_POST['owner_id']) && $_POST['owner_id'] == $owner['id']) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($owner_name); ?>
+                        </option>
                     <?php endforeach; ?>
                 </select>
             <?php endif; ?>
