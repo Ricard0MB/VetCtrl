@@ -2,16 +2,16 @@
 session_start();
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
-$username = $_SESSION["username"] ?? 'Usuario'; 
-$current_user_id = $_SESSION['user_id'] ?? 0;  // Asegúrate de que en login se guarde como 'user_id'
-$role_id = $_SESSION['role_id'] ?? 0; 
-$user_role = $_SESSION['role_name'] ?? 'Propietario'; 
+$username = $_SESSION["username"] ?? 'Usuario';
+$current_user_id = $_SESSION['user_id'] ?? 0;
+$role_id = $_SESSION['role_id'] ?? 0;
+$user_role = $_SESSION['role_name'] ?? 'Propietario';
 
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 require_once '../includes/bitacora_function.php';
 
 $search_results = [];
@@ -22,7 +22,7 @@ $is_vet_or_admin = ($user_role === 'Veterinario' || $user_role === 'admin');
 if (isset($_GET['query']) && !empty(trim($_GET['query']))) {
     $search_query = trim($_GET['query']);
     $search_pattern = '%' . $search_query . '%';
-    
+
     $sql_select = "
         SELECT 
             p.id, p.name, 
@@ -33,88 +33,68 @@ if (isset($_GET['query']) && !empty(trim($_GET['query']))) {
             u.id AS owner_id,
             u.ci AS owner_ci
     ";
-    
+
     $sql_from_join = "
         FROM pets p
         INNER JOIN pet_types pt ON p.type_id = pt.id
         LEFT JOIN breeds b ON p.breed_id = b.id
         INNER JOIN users u ON p.owner_id = u.id 
     ";
-    
-    // Condiciones base: nombre mascota, especie, raza, nombre del dueño, cédula
-    $sql_base_conditions = "(p.name LIKE ? OR pt.name LIKE ? OR b.name LIKE ? OR u.username LIKE ? OR u.ci LIKE ?)";
-    
+
+    $sql_base_conditions = "(p.name LIKE :pattern1 OR pt.name LIKE :pattern2 OR b.name LIKE :pattern3 OR u.username LIKE :pattern4 OR u.ci LIKE :pattern5)";
+
     if ($is_vet_or_admin) {
-        // Admin/veterinario: búsqueda completa (sin filtro de dueño)
         $sql_where = "WHERE " . $sql_base_conditions;
-        $param_types = "sssss";
-        $params = [$search_pattern, $search_pattern, $search_pattern, $search_pattern, $search_pattern];
+        $params = [
+            ':pattern1' => $search_pattern,
+            ':pattern2' => $search_pattern,
+            ':pattern3' => $search_pattern,
+            ':pattern4' => $search_pattern,
+            ':pattern5' => $search_pattern
+        ];
     } else {
-        // Propietario: solo sus mascotas + búsqueda ampliada
-        $sql_where = "WHERE p.owner_id = ? AND " . $sql_base_conditions;
-        $param_types = "isssss"; // i para owner_id, luego 5 s
-        $params = [$current_user_id, $search_pattern, $search_pattern, $search_pattern, $search_pattern, $search_pattern];
+        $sql_where = "WHERE p.owner_id = :owner_id AND " . $sql_base_conditions;
+        $params = [
+            ':owner_id' => $current_user_id,
+            ':pattern1' => $search_pattern,
+            ':pattern2' => $search_pattern,
+            ':pattern3' => $search_pattern,
+            ':pattern4' => $search_pattern,
+            ':pattern5' => $search_pattern
+        ];
     }
-    
+
     $sql = $sql_select . $sql_from_join . $sql_where . " ORDER BY p.name ASC";
-    
-    // --- DEPURACIÓN (solo para admin, puedes activarlo temporalmente) ---
+
+    // --- DEPURACIÓN (solo para admin) ---
     if ($is_vet_or_admin) {
         echo "<!-- SQL: " . htmlspecialchars($sql) . " -->";
         echo "<!-- Params: " . htmlspecialchars(print_r($params, true)) . " -->";
     }
-    // -----------------------------------------------------------------
-    
-    if ($stmt = $conn->prepare($sql)) {
-        // Construir dinámicamente los parámetros para bind_param
-        $bind_params = array_merge([$param_types], $params);
-        $refs = [];
-        foreach ($bind_params as $key => $value) {
-            $refs[$key] = &$bind_params[$key];
-        }
 
-        if (call_user_func_array([$stmt, 'bind_param'], $refs)) {
-            if ($stmt->execute()) {
-                $result = $stmt->get_result();
-                while ($row = $result->fetch_assoc()) {
-                    $search_results[] = $row;
-                }
-                $result->free();
-                
-                if (function_exists('log_to_bitacora')) {
-                    $result_count = count($search_results);
-                    $action_log = "Busqueda Paciente/Dueño exitosa ({$user_role}): Buscó '{$search_query}'. Resultados: {$result_count}.";
-                    log_to_bitacora($conn, $action_log, $username, $role_id);
-                }
-                
-                if (empty($search_results)) {
-                    $message = "<div class='alert alert-info'><i class='fas fa-info-circle'></i> No se encontraron pacientes que coincidan con la búsqueda: <strong>" . htmlspecialchars($search_query) . "</strong>" . ($is_vet_or_admin ? "" : " (Restringida a tus mascotas, ahora también puedes buscar por tu nombre o cédula)") . "</div>";
-                }
-            } else {
-                if (function_exists('log_to_bitacora')) {
-                    $action_log = "Error DB (Ejecución): Fallo al buscar paciente/dueño ('{$search_query}'). Detalle: " . $stmt->error;
-                    log_to_bitacora($conn, $action_log, $username, $role_id);
-                }
-                $message = "<div class='alert alert-danger'>Error al ejecutar la consulta de búsqueda: " . $stmt->error . "</div>";
-            }
-        } else {
-            $message = "<div class='alert alert-danger'>Error en el binding de parámetros.</div>";
-        }
-        $stmt->close();
-    } else {
+    try {
+        $stmt = $conn->prepare($sql);
+        $stmt->execute($params);
+        $search_results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
         if (function_exists('log_to_bitacora')) {
-            $action_log = "Error DB (Preparación): Fallo al preparar la consulta de búsqueda. Detalle: " . $conn->error;
+            $result_count = count($search_results);
+            $action_log = "Busqueda Paciente/Dueño exitosa ({$user_role}): Buscó '{$search_query}'. Resultados: {$result_count}.";
             log_to_bitacora($conn, $action_log, $username, $role_id);
         }
-        $message = "<div class='alert alert-danger'>Error de preparación de la consulta: " . $conn->error . "</div>";
+
+        if (empty($search_results)) {
+            $message = "<div class='alert alert-info'><i class='fas fa-info-circle'></i> No se encontraron pacientes que coincidan con la búsqueda: <strong>" . htmlspecialchars($search_query) . "</strong>" . ($is_vet_or_admin ? "" : " (Restringida a tus mascotas, ahora también puedes buscar por tu nombre o cédula)") . "</div>";
+        }
+    } catch (PDOException $e) {
+        if (function_exists('log_to_bitacora')) {
+            $action_log = "Error DB: Fallo al buscar paciente/dueño ('{$search_query}'). Detalle: " . $e->getMessage();
+            log_to_bitacora($conn, $action_log, $username, $role_id);
+        }
+        $message = "<div class='alert alert-danger'>Error en la búsqueda: " . htmlspecialchars($e->getMessage()) . "</div>";
     }
 }
-
-if (isset($conn)) {
-    $conn->close();
-}
 ?>
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -194,7 +174,6 @@ if (isset($conn)) {
 <body>
     <?php include '../includes/navbar.php'; ?>
 
-    <!-- Breadcrumbs -->
     <div class="breadcrumb">
         <a href="welcome.php">Inicio</a> <span>›</span>
         <span>Buscar Pacientes</span>
