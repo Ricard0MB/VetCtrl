@@ -3,11 +3,11 @@ session_start();
 
 // Redirigir si el usuario no está logueado
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
 $message = '';
 $vaccine_types = [];
@@ -18,41 +18,28 @@ if (isset($_GET['success']) && $_GET['success'] === 'add') {
 }
 
 // 2. Consulta para obtener todos los tipos de vacunas
-$sql = "SELECT id, name, description, species_target, attendant_id, created_at FROM vaccine_types ORDER BY created_at DESC";
-
-if ($result = $conn->query($sql)) {
-    if ($result->num_rows > 0) {
-        // Almacenar todos los resultados en un array
-        while ($row = $result->fetch_assoc()) {
-            $vaccine_types[] = $row;
-        }
-        $result->free();
-    }
-} else {
-    $message = "<p class='error-message'>Error al ejecutar la consulta: " . $conn->error . "</p>";
+try {
+    $sql = "SELECT id, name, description, species_target, attendant_id, created_at FROM vaccine_types ORDER BY created_at DESC";
+    $stmt = $conn->query($sql);
+    $vaccine_types = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $message = "<p class='error-message'>Error al ejecutar la consulta: " . htmlspecialchars($e->getMessage()) . "</p>";
 }
 
-// 3. Función para obtener el nombre del asistente/veterinario por ID
+// 3. Función para obtener el nombre del asistente/veterinario por ID (ahora con PDO)
 function getAttendantUsername($conn, $attendant_id) {
     if ($attendant_id === 0) return 'Sistema/Desconocido';
-    
-    $sql_user = "SELECT username FROM users WHERE id = ?";
-    if ($stmt = $conn->prepare($sql_user)) {
-        $stmt->bind_param("i", $attendant_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        if ($row = $result->fetch_assoc()) {
-            return htmlspecialchars($row['username']);
-        }
-        $stmt->close();
-    }
-    return 'ID: ' . $attendant_id;
+
+    $sql_user = "SELECT username FROM users WHERE id = :id";
+    $stmt = $conn->prepare($sql_user);
+    $stmt->bindValue(':id', $attendant_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row ? htmlspecialchars($row['username']) : 'ID: ' . $attendant_id;
 }
 
-
-if (isset($conn)) {
-    // Si la conexión existe, la cerramos al final.
-}
+// No es necesario cerrar la conexión explícitamente con PDO
+// Si se desea, se puede hacer $conn = null al final, pero es opcional.
 ?>
 
 <!DOCTYPE html>
@@ -220,7 +207,6 @@ if (isset($conn)) {
 </body>
 </html>
 <?php 
-if (isset($conn)) {
-    $conn->close();
-}
+// Opcional: cerrar la conexión PDO (no necesario, pero se puede hacer)
+// $conn = null;
 ?>
