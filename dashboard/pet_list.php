@@ -3,11 +3,11 @@ header('Content-Type: text/html; charset=utf-8');
 session_start();
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
 $role_name = $_SESSION['role_name'] ?? 'Propietario';
 $user_id = $_SESSION['user_id'] ?? 0;
@@ -16,45 +16,36 @@ $username = $_SESSION['username'] ?? 'Usuario';
 $pets = [];
 $message = '';
 
-if ($role_name === 'Veterinario' || $role_name === 'admin') {
-    $sql = "SELECT 
-                p.id, p.name, pt.name AS species_name, b.name AS breed_name, 
-                p.gender, p.date_of_birth, u.username AS owner_name,
-                u.email AS owner_email, p.created_at
-            FROM pets p
-            LEFT JOIN pet_types pt ON p.type_id = pt.id
-            LEFT JOIN breeds b ON p.breed_id = b.id
-            LEFT JOIN users u ON p.owner_id = u.id
-            ORDER BY p.name ASC";
-    $stmt = $conn->prepare($sql);
-} else {
-    $sql = "SELECT 
-                p.id, p.name, pt.name AS species_name, b.name AS breed_name, 
-                p.gender, p.date_of_birth, p.created_at
-            FROM pets p
-            LEFT JOIN pet_types pt ON p.type_id = pt.id
-            LEFT JOIN breeds b ON p.breed_id = b.id
-            WHERE p.owner_id = ? 
-            ORDER BY p.name ASC";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $user_id);
-}
-
-if ($stmt) {
-    if ($stmt->execute()) {
-        $result = $stmt->get_result();
-        while ($row = $result->fetch_assoc()) {
-            $pets[] = $row;
-        }
-        $result->free();
+try {
+    if ($role_name === 'Veterinario' || $role_name === 'admin') {
+        $sql = "SELECT 
+                    p.id, p.name, pt.name AS species_name, b.name AS breed_name, 
+                    p.gender, p.date_of_birth, u.username AS owner_name,
+                    u.email AS owner_email, p.created_at
+                FROM pets p
+                LEFT JOIN pet_types pt ON p.type_id = pt.id
+                LEFT JOIN breeds b ON p.breed_id = b.id
+                LEFT JOIN users u ON p.owner_id = u.id
+                ORDER BY p.name ASC";
+        $stmt = $conn->prepare($sql);
     } else {
-        $message = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Error: " . $stmt->error . "</div>";
+        $sql = "SELECT 
+                    p.id, p.name, pt.name AS species_name, b.name AS breed_name, 
+                    p.gender, p.date_of_birth, p.created_at
+                FROM pets p
+                LEFT JOIN pet_types pt ON p.type_id = pt.id
+                LEFT JOIN breeds b ON p.breed_id = b.id
+                WHERE p.owner_id = :owner_id
+                ORDER BY p.name ASC";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindValue(':owner_id', $user_id, PDO::PARAM_INT);
     }
-    $stmt->close();
-} else {
-    $message = "<div class='alert alert-danger'>Error de preparación: " . $conn->error . "</div>";
+
+    $stmt->execute();
+    $pets = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $message = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Error al cargar pacientes: " . htmlspecialchars($e->getMessage()) . "</div>";
 }
-$conn->close();
 ?>
 <!DOCTYPE html>
 <html lang="es">
