@@ -1,9 +1,9 @@
 <?php
 session_start();
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
@@ -13,23 +13,30 @@ if ($role_name !== 'admin') {
     exit;
 }
 
-$roles = $conn->query("SELECT id, name FROM roles ORDER BY id")->fetch_all(MYSQLI_ASSOC);
-
+$roles = [];
 $error = '';
 $success = '';
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $ci = trim($_POST['ci']);
-    $first_name = trim($_POST['first_name']);
-    $last_name = trim($_POST['last_name']);
-    $email = trim($_POST['email']);
-    $phone = trim($_POST['phone']);
-    $address = trim($_POST['address']);
-    $position = trim($_POST['position']);
-    $role_id = intval($_POST['role_id']);
-    $username = trim($_POST['username']);
-    $password = $_POST['password'];
-    $confirm = $_POST['confirm_password'];
+try {
+    // Obtener lista de roles
+    $stmtRoles = $conn->query("SELECT id, name FROM roles ORDER BY id");
+    $roles = $stmtRoles->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $error = "Error al cargar roles: " . $e->getMessage();
+}
+
+if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
+    $ci = trim($_POST['ci'] ?? '');
+    $first_name = trim($_POST['first_name'] ?? '');
+    $last_name = trim($_POST['last_name'] ?? '');
+    $email = trim($_POST['email'] ?? '');
+    $phone = trim($_POST['phone'] ?? '');
+    $address = trim($_POST['address'] ?? '');
+    $position = trim($_POST['position'] ?? '');
+    $role_id = intval($_POST['role_id'] ?? 0);
+    $username = trim($_POST['username'] ?? '');
+    $password = $_POST['password'] ?? '';
+    $confirm = $_POST['confirm_password'] ?? '';
 
     if (empty($first_name) || empty($email) || empty($username) || empty($password) || empty($position)) {
         $error = "Complete los campos obligatorios.";
@@ -38,44 +45,54 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     } elseif (strlen($password) < 8) {
         $error = "La contraseña debe tener al menos 8 caracteres.";
     } else {
-        // Verificar email único
-        $check = $conn->prepare("SELECT id FROM users WHERE email = ?");
-        $check->bind_param("s", $email);
-        $check->execute();
-        $check->store_result();
-        if ($check->num_rows > 0) {
-            $error = "El email ya está registrado.";
-        } else {
-            $check->close();
-            $check = $conn->prepare("SELECT id FROM users WHERE username = ?");
-            $check->bind_param("s", $username);
-            $check->execute();
-            $check->store_result();
-            if ($check->num_rows > 0) {
-                $error = "El nombre de usuario ya existe.";
+        try {
+            // Verificar email único
+            $checkEmail = $conn->prepare("SELECT id FROM users WHERE email = :email");
+            $checkEmail->bindValue(':email', $email);
+            $checkEmail->execute();
+            if ($checkEmail->fetch()) {
+                $error = "El email ya está registrado.";
             } else {
-                $check->close();
-                $hashed = password_hash($password, PASSWORD_DEFAULT);
-                $sql = "INSERT INTO users (ci, first_name, last_name, email, phone, address, position, role_id, username, password, status, created_at) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW())";
-                $stmt = $conn->prepare($sql);
-                $stmt->bind_param("sssssssiss", $ci, $first_name, $last_name, $email, $phone, $address, $position, $role_id, $username, $hashed);
-                if ($stmt->execute()) {
-                    require_once '../includes/bitacora_function.php';
-                    $action = "Nuevo empleado registrado: $first_name $last_name";
-                    log_to_bitacora($conn, $action, $_SESSION['username'] ?? '', $_SESSION['role_id'] ?? 0);
-                    $success = "Empleado registrado exitosamente.";
-                    $_POST = [];
+                // Verificar username único
+                $checkUser = $conn->prepare("SELECT id FROM users WHERE username = :username");
+                $checkUser->bindValue(':username', $username);
+                $checkUser->execute();
+                if ($checkUser->fetch()) {
+                    $error = "El nombre de usuario ya existe.";
                 } else {
-                    $error = "Error al registrar: " . $stmt->error;
+                    $hashed = password_hash($password, PASSWORD_DEFAULT);
+                    $sql = "INSERT INTO users (ci, first_name, last_name, email, phone, address, position, role_id, username, password, status, created_at) 
+                            VALUES (:ci, :first_name, :last_name, :email, :phone, :address, :position, :role_id, :username, :password, 'active', NOW())";
+                    $stmt = $conn->prepare($sql);
+                    $stmt->bindValue(':ci', $ci);
+                    $stmt->bindValue(':first_name', $first_name);
+                    $stmt->bindValue(':last_name', $last_name);
+                    $stmt->bindValue(':email', $email);
+                    $stmt->bindValue(':phone', $phone);
+                    $stmt->bindValue(':address', $address);
+                    $stmt->bindValue(':position', $position);
+                    $stmt->bindValue(':role_id', $role_id, PDO::PARAM_INT);
+                    $stmt->bindValue(':username', $username);
+                    $stmt->bindValue(':password', $hashed);
+
+                    if ($stmt->execute()) {
+                        require_once '../includes/bitacora_function.php';
+                        $action = "Nuevo empleado registrado: $first_name $last_name";
+                        log_to_bitacora($conn, $action, $_SESSION['username'] ?? '', $_SESSION['role_id'] ?? 0);
+
+                        $success = "Empleado registrado exitosamente.";
+                        $_POST = []; // Limpiar formulario
+                    } else {
+                        $errorInfo = $stmt->errorInfo();
+                        $error = "Error al registrar: " . ($errorInfo[2] ?? 'Error desconocido');
+                    }
                 }
-                $stmt->close();
             }
+        } catch (PDOException $e) {
+            $error = "Error de base de datos: " . $e->getMessage();
         }
     }
 }
-
-$conn->close();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -124,10 +141,10 @@ $conn->close();
             <h1><i class="fas fa-user-plus"></i> Registrar Nuevo Empleado</h1>
 
             <?php if ($error): ?>
-                <div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div>
+                <div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> <?php echo htmlspecialchars($error); ?></div>
             <?php endif; ?>
             <?php if ($success): ?>
-                <div class="alert alert-success"><?php echo htmlspecialchars($success); ?></div>
+                <div class="alert alert-success"><i class="fas fa-check-circle"></i> <?php echo htmlspecialchars($success); ?></div>
             <?php endif; ?>
 
             <form method="post">
