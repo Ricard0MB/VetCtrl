@@ -6,7 +6,7 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     exit;
 }
 
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn debe ser un objeto PDO
 
 $username = $_SESSION["username"] ?? 'Usuario';
 $user_id = $_SESSION['user_id'] ?? 0;
@@ -23,46 +23,42 @@ $vets = []; // Lista de veterinarios
 $error = '';
 $success = '';
 
-// Obtener lista de veterinarios (usuarios con rol Veterinario)
-// Ajusta el role_id según tu base de datos. Por ejemplo, si 'Veterinario' tiene role_id = 2
-$vet_role_id = 2; // CAMBIA ESTO SI ES NECESARIO
-$sql_vets = "SELECT id, username, CONCAT('Dr(a). ', username) AS display_name FROM users WHERE role_id = ? ORDER BY username ASC";
-$stmt_vets = $conn->prepare($sql_vets);
-$stmt_vets->bind_param("i", $vet_role_id);
-$stmt_vets->execute();
-$result_vets = $stmt_vets->get_result();
-while ($row = $result_vets->fetch_assoc()) {
-    $vets[] = $row;
-}
-$stmt_vets->close();
+try {
+    // Obtener lista de veterinarios (usuarios con rol Veterinario)
+    $vet_role_id = 2; // Ajusta este valor según tu base de datos
+    $sql_vets = "SELECT id, username, CONCAT('Dr(a). ', username) AS display_name FROM users WHERE role_id = :role_id ORDER BY username ASC";
+    $stmt_vets = $conn->prepare($sql_vets);
+    $stmt_vets->bindValue(':role_id', $vet_role_id, PDO::PARAM_INT);
+    $stmt_vets->execute();
+    $vets = $stmt_vets->fetchAll(PDO::FETCH_ASSOC);
 
-// Si no hay veterinarios, mostrar mensaje de error
-if (empty($vets)) {
-    $error = "No hay veterinarios registrados en el sistema. Por favor, contacte al administrador.";
-}
+    // Si no hay veterinarios, mostrar mensaje de error
+    if (empty($vets)) {
+        $error = "No hay veterinarios registrados en el sistema. Por favor, contacte al administrador.";
+    }
 
-// Cargar mascotas según el rol
-if ($role_name === 'Propietario') {
-    // Propietario: solo sus mascotas
-    $sql_pets = "SELECT id, name FROM pets WHERE owner_id = ? ORDER BY name ASC";
-    $stmt = $conn->prepare($sql_pets);
-    $stmt->bind_param("i", $user_id);
-} else {
-    // Veterinario/admin: todas las mascotas
-    $sql_pets = "SELECT id, name FROM pets ORDER BY name ASC";
-    $stmt = $conn->prepare($sql_pets);
+    // Cargar mascotas según el rol
+    if ($role_name === 'Propietario') {
+        // Propietario: solo sus mascotas
+        $sql_pets = "SELECT id, name FROM pets WHERE owner_id = :owner_id ORDER BY name ASC";
+        $stmt_pets = $conn->prepare($sql_pets);
+        $stmt_pets->bindValue(':owner_id', $user_id, PDO::PARAM_INT);
+    } else {
+        // Veterinario/admin: todas las mascotas
+        $sql_pets = "SELECT id, name FROM pets ORDER BY name ASC";
+        $stmt_pets = $conn->prepare($sql_pets);
+    }
+    $stmt_pets->execute();
+    $pets = $stmt_pets->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+    $error = "Error al cargar datos: " . $e->getMessage();
 }
-$stmt->execute();
-$result = $stmt->get_result();
-while ($row = $result->fetch_assoc()) {
-    $pets[] = $row;
-}
-$stmt->close();
 
 // Procesar formulario
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
+if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
     $pet_id = intval($_POST['pet_id'] ?? 0);
-    $vet_id = intval($_POST['vet_id'] ?? 0); // Veterinario seleccionado
+    $vet_id = intval($_POST['vet_id'] ?? 0);
     $appointment_date = $_POST['appointment_date'] ?? '';
     $reason = trim($_POST['reason'] ?? '');
 
@@ -75,52 +71,60 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         } else {
             $formatted_date = date('Y-m-d H:i:s', $timestamp);
             
-            // Si es propietario, verificar que la mascota le pertenezca
-            if ($role_name === 'Propietario') {
-                $check = $conn->prepare("SELECT id FROM pets WHERE id = ? AND owner_id = ?");
-                $check->bind_param("ii", $pet_id, $user_id);
-                $check->execute();
-                $check->store_result();
-                if ($check->num_rows == 0) {
-                    $error = "La mascota seleccionada no le pertenece.";
+            try {
+                // Si es propietario, verificar que la mascota le pertenezca
+                if ($role_name === 'Propietario') {
+                    $check_sql = "SELECT id FROM pets WHERE id = :pet_id AND owner_id = :owner_id";
+                    $check_stmt = $conn->prepare($check_sql);
+                    $check_stmt->bindValue(':pet_id', $pet_id, PDO::PARAM_INT);
+                    $check_stmt->bindValue(':owner_id', $user_id, PDO::PARAM_INT);
+                    $check_stmt->execute();
+                    if ($check_stmt->rowCount() == 0) {
+                        $error = "La mascota seleccionada no le pertenece.";
+                    }
                 }
-                $check->close();
-            }
-            
-            // Verificar que el veterinario seleccionado exista y sea veterinario (opcional, pero seguro)
-            if (empty($error)) {
-                $check_vet = $conn->prepare("SELECT id FROM users WHERE id = ? AND role_id = ?");
-                $check_vet->bind_param("ii", $vet_id, $vet_role_id);
-                $check_vet->execute();
-                $check_vet->store_result();
-                if ($check_vet->num_rows == 0) {
-                    $error = "El veterinario seleccionado no es válido.";
+                
+                // Verificar que el veterinario seleccionado exista y sea veterinario
+                if (empty($error)) {
+                    $check_vet_sql = "SELECT id FROM users WHERE id = :vet_id AND role_id = :role_id";
+                    $check_vet_stmt = $conn->prepare($check_vet_sql);
+                    $check_vet_stmt->bindValue(':vet_id', $vet_id, PDO::PARAM_INT);
+                    $check_vet_stmt->bindValue(':role_id', $vet_role_id, PDO::PARAM_INT);
+                    $check_vet_stmt->execute();
+                    if ($check_vet_stmt->rowCount() == 0) {
+                        $error = "El veterinario seleccionado no es válido.";
+                    }
                 }
-                $check_vet->close();
-            }
-            
-            if (empty($error)) {
-                // Insertar cita. attendant_id será el veterinario seleccionado
-                $sql_insert = "INSERT INTO appointments (pet_id, attendant_id, appointment_date, reason, status) VALUES (?, ?, ?, ?, 'PENDIENTE')";
-                $stmt = $conn->prepare($sql_insert);
-                $stmt->bind_param("iiss", $pet_id, $vet_id, $formatted_date, $reason);
-                if ($stmt->execute()) {
-                    require_once '../includes/bitacora_function.php';
-                    $action = "Cita agendada para mascota ID $pet_id con veterinario ID $vet_id el $formatted_date";
-                    log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
+                
+                if (empty($error)) {
+                    // Insertar cita. attendant_id será el veterinario seleccionado
+                    $insert_sql = "INSERT INTO appointments (pet_id, attendant_id, appointment_date, reason, status) VALUES (:pet_id, :vet_id, :date, :reason, 'PENDIENTE')";
+                    $insert_stmt = $conn->prepare($insert_sql);
+                    $insert_stmt->bindValue(':pet_id', $pet_id, PDO::PARAM_INT);
+                    $insert_stmt->bindValue(':vet_id', $vet_id, PDO::PARAM_INT);
+                    $insert_stmt->bindValue(':date', $formatted_date, PDO::PARAM_STR);
+                    $insert_stmt->bindValue(':reason', $reason, PDO::PARAM_STR);
                     
-                    $success = "Cita agendada correctamente.";
-                    $_POST = [];
-                } else {
-                    $error = "Error al agendar: " . $stmt->error;
+                    if ($insert_stmt->execute()) {
+                        require_once '../includes/bitacora_function.php';
+                        $action = "Cita agendada para mascota ID $pet_id con veterinario ID $vet_id el $formatted_date";
+                        log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
+                        
+                        $success = "Cita agendada correctamente.";
+                        $_POST = []; // Limpiar formulario
+                    } else {
+                        $errorInfo = $insert_stmt->errorInfo();
+                        $error = "Error al agendar: " . ($errorInfo[2] ?? 'Error desconocido');
+                    }
                 }
-                $stmt->close();
+            } catch (PDOException $e) {
+                $error = "Error de base de datos: " . $e->getMessage();
             }
         }
     }
 }
 
-$conn->close();
+// No es necesario cerrar la conexión explícitamente
 ?>
 <!DOCTYPE html>
 <html lang="es">
