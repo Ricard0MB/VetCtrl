@@ -1,9 +1,9 @@
 <?php
 session_start();
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
@@ -15,7 +15,7 @@ if ($role_name !== 'admin') {
 
 date_default_timezone_set('America/Caracas');
 
-// Funciones de backup (se mantienen igual)
+// Funciones de backup (adaptadas a PDO)
 function compressBackup($sql_file, $backup_path) {
     $date = date('Y-m-d_H-i-s');
     if (function_exists('gzcompress')) {
@@ -37,33 +37,43 @@ function backupDatabase($conn, $backup_path = '../backups/') {
     $date = date('Y-m-d_H-i-s');
     $filename = $backup_path . 'temp_backup_' . $date . '.sql';
     
+    // Obtener todas las tablas
     $tables = array();
-    $result = $conn->query("SHOW TABLES");
-    while ($row = $result->fetch_row()) $tables[] = $row[0];
+    $stmtTables = $conn->query("SHOW TABLES");
+    while ($row = $stmtTables->fetch(PDO::FETCH_NUM)) {
+        $tables[] = $row[0];
+    }
     
     $return = "/* Backup generado el " . date('Y-m-d H:i:s') . " */\n/* Sistema VetControl */\n\n";
+    
     foreach ($tables as $table) {
-        $result = $conn->query("SHOW CREATE TABLE `$table`");
-        $row = $result->fetch_row();
-        $return .= "\n-- Estructura: $table\nDROP TABLE IF EXISTS `$table`;\n" . $row[1] . ";\n\n";
+        // Estructura de la tabla
+        $stmtCreate = $conn->query("SHOW CREATE TABLE `$table`");
+        $rowCreate = $stmtCreate->fetch(PDO::FETCH_NUM);
+        $return .= "\n-- Estructura: $table\nDROP TABLE IF EXISTS `$table`;\n" . $rowCreate[1] . ";\n\n";
         
-        $result = $conn->query("SELECT * FROM `$table`");
-        $num_fields = $result->field_count;
-        while ($row = $result->fetch_row()) {
+        // Datos de la tabla
+        $stmtData = $conn->query("SELECT * FROM `$table`");
+        $num_fields = $stmtData->columnCount();
+        
+        while ($rowData = $stmtData->fetch(PDO::FETCH_NUM)) {
             $return .= "INSERT INTO `$table` VALUES(";
             for ($j = 0; $j < $num_fields; $j++) {
-                if (isset($row[$j])) {
-                    $row[$j] = addslashes($row[$j]);
-                    $row[$j] = str_replace(["\n","\r"], ["\\n","\\r"], $row[$j]);
-                    $return .= '"' . $row[$j] . '"';
-                } else $return .= 'NULL';
-                if ($j < $num_fields-1) $return .= ',';
+                if (isset($rowData[$j])) {
+                    $value = addslashes($rowData[$j]);
+                    $value = str_replace(["\n","\r"], ["\\n","\\r"], $value);
+                    $return .= '"' . $value . '"';
+                } else {
+                    $return .= 'NULL';
+                }
+                if ($j < $num_fields - 1) $return .= ',';
             }
             $return .= ");\n";
         }
         $return .= "\n";
     }
-    $return .= "\n-- PHP Version: " . phpversion() . "\n-- MySQL Version: " . $conn->server_info . "\n-- Total Tables: " . count($tables);
+    
+    $return .= "\n-- PHP Version: " . phpversion() . "\n-- MySQL Version: " . $conn->getAttribute(PDO::ATTR_SERVER_VERSION) . "\n-- Total Tables: " . count($tables);
     
     file_put_contents($filename, $return);
     $final = compressBackup($filename, $backup_path);
@@ -112,9 +122,13 @@ function deleteBackup($file) {
 }
 
 function getSystemStats($conn) {
-    $result = $conn->query("SHOW TABLE STATUS");
+    // Obtener tamaño de la base de datos
+    $stmt = $conn->query("SHOW TABLE STATUS");
     $total_size = 0;
-    while ($row = $result->fetch_assoc()) $total_size += $row['Data_length'] + $row['Index_length'];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $total_size += $row['Data_length'] + $row['Index_length'];
+    }
+    
     $disk_total = disk_total_space('../');
     $disk_free = disk_free_space('../');
     return [
@@ -149,7 +163,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $backups = listBackups();
 $stats = getSystemStats($conn);
-$conn->close();
+// No es necesario cerrar la conexión explícitamente
 ?>
 <!DOCTYPE html>
 <html lang="es">
