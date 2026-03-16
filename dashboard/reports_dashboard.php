@@ -1,10 +1,10 @@
 <?php
-// reports_dashboard.php - VERSIÓN CORREGIDA Y SIMPLIFICADA
+// reports_dashboard.php - VERSIÓN CORREGIDA Y SIMPLIFICADA (CON PDO)
 session_start();
 
 // Verificar sesión
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
@@ -15,35 +15,29 @@ if (!in_array($user_role, ['Veterinario', 'admin'])) {
     exit;
 }
 
-// Conectar a BD
-require_once '../includes/config.php';
-$conn = new mysqli(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME);
-if ($conn->connect_error) {
-    die("Error de conexión");
-}
+// Conectar a BD mediante PDO
+require_once '../includes/config.php'; // $conn debe ser un objeto PDO
 
 // Determinar sección
 $section = $_GET['section'] ?? 'daily';
 $fecha = $_GET['fecha'] ?? date('Y-m-d');
 
-// Obtener reporte diario simple
+// Obtener reporte diario simple con PDO
 function obtenerReporteDiarioSimple($conn, $fecha) {
     $reporte = [];
     
     // Resumen del día
     $sql = "SELECT 
-        (SELECT COUNT(*) FROM consultations WHERE DATE(consultation_date) = ?) as consultas,
-        (SELECT COUNT(*) FROM appointments WHERE DATE(appointment_date) = ?) as citas,
-        (SELECT COUNT(DISTINCT pet_id) FROM consultations WHERE DATE(consultation_date) = ?) as pacientes";
+        (SELECT COUNT(*) FROM consultations WHERE DATE(consultation_date) = :fecha1) as consultas,
+        (SELECT COUNT(*) FROM appointments WHERE DATE(appointment_date) = :fecha2) as citas,
+        (SELECT COUNT(DISTINCT pet_id) FROM consultations WHERE DATE(consultation_date) = :fecha3) as pacientes";
     
     $stmt = $conn->prepare($sql);
-    if ($stmt) {
-        $stmt->bind_param("sss", $fecha, $fecha, $fecha);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $reporte['resumen'] = $result->fetch_assoc() ?: [];
-        $stmt->close();
-    }
+    $stmt->bindValue(':fecha1', $fecha);
+    $stmt->bindValue(':fecha2', $fecha);
+    $stmt->bindValue(':fecha3', $fecha);
+    $stmt->execute();
+    $reporte['resumen'] = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
     
     return $reporte;
 }
@@ -149,4 +143,6 @@ $datos = obtenerReporteDiarioSimple($conn, $fecha);
     <?php include '../includes/footer.php'; ?>
 </body>
 </html>
-<?php $conn->close(); ?>
+<?php
+// No es necesario cerrar la conexión explícitamente con PDO
+?>
