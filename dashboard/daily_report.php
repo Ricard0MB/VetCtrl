@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn debe ser un objeto PDO
 
 $role_name = $_SESSION['role_name'] ?? '';
 if (!in_array($role_name, ['Veterinario', 'admin'])) {
@@ -16,28 +16,80 @@ $end_date = $_GET['end_date'] ?? $default_date;
 $report_type = $_GET['report_type'] ?? 'daily';
 
 if ($start_date > $end_date) {
-    $temp = $start_date; $start_date = $end_date; $end_date = $temp;
+    $temp = $start_date;
+    $start_date = $end_date;
+    $end_date = $temp;
 }
 
 $start_datetime = $start_date . ' 00:00:00';
 $end_datetime = $end_date . ' 23:59:59';
 
-// Funciones de consulta (se mantienen igual que en el original, pero abreviadas por brevedad)
-function getConsultations($conn, $start, $end) { /* ... */ }
-function getAppointments($conn, $start, $end) { /* ... */ }
-// ... (implementar igual que original, pero aquí por espacio no copio todo)
+// Funciones de consulta usando PDO
+function getConsultations($conn, $start, $end) {
+    $sql = "SELECT COUNT(*) FROM consultations WHERE consultation_date BETWEEN :start AND :end";
+    $stmt = $conn->prepare($sql);
+    $stmt->bindValue(':start', $start);
+    $stmt->bindValue(':end', $end);
+    $stmt->execute();
+    return $stmt->fetchColumn();
+}
 
-// Obtener datos (simplificado)
+function getAppointments($conn, $start, $end) {
+    $sql = "SELECT COUNT(*) FROM appointments WHERE appointment_date BETWEEN :start AND :end";
+    $stmt = $conn->prepare($sql);
+    $stmt->bindValue(':start', $start);
+    $stmt->bindValue(':end', $end);
+    $stmt->execute();
+    return $stmt->fetchColumn();
+}
+
+function getVaccines($conn, $start, $end) {
+    $sql = "SELECT COUNT(*) FROM vaccines WHERE vaccine_date BETWEEN :start AND :end";
+    $stmt = $conn->prepare($sql);
+    $stmt->bindValue(':start', $start);
+    $stmt->bindValue(':end', $end);
+    $stmt->execute();
+    return $stmt->fetchColumn();
+}
+
+function getTreatments($conn, $start, $end) {
+    $sql = "SELECT COUNT(*) FROM treatments WHERE treatment_date BETWEEN :start AND :end";
+    $stmt = $conn->prepare($sql);
+    $stmt->bindValue(':start', $start);
+    $stmt->bindValue(':end', $end);
+    $stmt->execute();
+    return $stmt->fetchColumn();
+}
+
+function getNewPets($conn, $start, $end) {
+    $sql = "SELECT COUNT(*) FROM pets WHERE created_at BETWEEN :start AND :end";
+    $stmt = $conn->prepare($sql);
+    $stmt->bindValue(':start', $start);
+    $stmt->bindValue(':end', $end);
+    $stmt->execute();
+    return $stmt->fetchColumn();
+}
+
+function getNewUsers($conn, $start, $end) {
+    $sql = "SELECT COUNT(*) FROM users WHERE created_at BETWEEN :start AND :end";
+    $stmt = $conn->prepare($sql);
+    $stmt->bindValue(':start', $start);
+    $stmt->bindValue(':end', $end);
+    $stmt->execute();
+    return $stmt->fetchColumn();
+}
+
+// Obtener datos
 $daily_stats = [
-    'consultations' => 0,
-    'appointments' => 0,
-    'vaccines' => 0,
-    'treatments' => 0,
-    'new_pets' => 0,
-    'new_users' => 0
+    'consultations' => getConsultations($conn, $start_datetime, $end_datetime),
+    'appointments'  => getAppointments($conn, $start_datetime, $end_datetime),
+    'vaccines'      => getVaccines($conn, $start_datetime, $end_datetime),
+    'treatments'    => getTreatments($conn, $start_datetime, $end_datetime),
+    'new_pets'      => getNewPets($conn, $start_datetime, $end_datetime),
+    'new_users'     => getNewUsers($conn, $start_datetime, $end_datetime)
 ];
 
-$conn->close();
+// No es necesario cerrar la conexión explícitamente
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -60,7 +112,7 @@ $conn->close();
         .alert-success { background: #d4edda; color: #155724; border-left-color: #28a745; }
         .alert-danger { background: #f8d7da; color: #721c24; border-left-color: #dc3545; }
         .alert-info { background: #d1ecf1; color: #0c5460; border-left-color: #17a2b8; }
-        .filter-form { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px; }
+        .filter-form { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px; align-items: flex-end; }
         .filter-group { display: flex; flex-direction: column; }
         .filter-group label { font-weight:600; margin-bottom:5px; color:#1b4332; }
         .filter-group input, .filter-group select { padding:8px; border:1px solid #ccc; border-radius:4px; min-width:150px; }
@@ -90,11 +142,11 @@ $conn->close();
             <form method="get" class="filter-form">
                 <div class="filter-group">
                     <label>Fecha inicio</label>
-                    <input type="date" name="start_date" value="<?php echo $start_date; ?>">
+                    <input type="date" name="start_date" value="<?php echo htmlspecialchars($start_date); ?>">
                 </div>
                 <div class="filter-group">
                     <label>Fecha fin</label>
-                    <input type="date" name="end_date" value="<?php echo $end_date; ?>">
+                    <input type="date" name="end_date" value="<?php echo htmlspecialchars($end_date); ?>">
                 </div>
                 <div class="filter-group">
                     <label>Tipo</label>
@@ -103,7 +155,7 @@ $conn->close();
                         <option value="range" <?php echo $report_type=='range'?'selected':''; ?>>Rango</option>
                     </select>
                 </div>
-                <div class="filter-group" style="justify-content:flex-end;">
+                <div class="filter-group">
                     <button type="submit" class="btn btn-primary">Generar</button>
                 </div>
             </form>
