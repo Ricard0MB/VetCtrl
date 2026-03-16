@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
 // Verificar permisos
 $user_role = $_SESSION['role_name'] ?? '';
@@ -890,15 +890,16 @@ header('Content-Type: text/html; charset=utf-8');
 </body>
 </html>
 <?php
-// Registrar generación de PDF en bitácora
+// Registrar generación de PDF en bitácora (adaptado a PDO)
 if (file_exists('../includes/bitacora_function.php')) {
     require_once '../includes/bitacora_function.php';
-    if (function_exists('register_log')) {
+    if (function_exists('log_to_bitacora')) {
         $action_text = "Reporte de estadísticas PDF generado - Período: " . 
                       date('d/m/Y', strtotime($start_date)) . " al " . date('d/m/Y', strtotime($end_date));
-        register_log($action_text);
+        log_to_bitacora($conn, $action_text, $_SESSION['username'] ?? '', $_SESSION['role_id'] ?? 0);
     }
 }
 
-$conn->close();
+// La conexión PDO se cierra automáticamente al finalizar el script.
+// No es necesario $conn->close();
 ?>
