@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn debe ser un objeto PDO
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     header("Location: ../public/index.php");
@@ -10,52 +10,57 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
 $role_name = $_SESSION['role_name'] ?? 'Propietario';
 $user_id = $_SESSION['user_id'] ?? 0;
 
-$appointment_id = intval($_GET['id'] ?? 0);
-if ($appointment_id <= 0) {
+$appointment_id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+if (!$appointment_id || $appointment_id <= 0) {
     header("Location: appointment_list.php");
     exit;
 }
 
-// Obtener datos de la cita
-$sql = "SELECT 
-            a.*,
-            p.id as pet_id, p.name as pet_name, p.date_of_birth,
-            pt.name as pet_type,
-            b.name as breed_name,
-            u_owner.id as owner_id, u_owner.username as owner_name, u_owner.email as owner_email, u_owner.phone as owner_phone,
-            u_vet.username as vet_name, u_vet.email as vet_email
-        FROM appointments a
-        LEFT JOIN pets p ON a.pet_id = p.id
-        LEFT JOIN pet_types pt ON p.type_id = pt.id
-        LEFT JOIN breeds b ON p.breed_id = b.id
-        LEFT JOIN users u_owner ON p.owner_id = u_owner.id
-        LEFT JOIN users u_vet ON a.attendant_id = u_vet.id
-        WHERE a.id = ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("i", $appointment_id);
-$stmt->execute();
-$appointment = $stmt->get_result()->fetch_assoc();
-$stmt->close();
+try {
+    // Obtener datos de la cita
+    $sql = "SELECT 
+                a.*,
+                p.id as pet_id, p.name as pet_name, p.date_of_birth,
+                pt.name as pet_type,
+                b.name as breed_name,
+                u_owner.id as owner_id, u_owner.username as owner_name, u_owner.email as owner_email, u_owner.phone as owner_phone,
+                u_vet.username as vet_name, u_vet.email as vet_email
+            FROM appointments a
+            LEFT JOIN pets p ON a.pet_id = p.id
+            LEFT JOIN pet_types pt ON p.type_id = pt.id
+            LEFT JOIN breeds b ON p.breed_id = b.id
+            LEFT JOIN users u_owner ON p.owner_id = u_owner.id
+            LEFT JOIN users u_vet ON a.attendant_id = u_vet.id
+            WHERE a.id = :id";
+    $stmt = $conn->prepare($sql);
+    $stmt->bindValue(':id', $appointment_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $appointment = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$appointment) {
-    header("Location: appointment_list.php?error=notfound");
-    exit;
+    if (!$appointment) {
+        header("Location: appointment_list.php?error=notfound");
+        exit;
+    }
+
+    // Verificar permisos: propietario solo ve sus citas
+    if ($role_name === 'Propietario' && $appointment['attendant_id'] != $user_id) {
+        header("Location: appointment_list.php?error=unauthorized");
+        exit;
+    }
+
+    // Registrar en bitácora si se imprime
+    if (isset($_GET['action']) && $_GET['action'] === 'print') {
+        require_once '../includes/bitacora_function.php';
+        $action = "Comprobante de cita #$appointment_id impreso";
+        log_to_bitacora($conn, $action, $_SESSION['username'] ?? '', $_SESSION['role_id'] ?? 0);
+    }
+
+} catch (PDOException $e) {
+    // En un entorno real podrías loguear el error y mostrar un mensaje genérico
+    die("Error al obtener los datos: " . $e->getMessage());
 }
 
-// Verificar permisos: propietario solo ve sus citas
-if ($role_name === 'Propietario' && $appointment['attendant_id'] != $user_id) {
-    header("Location: appointment_list.php?error=unauthorized");
-    exit;
-}
-
-// Registrar en bitácora si se imprime
-if (isset($_GET['action']) && $_GET['action'] === 'print') {
-    require_once '../includes/bitacora_function.php';
-    $action = "Comprobante de cita #$appointment_id impreso";
-    log_to_bitacora($conn, $action, $_SESSION['username'] ?? '', $_SESSION['role_id'] ?? 0);
-}
-
-$conn->close();
+// No es necesario cerrar la conexión explícitamente, PDO lo hace al final del script.
 ?>
 <!DOCTYPE html>
 <html lang="es">
