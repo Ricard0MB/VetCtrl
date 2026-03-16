@@ -2,71 +2,67 @@
 session_start();
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn debe ser un objeto PDO
 
 // Variables necesarias para la navbar
-$username = $_SESSION["username"] ?? 'Veterinario'; 
+$username = $_SESSION["username"] ?? 'Veterinario';
 $user_id = $_SESSION['user_id'] ?? 0;
-$owner_id = $user_id; // El ID del veterinario logueado
+$role_name = $_SESSION['role_name'] ?? 'Propietario';
 
 $consultation = null;
 $error_message = '';
 
 if (isset($_GET['id']) && is_numeric($_GET['id'])) {
     $consultation_id = intval($_GET['id']);
-    
-    // Validar que el ID sea positivo
+
     if ($consultation_id <= 0) {
         $error_message = "ID de consulta inválido.";
     } else {
-        // Consulta para obtener todos los detalles de la consulta y del paciente asociado
-        $sql = "SELECT 
-                    c.*, 
-                    p.name AS pet_name,
-                    pt.name AS species_name,  
-                    b.name AS breed_name,    
-                    p.date_of_birth,
-                    p.gender,
-                    p.weight,
-                    p.color
-                FROM consultations c
-                JOIN pets p ON c.pet_id = p.id
-                LEFT JOIN pet_types pt ON p.type_id = pt.id  
-                LEFT JOIN breeds b ON p.breed_id = b.id
-                WHERE c.id = ? AND c.attendant_id = ?";
-        
-        if ($stmt = $conn->prepare($sql)) {
-            
-            $stmt->bind_param("ii", $consultation_id, $owner_id);
-            
-            if ($stmt->execute()) {
-                $result = $stmt->get_result();
-                
-                if ($result->num_rows == 1) {
-                    $consultation = $result->fetch_assoc();
-                } else {
-                    $error_message = "Consulta no encontrada o no tienes permisos para ver este registro.";
-                }
-                $result->free();
-            } else {
-                $error_message = "Error al ejecutar la consulta: " . htmlspecialchars($stmt->error);
+        try {
+            // Construir consulta base
+            $sql = "SELECT 
+                        c.*, 
+                        p.name AS pet_name,
+                        pt.name AS species_name,
+                        b.name AS breed_name,
+                        p.date_of_birth,
+                        p.gender,
+                        p.weight,
+                        p.color
+                    FROM consultations c
+                    JOIN pets p ON c.pet_id = p.id
+                    LEFT JOIN pet_types pt ON p.type_id = pt.id
+                    LEFT JOIN breeds b ON p.breed_id = b.id
+                    WHERE c.id = :id";
+
+            // Si no es admin, filtrar por attendant_id
+            if ($role_name !== 'admin') {
+                $sql .= " AND c.attendant_id = :attendant_id";
             }
 
-            $stmt->close();
-        } else {
-            $error_message = "Error de preparación de la consulta: " . htmlspecialchars($conn->error);
+            $stmt = $conn->prepare($sql);
+            $stmt->bindValue(':id', $consultation_id, PDO::PARAM_INT);
+
+            if ($role_name !== 'admin') {
+                $stmt->bindValue(':attendant_id', $user_id, PDO::PARAM_INT);
+            }
+
+            $stmt->execute();
+            $consultation = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$consultation) {
+                $error_message = "Consulta no encontrada o no tienes permisos para ver este registro.";
+            }
+        } catch (PDOException $e) {
+            $error_message = "Error de base de datos: " . htmlspecialchars($e->getMessage());
         }
     }
 } else {
     $error_message = "ID de consulta no especificado o inválido.";
-}
-
-if (isset($conn)) {
-    $conn->close();
 }
 
 // Preparar datos para JSON con manejo seguro
@@ -85,7 +81,6 @@ $consultation_safe = $consultation ? [
     'color' => $consultation['color'] ?? ''
 ] : null;
 
-// Codificamos el objeto de consulta PHP a JSON para JavaScript
 $consultation_json = json_encode($consultation_safe, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
 ?>
 <!DOCTYPE html>
@@ -94,7 +89,7 @@ $consultation_json = json_encode($consultation_safe, JSON_HEX_TAG | JSON_HEX_APO
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Detalles de Consulta</title>
-    <link rel="stylesheet" href="../public/css/style.css"> 
+    <link rel="stylesheet" href="../public/css/style.css">
     <style>
         body {
             background-color: #f4f4f4;
@@ -175,7 +170,6 @@ $consultation_json = json_encode($consultation_safe, JSON_HEX_TAG | JSON_HEX_APO
             text-align: center;
             margin: 20px 0;
         }
-        /* Estilos de botones de acción */
         .action-links {
             margin-top: 30px;
             text-align: center;
@@ -228,7 +222,6 @@ $consultation_json = json_encode($consultation_safe, JSON_HEX_TAG | JSON_HEX_APO
             gap: 15px;
             margin-top: 10px;
         }
-        /* Responsive */
         @media (max-width: 768px) {
             .main-content {
                 padding: 15px;
@@ -268,26 +261,25 @@ $consultation_json = json_encode($consultation_safe, JSON_HEX_TAG | JSON_HEX_APO
             }
         }
     </style>
-    <!-- Librerías para PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
-    
+
     <?php include '../includes/navbar.php'; ?>
-    
+
     <div class="dashboard-container">
         <div class="main-content">
-            
+
             <?php if (!empty($error_message)): ?>
                 <h1>Error al Cargar Consulta</h1>
                 <p class="error-message"><?php echo htmlspecialchars($error_message); ?></p>
                 <div class="action-links">
                     <a href="consultation_history.php" class="btn-back">← Volver al Historial</a>
                 </div>
-                
+
             <?php elseif ($consultation): ?>
-                
+
                 <h1>Detalles de Consulta #<?php echo htmlspecialchars($consultation['id']); ?></h1>
 
                 <div class="detail-section">
@@ -360,7 +352,7 @@ $consultation_json = json_encode($consultation_safe, JSON_HEX_TAG | JSON_HEX_APO
                     </div>
                 </div>
                 <?php endif; ?>
-                
+
                 <div class="action-links">
                     <a href="consultation_history.php" class="btn-back">← Volver al Historial</a>
                     <a href="consultation_edit.php?id=<?php echo urlencode($consultation['id']); ?>" class="btn-edit">✏️ Editar Consulta</a>
@@ -371,14 +363,12 @@ $consultation_json = json_encode($consultation_safe, JSON_HEX_TAG | JSON_HEX_APO
             <?php endif; ?>
         </div>
     </div>
-    
+
     <?php include_once '../includes/footer.php'; ?>
 
     <script>
-        // Datos de la consulta pasados desde PHP a JavaScript
         const consultationData = <?php echo $consultation_json ?: 'null'; ?>;
-        
-        // Función para generar el PDF
+
         function exportPDF() {
             if (!consultationData) {
                 console.error("No hay datos de consulta disponibles para generar el PDF.");
@@ -391,10 +381,9 @@ $consultation_json = json_encode($consultation_safe, JSON_HEX_TAG | JSON_HEX_APO
                 const doc = new jsPDF('p', 'mm', 'a4');
                 let y = 15;
 
-                // --- CABECERA ---
                 doc.setFontSize(20);
                 doc.setFont("helvetica", "bold");
-                doc.setTextColor(27, 67, 50); // #1b4332
+                doc.setTextColor(27, 67, 50);
                 doc.text('Reporte de Consulta Veterinaria', 105, y, { align: 'center' });
                 y += 8;
 
@@ -405,13 +394,11 @@ $consultation_json = json_encode($consultation_safe, JSON_HEX_TAG | JSON_HEX_APO
                 doc.text(`Fecha: ${new Date().toLocaleDateString('es-ES')}`, 196, y, { align: 'right' });
                 y += 10;
 
-                // Línea divisoria
-                doc.setDrawColor(64, 145, 108); // #40916c
+                doc.setDrawColor(64, 145, 108);
                 doc.setLineWidth(0.5);
                 doc.line(14, y, 196, y);
                 y += 10;
 
-                // --- DATOS GENERALES ---
                 doc.setFontSize(14);
                 doc.setFont("helvetica", "bold");
                 doc.text('Información de la Consulta', 14, y);
@@ -433,15 +420,15 @@ $consultation_json = json_encode($consultation_safe, JSON_HEX_TAG | JSON_HEX_APO
                     startY: y,
                     body: generalData,
                     theme: 'grid',
-                    styles: { 
+                    styles: {
                         fontSize: 10,
                         cellPadding: 3,
                         lineColor: [200, 200, 200],
                         lineWidth: 0.1
                     },
                     columnStyles: {
-                        0: { 
-                            fontStyle: 'bold', 
+                        0: {
+                            fontStyle: 'bold',
                             fillColor: [230, 241, 232],
                             textColor: [45, 106, 79]
                         },
@@ -455,20 +442,16 @@ $consultation_json = json_encode($consultation_safe, JSON_HEX_TAG | JSON_HEX_APO
 
                 y = doc.autoTable.previous.finalY + 10;
 
-                // --- DIAGNÓSTICO ---
                 drawSection(doc, 'Diagnóstico', consultationData.diagnosis, [3, 169, 244]);
 
-                // --- TRATAMIENTO (si existe) ---
                 if (consultationData.treatment && consultationData.treatment.trim() !== '') {
                     y = drawSection(doc, 'Tratamiento Sugerido', consultationData.treatment, [255, 152, 0]);
                 }
 
-                // --- NOTAS (si existen) ---
                 if (consultationData.notes && consultationData.notes.trim() !== '') {
                     drawSection(doc, 'Notas Adicionales', consultationData.notes, [96, 125, 139]);
                 }
 
-                // --- PIE DE PÁGINA ---
                 const pageCount = doc.internal.getNumberOfPages();
                 for (let i = 1; i <= pageCount; i++) {
                     doc.setPage(i);
@@ -478,7 +461,6 @@ $consultation_json = json_encode($consultation_safe, JSON_HEX_TAG | JSON_HEX_APO
                     doc.text('Sistema Veterinario © ' + new Date().getFullYear(), 105, 292, { align: 'center' });
                 }
 
-                // --- GUARDAR PDF ---
                 const safePetName = consultationData.pet_name.replace(/[^\w\s]/gi, '').replace(/\s+/g, '_');
                 const filename = `Consulta_${safePetName}_${consultationData.id}.pdf`;
                 doc.save(filename);
@@ -491,7 +473,6 @@ $consultation_json = json_encode($consultation_safe, JSON_HEX_TAG | JSON_HEX_APO
             }
         }
 
-        // Función auxiliar para dibujar secciones
         function drawSection(doc, title, content, color) {
             if (doc.internal.getCurrentPageInfo().pageNumber > 0 && doc.internal.getSize().height - doc.internal.getCurrentPageInfo().pageSize.height < 50) {
                 doc.addPage();
@@ -514,21 +495,19 @@ $consultation_json = json_encode($consultation_safe, JSON_HEX_TAG | JSON_HEX_APO
             const text = content.trim() || `No se registraron ${title.toLowerCase()}.`;
             const splitText = doc.splitTextToSize(text, 180);
 
-            // Fondo de la sección
             const lineHeight = 5;
             const boxHeight = splitText.length * lineHeight + 10;
-            
+
             doc.setFillColor(249, 249, 249);
             doc.setDrawColor(...color);
             doc.setLineWidth(1);
             doc.roundedRect(14, y, 180, boxHeight, 2, 2, 'FD');
-            
-            // Barra lateral
+
             doc.setFillColor(...color);
             doc.rect(14, y, 4, boxHeight, 'F');
 
             doc.text(splitText, 20, y + 7);
-            
+
             doc.y = y + boxHeight + 12;
             return doc.y;
         }
