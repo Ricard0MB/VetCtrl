@@ -2,11 +2,11 @@
 session_start();
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
 $current_user_id = $_SESSION['user_id'] ?? 0;
 $role_name = $_SESSION['role_name'] ?? 'Propietario';
@@ -21,45 +21,48 @@ if ($owner_id <= 0) {
     die("ID de dueño no válido.");
 }
 
-// Obtener datos del dueño
-$sql_owner = "SELECT u.id, u.username, u.email, u.ci, u.first_name, u.last_name, u.phone, u.address, u.status,
-                     u.created_at, r.name as role_name
-              FROM users u
-              LEFT JOIN roles r ON u.role_id = r.id
-              WHERE u.id = ?";
-if ($role_name !== 'admin' && $role_name !== 'Veterinario') {
-    $sql_owner .= " AND u.role_id = 3";
-}
-
-$stmt = $conn->prepare($sql_owner);
-$stmt->bind_param("i", $owner_id);
-$stmt->execute();
-$owner = $stmt->get_result()->fetch_assoc();
-$stmt->close();
-
-if (!$owner) {
-    die("Dueño no encontrado o no tienes permiso para verlo.");
-}
-
-// Obtener mascotas
-$sql_pets = "SELECT p.id, p.name, p.date_of_birth, p.gender, 
-                    pt.name AS species_name, b.name AS breed_name
-             FROM pets p
-             LEFT JOIN pet_types pt ON p.type_id = pt.id
-             LEFT JOIN breeds b ON p.breed_id = b.id
-             WHERE p.owner_id = ?
-             ORDER BY p.name ASC";
-$stmt = $conn->prepare($sql_pets);
-$stmt->bind_param("i", $owner_id);
-$stmt->execute();
-$result_pets = $stmt->get_result();
+$owner = null;
 $pets = [];
-while ($row = $result_pets->fetch_assoc()) {
-    $pets[] = $row;
-}
-$stmt->close();
 
-$conn->close();
+try {
+    // Obtener datos del dueño
+    $sql_owner = "SELECT u.id, u.username, u.email, u.ci, u.first_name, u.last_name, u.phone, u.address, u.status,
+                         u.created_at, r.name as role_name
+                  FROM users u
+                  LEFT JOIN roles r ON u.role_id = r.id
+                  WHERE u.id = :owner_id";
+    
+    // Si no es admin ni veterinario, restringir a role_id = 3 (propietario)
+    if ($role_name !== 'admin' && $role_name !== 'Veterinario') {
+        $sql_owner .= " AND u.role_id = 3";
+    }
+
+    $stmt = $conn->prepare($sql_owner);
+    $stmt->bindValue(':owner_id', $owner_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $owner = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$owner) {
+        die("Dueño no encontrado o no tienes permiso para verlo.");
+    }
+
+    // Obtener mascotas
+    $sql_pets = "SELECT p.id, p.name, p.date_of_birth, p.gender, 
+                        pt.name AS species_name, b.name AS breed_name
+                 FROM pets p
+                 LEFT JOIN pet_types pt ON p.type_id = pt.id
+                 LEFT JOIN breeds b ON p.breed_id = b.id
+                 WHERE p.owner_id = :owner_id
+                 ORDER BY p.name ASC";
+    $stmt = $conn->prepare($sql_pets);
+    $stmt->bindValue(':owner_id', $owner_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $pets = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+    // En producción podrías loguear el error y mostrar un mensaje amigable
+    die("Error al cargar los datos: " . $e->getMessage());
+}
 
 $full_name = trim(($owner['first_name'] ?? '') . ' ' . ($owner['last_name'] ?? ''));
 if (empty($full_name)) {
