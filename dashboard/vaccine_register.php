@@ -2,11 +2,11 @@
 session_start();
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
 $username = $_SESSION["username"] ?? 'Veterinario';
 $user_id = $_SESSION['user_id'] ?? 0;
@@ -24,53 +24,65 @@ if ($pet_id <= 0) {
     exit;
 }
 
-// Obtener nombre de la mascota
-$sql = "SELECT name FROM pets WHERE id = ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("i", $pet_id);
-$stmt->execute();
-$result = $stmt->get_result();
-$pet = $result->fetch_assoc();
-$stmt->close();
-
-if (!$pet) {
-    header("Location: search_pet_owner.php?error=notfound");
-    exit;
-}
-
-// Obtener tipos de vacunas
-$vaccine_types = $conn->query("SELECT id, name FROM vaccine_types ORDER BY name")->fetch_all(MYSQLI_ASSOC);
-
+$pet = null;
+$vaccine_types = [];
 $error = '';
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $vaccine_type_id = intval($_POST['vaccine_type_id']);
-    $application_date = $_POST['application_date'];
-    $lote_number = trim($_POST['lote_number']) ?: null;
-    $next_due_date = $_POST['next_due_date'] ?: null;
-    $notes = trim($_POST['notes']) ?: null;
+try {
+    // Obtener nombre de la mascota
+    $sql = "SELECT name FROM pets WHERE id = :pet_id";
+    $stmt = $conn->prepare($sql);
+    $stmt->bindValue(':pet_id', $pet_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $pet = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$pet) {
+        header("Location: search_pet_owner.php?error=notfound");
+        exit;
+    }
+
+    // Obtener tipos de vacunas
+    $stmtTypes = $conn->query("SELECT id, name FROM vaccine_types ORDER BY name");
+    $vaccine_types = $stmtTypes->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+    $error = "Error al cargar datos: " . $e->getMessage();
+}
+
+if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
+    $vaccine_type_id = intval($_POST['vaccine_type_id'] ?? 0);
+    $application_date = $_POST['application_date'] ?? '';
+    $lote_number = !empty($_POST['lote_number']) ? trim($_POST['lote_number']) : null;
+    $next_due_date = !empty($_POST['next_due_date']) ? $_POST['next_due_date'] : null;
+    $notes = !empty($_POST['notes']) ? trim($_POST['notes']) : null;
 
     if ($vaccine_type_id == 0 || empty($application_date)) {
         $error = "Seleccione la vacuna y la fecha de aplicación.";
     } else {
-        $sql = "INSERT INTO vaccines (pet_id, attendant_id, vaccine_type_id, application_date, next_due_date, lote_number, notes) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("iiissss", $pet_id, $user_id, $vaccine_type_id, $application_date, $next_due_date, $lote_number, $notes);
-        if ($stmt->execute()) {
+        try {
+            $sql = "INSERT INTO vaccines (pet_id, attendant_id, vaccine_type_id, application_date, next_due_date, lote_number, notes) 
+                    VALUES (:pet_id, :attendant_id, :vaccine_type_id, :application_date, :next_due_date, :lote_number, :notes)";
+            $stmt = $conn->prepare($sql);
+            $stmt->bindValue(':pet_id', $pet_id, PDO::PARAM_INT);
+            $stmt->bindValue(':attendant_id', $user_id, PDO::PARAM_INT);
+            $stmt->bindValue(':vaccine_type_id', $vaccine_type_id, PDO::PARAM_INT);
+            $stmt->bindValue(':application_date', $application_date);
+            $stmt->bindValue(':next_due_date', $next_due_date);
+            $stmt->bindValue(':lote_number', $lote_number);
+            $stmt->bindValue(':notes', $notes);
+            $stmt->execute();
+
             require_once '../includes/bitacora_function.php';
             $action = "Vacuna aplicada a mascota $pet_id";
             log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
+
             header("Location: pet_profile.php?id=$pet_id&success=vaccine_added");
             exit;
-        } else {
-            $error = "Error al registrar: " . $stmt->error;
+        } catch (PDOException $e) {
+            $error = "Error al registrar: " . $e->getMessage();
         }
-        $stmt->close();
     }
 }
-
-$conn->close();
 ?>
 <!DOCTYPE html>
 <html lang="es">
