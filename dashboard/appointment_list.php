@@ -6,7 +6,7 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     exit;
 }
 
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // Se espera que $conn sea un objeto PDO
 
 $username = $_SESSION["username"] ?? 'Veterinario';
 $user_id = $_SESSION['user_id'] ?? 0;
@@ -27,53 +27,46 @@ if (isset($_GET['msg']) && $_GET['msg'] === 'cancelled') {
     $success_message = "<div class='alert alert-success'><i class='fas fa-check-circle'></i> Cita cancelada exitosamente.</div>";
 }
 
-// Construir consulta según rol
-if ($role_name === 'Propietario') {
-    // Propietario: solo sus citas (attendant_id = user_id)
-    $sql = "SELECT 
-                a.id, 
-                a.appointment_date, 
-                a.reason, 
-                a.status,
-                p.name AS pet_name 
-            FROM appointments a 
-            JOIN pets p ON a.pet_id = p.id 
-            WHERE a.attendant_id = ?
-            ORDER BY a.appointment_date DESC";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $user_id);
-} else {
-    // Veterinario y admin: todas las citas (opcionalmente podrían filtrar por ellos mismos, pero según matriz ven todas)
-    $sql = "SELECT 
-                a.id, 
-                a.appointment_date, 
-                a.reason, 
-                a.status,
-                p.name AS pet_name,
-                u.username AS owner_name
-            FROM appointments a 
-            JOIN pets p ON a.pet_id = p.id
-            LEFT JOIN users u ON p.owner_id = u.id
-            ORDER BY a.appointment_date DESC";
-    $stmt = $conn->prepare($sql);
-}
-
-if ($stmt) {
-    if ($stmt->execute()) {
-        $result = $stmt->get_result();
-        while ($row = $result->fetch_assoc()) {
-            $appointments[] = $row;
-        }
-        $result->free();
+try {
+    // Construir consulta según rol
+    if ($role_name === 'Propietario') {
+        // Propietario: solo sus citas (attendant_id = user_id)
+        $sql = "SELECT 
+                    a.id, 
+                    a.appointment_date, 
+                    a.reason, 
+                    a.status,
+                    p.name AS pet_name 
+                FROM appointments a 
+                JOIN pets p ON a.pet_id = p.id 
+                WHERE a.attendant_id = :user_id
+                ORDER BY a.appointment_date DESC";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindValue(':user_id', $user_id, PDO::PARAM_INT);
     } else {
-        $error_message = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Error al ejecutar la consulta: " . htmlspecialchars($stmt->error) . "</div>";
+        // Veterinario y admin: todas las citas
+        $sql = "SELECT 
+                    a.id, 
+                    a.appointment_date, 
+                    a.reason, 
+                    a.status,
+                    p.name AS pet_name,
+                    u.username AS owner_name
+                FROM appointments a 
+                JOIN pets p ON a.pet_id = p.id
+                LEFT JOIN users u ON p.owner_id = u.id
+                ORDER BY a.appointment_date DESC";
+        $stmt = $conn->prepare($sql);
     }
-    $stmt->close();
-} else {
-    $error_message = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Error de preparación: " . htmlspecialchars($conn->error) . "</div>";
+
+    $stmt->execute();
+    $appointments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+    $error_message = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Error al obtener las citas: " . htmlspecialchars($e->getMessage()) . "</div>";
 }
 
-$conn->close();
+// No es necesario cerrar la conexión explícitamente; PDO la cierra al final del script.
 ?>
 <!DOCTYPE html>
 <html lang="es">
