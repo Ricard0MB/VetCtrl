@@ -3,7 +3,7 @@ session_start();
 require_once '../includes/config.php'; // $conn debe ser un objeto PDO
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
