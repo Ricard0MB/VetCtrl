@@ -16,7 +16,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $error = "Por favor, complete ambos campos.";
     } else {
         try {
-            // Consulta con marcadores de posición (named placeholders)
+            // Usamos marcadores ? y pasamos dos veces el mismo valor al execute
             $sql = "
                 SELECT 
                     u.id, 
@@ -27,13 +27,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     r.name as role_name
                 FROM users u
                 INNER JOIN roles r ON u.role_id = r.id
-                WHERE u.username = :user_input OR u.email = :user_input
+                WHERE u.username = ? OR u.email = ?
             ";
             
             $stmt = $conn->prepare($sql);
-            $stmt->bindParam(':user_input', $user_input_value, PDO::PARAM_STR);
-            
-            if ($stmt->execute()) {
+            // Ejecutamos con un array que contiene el mismo valor dos veces
+            if ($stmt->execute([$user_input_value, $user_input_value])) {
                 if ($stmt->rowCount() == 1) {
                     $row = $stmt->fetch(PDO::FETCH_ASSOC);
                     $hashed_password = $row['password'];
@@ -52,9 +51,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             log_to_bitacora($conn, $action_log, $row['username'], $row['role_id']);
                         }
 
-                        $stmt = null;
-                        $conn = null;
-                        
+                        // Redirigir al dashboard
                         header("Location: ../dashboard/welcome.php");
                         exit;
 
@@ -80,7 +77,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
     }
     
-    $conn = null;
+    // No cerrar $conn aquí porque aún puede ser usado en redirección
     $_SESSION['login_error'] = $error;
     header("Location: ../index.php");
     exit();
