@@ -2,11 +2,11 @@
 session_start();
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
 $username = $_SESSION["username"] ?? 'Veterinario';
 $user_id = $_SESSION['user_id'] ?? 0;
@@ -25,13 +25,17 @@ if ($pet_id <= 0) {
 }
 
 // Obtener nombre de la mascota
-$sql = "SELECT name FROM pets WHERE id = ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("i", $pet_id);
-$stmt->execute();
-$result = $stmt->get_result();
-$pet = $result->fetch_assoc();
-$stmt->close();
+$pet = null;
+try {
+    $sql = "SELECT name FROM pets WHERE id = :pet_id";
+    $stmt = $conn->prepare($sql);
+    $stmt->bindValue(':pet_id', $pet_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $pet = $stmt->fetch(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    // Manejar error (opcional)
+    die("Error al cargar mascota: " . $e->getMessage());
+}
 
 if (!$pet) {
     header("Location: search_pet_owner.php?error=notfound");
@@ -41,34 +45,41 @@ if (!$pet) {
 $error = '';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $title = trim($_POST['title']);
-    $start_date = $_POST['start_date'];
-    $end_date = $_POST['end_date'] ?: null;
-    $diagnosis = trim($_POST['diagnosis']);
-    $medication_details = trim($_POST['medication_details']);
-    $notes = trim($_POST['notes']);
+    $title = trim($_POST['title'] ?? '');
+    $start_date = $_POST['start_date'] ?? '';
+    $end_date = !empty($_POST['end_date']) ? $_POST['end_date'] : null;
+    $diagnosis = trim($_POST['diagnosis'] ?? '');
+    $medication_details = trim($_POST['medication_details'] ?? '');
+    $notes = trim($_POST['notes'] ?? '');
 
     if (empty($title) || empty($start_date) || empty($medication_details)) {
         $error = "Título, fecha de inicio y detalles de medicación son obligatorios.";
     } else {
-        $sql = "INSERT INTO treatments (pet_id, attendant_id, title, start_date, end_date, diagnosis, medication_details, notes) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("iissssss", $pet_id, $user_id, $title, $start_date, $end_date, $diagnosis, $medication_details, $notes);
-        if ($stmt->execute()) {
+        try {
+            $sql = "INSERT INTO treatments (pet_id, attendant_id, title, start_date, end_date, diagnosis, medication_details, notes) 
+                    VALUES (:pet_id, :attendant_id, :title, :start_date, :end_date, :diagnosis, :medication_details, :notes)";
+            $stmt = $conn->prepare($sql);
+            $stmt->bindValue(':pet_id', $pet_id, PDO::PARAM_INT);
+            $stmt->bindValue(':attendant_id', $user_id, PDO::PARAM_INT);
+            $stmt->bindValue(':title', $title);
+            $stmt->bindValue(':start_date', $start_date);
+            $stmt->bindValue(':end_date', $end_date);
+            $stmt->bindValue(':diagnosis', $diagnosis);
+            $stmt->bindValue(':medication_details', $medication_details);
+            $stmt->bindValue(':notes', $notes);
+            $stmt->execute();
+
             require_once '../includes/bitacora_function.php';
             $action = "Tratamiento registrado para mascota $pet_id: $title";
             log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
+
             header("Location: pet_profile.php?id=$pet_id&success=treatment_added");
             exit;
-        } else {
-            $error = "Error al registrar: " . $stmt->error;
+        } catch (PDOException $e) {
+            $error = "Error al registrar: " . $e->getMessage();
         }
-        $stmt->close();
     }
 }
-
-$conn->close();
 ?>
 <!DOCTYPE html>
 <html lang="es">
