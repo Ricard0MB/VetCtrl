@@ -2,14 +2,14 @@
 session_start();
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
-$username = $_SESSION["username"] ?? 'Veterinario'; 
-$user_id = $_SESSION['id'] ?? 0;
+$username = $_SESSION["username"] ?? 'Veterinario';
+$user_id = $_SESSION['user_id'] ?? 0; // Cambié 'id' por 'user_id' para consistencia
 $role_name = $_SESSION['role_name'] ?? 'Propietario';
 
 $pet_id = null;
@@ -19,90 +19,77 @@ $consultation_history = [];
 $message = '';
 
 if (isset($_GET['id']) && is_numeric($_GET['id'])) {
-    $pet_id = $_GET['id'];
+    $pet_id = intval($_GET['id']);
 } else {
     header("Location: search_pet_owner.php?error=invalidid");
     exit();
 }
 
-$sql_pet = "SELECT 
-            p.*,
-            pt.name AS species_name,
-            b.name AS breed_name,
-            u.id as owner_user_id,
-            u.username as owner_name,
-            u.email as owner_email
-            FROM pets p
-            LEFT JOIN pet_types pt ON p.type_id = pt.id
-            LEFT JOIN breeds b ON p.breed_id = b.id
-            LEFT JOIN users u ON p.owner_id = u.id
-            WHERE p.id = ?";
-        
-if ($stmt_pet = $conn->prepare($sql_pet)) {
-    $stmt_pet->bind_param("i", $pet_id);
+try {
+    // Obtener datos de la mascota
+    $sql_pet = "SELECT 
+                p.*,
+                pt.name AS species_name,
+                b.name AS breed_name,
+                u.id as owner_user_id,
+                u.username as owner_name,
+                u.email as owner_email
+                FROM pets p
+                LEFT JOIN pet_types pt ON p.type_id = pt.id
+                LEFT JOIN breeds b ON p.breed_id = b.id
+                LEFT JOIN users u ON p.owner_id = u.id
+                WHERE p.id = :pet_id";
+
+    $stmt_pet = $conn->prepare($sql_pet);
+    $stmt_pet->bindValue(':pet_id', $pet_id, PDO::PARAM_INT);
     $stmt_pet->execute();
-    $result_pet = $stmt_pet->get_result();
-    
-    if ($result_pet->num_rows == 1) {
-        $pet_data = $result_pet->fetch_assoc();
+    $pet_data = $stmt_pet->fetch(PDO::FETCH_ASSOC);
+
+    if (!$pet_data) {
+        $message = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Paciente no encontrado o ha sido eliminado.</div>";
+    } else {
         $owner_data = [
             'id' => $pet_data['owner_user_id'],
             'name' => $pet_data['owner_name'],
             'email' => $pet_data['owner_email']
         ];
-    } else {
-        $message = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Paciente no encontrado o ha sido eliminado.</div>";
     }
-    $stmt_pet->close();
-} else {
-    $message = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Error de preparación: " . $conn->error . "</div>";
-}
 
-if ($owner_data && $owner_data['id']) {
-    $sql_extra = "SELECT phone, address, ci FROM users WHERE id = ?";
-    $stmt_extra = $conn->prepare($sql_extra);
-    $stmt_extra->bind_param("i", $owner_data['id']);
-    $stmt_extra->execute();
-    $result_extra = $stmt_extra->get_result();
-    $extra = $result_extra->fetch_assoc();
-    $owner_data['phone'] = $extra['phone'] ?? 'No registrado';
-    $owner_data['address'] = $extra['address'] ?? 'No registrada';
-    $owner_data['ci'] = $extra['ci'] ?? 'No registrada';
-    $stmt_extra->close();
+    if ($owner_data && $owner_data['id']) {
+        // Obtener datos adicionales del dueño
+        $sql_extra = "SELECT phone, address, ci FROM users WHERE id = :owner_id";
+        $stmt_extra = $conn->prepare($sql_extra);
+        $stmt_extra->bindValue(':owner_id', $owner_data['id'], PDO::PARAM_INT);
+        $stmt_extra->execute();
+        $extra = $stmt_extra->fetch(PDO::FETCH_ASSOC);
+        $owner_data['phone'] = $extra['phone'] ?? 'No registrado';
+        $owner_data['address'] = $extra['address'] ?? 'No registrada';
+        $owner_data['ci'] = $extra['ci'] ?? 'No registrada';
 
-    $sql_count = "SELECT COUNT(*) as total FROM pets WHERE owner_id = ?";
-    $stmt_count = $conn->prepare($sql_count);
-    $stmt_count->bind_param("i", $owner_data['id']);
-    $stmt_count->execute();
-    $result_count = $stmt_count->get_result();
-    $count_row = $result_count->fetch_assoc();
-    $owner_data['pets_count'] = $count_row['total'] ?? 0;
-    $stmt_count->close();
-}
+        // Contar mascotas del dueño
+        $sql_count = "SELECT COUNT(*) as total FROM pets WHERE owner_id = :owner_id";
+        $stmt_count = $conn->prepare($sql_count);
+        $stmt_count->bindValue(':owner_id', $owner_data['id'], PDO::PARAM_INT);
+        $stmt_count->execute();
+        $count_row = $stmt_count->fetch(PDO::FETCH_ASSOC);
+        $owner_data['pets_count'] = $count_row['total'] ?? 0;
+    }
 
-if ($pet_data) {
-    $sql_history = "SELECT c.*, u.username as vet_name 
-                    FROM consultations c
-                    LEFT JOIN users u ON c.attendant_id = u.id
-                    WHERE pet_id = ?  
-                    ORDER BY consultation_date DESC";
-                    
-    if ($stmt_history = $conn->prepare($sql_history)) {
-        $stmt_history->bind_param("i", $pet_id);
+    if ($pet_data) {
+        // Obtener historial de consultas
+        $sql_history = "SELECT c.*, u.username as vet_name 
+                        FROM consultations c
+                        LEFT JOIN users u ON c.attendant_id = u.id
+                        WHERE pet_id = :pet_id  
+                        ORDER BY consultation_date DESC";
+        $stmt_history = $conn->prepare($sql_history);
+        $stmt_history->bindValue(':pet_id', $pet_id, PDO::PARAM_INT);
         $stmt_history->execute();
-        $result_history = $stmt_history->get_result();
-        
-        while ($row = $result_history->fetch_assoc()) {
-            $consultation_history[] = $row;
-        }
-        $stmt_history->close();
-    } else {
-        $message .= "<div class='alert alert-danger'>Error al cargar historial: " . $conn->error . "</div>";
+        $consultation_history = $stmt_history->fetchAll(PDO::FETCH_ASSOC);
     }
-}
 
-if (isset($conn)) {
-    $conn->close();
+} catch (PDOException $e) {
+    $message = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Error al cargar datos: " . htmlspecialchars($e->getMessage()) . "</div>";
 }
 ?>
 
