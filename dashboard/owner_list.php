@@ -2,11 +2,11 @@
 session_start();
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
 $username = $_SESSION["username"] ?? 'Veterinario';
 $user_id = $_SESSION['user_id'] ?? 0;
@@ -21,27 +21,17 @@ if ($role_name !== 'admin' && $role_name !== 'Veterinario') {
 $owners = [];
 $error_message = '';
 
-$sql = "SELECT id, username, email, first_name, last_name, phone, ci 
-        FROM users 
-        WHERE role_id = 3
-        ORDER BY first_name, last_name ASC";
-
-if ($stmt = $conn->prepare($sql)) {
-    if ($stmt->execute()) {
-        $result = $stmt->get_result();
-        while ($row = $result->fetch_assoc()) {
-            $owners[] = $row;
-        }
-        $result->free();
-    } else {
-        $error_message = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Error: " . $stmt->error . "</div>";
-    }
-    $stmt->close();
-} else {
-    $error_message = "<div class='alert alert-danger'>Error de preparación: " . $conn->error . "</div>";
+try {
+    $sql = "SELECT id, username, email, first_name, last_name, phone, ci 
+            FROM users 
+            WHERE role_id = 3
+            ORDER BY first_name, last_name ASC";
+    $stmt = $conn->prepare($sql);
+    $stmt->execute();
+    $owners = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $error_message = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Error: " . htmlspecialchars($e->getMessage()) . "</div>";
 }
-
-$conn->close();
 ?>
 <!DOCTYPE html>
 <html lang="es">
