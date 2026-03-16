@@ -1,9 +1,9 @@
 <?php
 session_start();
 
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // conexión PDO
 require_once '../includes/functions.php';
-require_once '../includes/bitacora_function.php'; // Agregado
+require_once '../includes/bitacora_function.php';
 
 // Limpiar mensajes anteriores
 unset($_SESSION['registration_error']);
@@ -44,34 +44,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         exit();
     }
 
-    // Verificar si el usuario ya existe
-    $sql_check_username = "SELECT id FROM users WHERE username = ?";
-    if ($stmt = $conn->prepare($sql_check_username)) {
-        $stmt->bind_param("s", $username);
-        $stmt->execute();
-        $stmt->store_result();
-        if ($stmt->num_rows > 0) {
+    // Verificar si el usuario ya existe (con PDO)
+    $sql_check = "SELECT id FROM users WHERE username = ? OR email = ?";
+    $stmt = $conn->prepare($sql_check);
+    $stmt->execute([$username, $email]);
+    if ($stmt->rowCount() > 0) {
+        // Determinar cuál está duplicado para mensaje específico
+        $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+        // Podríamos hacer otra consulta para saber si es username o email, pero simplificamos
+        // Vamos a verificar por separado para dar mensaje más preciso
+        $stmt_username = $conn->prepare("SELECT id FROM users WHERE username = ?");
+        $stmt_username->execute([$username]);
+        if ($stmt_username->rowCount() > 0) {
             $_SESSION['registration_error'] = "El nombre de usuario ya está en uso. Por favor, elige otro.";
-            $stmt->close();
-            header("Location: ../public/register.php");
-            exit();
-        }
-        $stmt->close();
-    }
-
-    // Verificar si el email ya existe
-    $sql_check_email = "SELECT id FROM users WHERE email = ?";
-    if ($stmt = $conn->prepare($sql_check_email)) {
-        $stmt->bind_param("s", $email);
-        $stmt->execute();
-        $stmt->store_result();
-        if ($stmt->num_rows > 0) {
+        } else {
             $_SESSION['registration_error'] = "El correo electrónico ya está en uso. Por favor, utiliza otro.";
-            $stmt->close();
-            header("Location: ../public/register.php");
-            exit();
         }
-        $stmt->close();
+        header("Location: ../public/register.php");
+        exit();
     }
 
     // Hashear la contraseña
@@ -79,33 +69,26 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     // Insertar nuevo usuario (role_id = 2 por defecto = Propietario)
     $sql = "INSERT INTO users (username, email, password, role_id, created_at) VALUES (?, ?, ?, 2, NOW())";
-
-    if ($stmt = $conn->prepare($sql)) {
-        $stmt->bind_param("sss", $username, $email, $hashed_password);
-
-        if ($stmt->execute()) {
-            // Registrar en bitácora
-            if (function_exists('log_to_bitacora')) {
-                $action_log = "Nuevo usuario registrado: '{$username}'";
-                log_to_bitacora($conn, $action_log, $username, 2);
-            }
-            
-            $_SESSION['registration_success'] = "¡Registro exitoso! Ahora puedes iniciar sesión.";
-            $stmt->close();
-            $conn->close();
-            header("Location: ../index.php");
-            exit();
-        } else {
-            $_SESSION['registration_error'] = "Error al registrar usuario: " . $stmt->error;
+    $stmt = $conn->prepare($sql);
+    
+    if ($stmt->execute([$username, $email, $hashed_password])) {
+        // Registrar en bitácora
+        if (function_exists('log_to_bitacora')) {
+            $action_log = "Nuevo usuario registrado: '{$username}'";
+            log_to_bitacora($conn, $action_log, $username, 2);
         }
-        $stmt->close();
+        
+        $_SESSION['registration_success'] = "¡Registro exitoso! Ahora puedes iniciar sesión.";
+        // No cerrar $conn porque puede usarse después, pero al final del script se cierra automáticamente
+        header("Location: ../index.php");
+        exit();
     } else {
-        $_SESSION['registration_error'] = "Error de preparación de la consulta: " . $conn->error;
+        // Si hay error en execute, se puede obtener el mensaje mediante errorInfo()
+        $errorInfo = $stmt->errorInfo();
+        $_SESSION['registration_error'] = "Error al registrar usuario: " . $errorInfo[2];
+        header("Location: ../public/register.php");
+        exit();
     }
-
-    $conn->close();
-    header("Location: ../public/register.php");
-    exit();
 } else {
     // Si no es POST, redirigir al formulario
     header("Location: ../public/register.php");
