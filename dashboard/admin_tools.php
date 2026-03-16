@@ -12,7 +12,7 @@ if (($_SESSION['role_name'] ?? '') !== 'admin') {
     exit;
 }
 
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // Ahora se espera que $conn sea un objeto PDO
 
 $mensaje = '';
 $tipo_mensaje = '';
@@ -20,7 +20,6 @@ $tipo_mensaje = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $accion = $_POST['accion'] ?? '';
     if ($accion === 'limpiar_cache') {
-        // Simulación
         $mensaje = "Caché limpiada correctamente (simulado).";
         $tipo_mensaje = 'success';
     } elseif ($accion === 'optimizar_bd') {
@@ -32,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Obtener información básica del sistema
+// Obtener información básica del sistema usando PDO
 $stats = [
     'total_veterinarios' => 0,
     'total_propietarios' => 0,
@@ -40,16 +39,25 @@ $stats = [
     'citas_hoy' => 0
 ];
 
-$sql = "SELECT 
-    (SELECT COUNT(*) FROM users WHERE role_id = 1) as total_veterinarios,
-    (SELECT COUNT(*) FROM users WHERE role_id = 3) as total_propietarios,
-    (SELECT COUNT(*) FROM pets) as total_pacientes,
-    (SELECT COUNT(*) FROM appointments WHERE status = 'PENDIENTE' AND DATE(appointment_date) = CURDATE()) as citas_hoy";
-$result = $conn->query($sql);
-if ($row = $result->fetch_assoc()) {
-    $stats = $row;
+try {
+    $sql = "SELECT 
+        (SELECT COUNT(*) FROM users WHERE role_id = 1) as total_veterinarios,
+        (SELECT COUNT(*) FROM users WHERE role_id = 3) as total_propietarios,
+        (SELECT COUNT(*) FROM pets) as total_pacientes,
+        (SELECT COUNT(*) FROM appointments WHERE status = 'PENDIENTE' AND DATE(appointment_date) = CURDATE()) as citas_hoy";
+
+    $stmt = $conn->query($sql); // PDO::query devuelve un PDOStatement
+    if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $stats = $row;
+    }
+} catch (PDOException $e) {
+    // En un entorno real podrías loguear el error y mostrar un mensaje genérico
+    $mensaje = "Error al obtener estadísticas: " . $e->getMessage();
+    $tipo_mensaje = 'danger';
 }
-$conn->close();
+
+// No es necesario cerrar la conexión explícitamente; PDO la cierra al final del script.
+// $conn = null;
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -102,7 +110,7 @@ $conn->close();
 
             <?php if ($mensaje): ?>
                 <div class="alert alert-<?php echo $tipo_mensaje; ?>">
-                    <i class="fas fa-<?php echo $tipo_mensaje === 'success' ? 'check-circle' : 'exclamation-circle'; ?>"></i>
+                    <i class="fas fa-<?php echo $tipo_mensaje === 'success' ? 'check-circle' : ($tipo_mensaje === 'danger' ? 'exclamation-triangle' : 'info-circle'); ?>"></i>
                     <?php echo htmlspecialchars($mensaje); ?>
                 </div>
             <?php endif; ?>
