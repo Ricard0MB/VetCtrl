@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
 $role_name = $_SESSION['role_name'] ?? '';
 if (!in_array($role_name, ['Veterinario', 'admin'])) {
@@ -38,9 +38,10 @@ $start_date = $range['start'];
 $end_date = $range['end'];
 
 // Aquí irían todas las consultas para estadísticas (por brevedad omito, pero se deben incluir las del original)
-// ...
+// Nota: cuando se implementen, deben usarse métodos PDO (prepare, execute, fetch, etc.)
 
-$conn->close();
+// No es necesario cerrar la conexión explícitamente con PDO
+// $conn = null; // Opcional
 ?>
 <!DOCTYPE html>
 <html lang="es">
