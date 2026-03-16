@@ -2,115 +2,106 @@
 session_start();
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
 $pet_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 $user_id = $_SESSION['user_id'] ?? 0;
 $role_name = $_SESSION['role_name'] ?? 'Propietario';
 
-// Obtener datos del paciente
-$sql_pet = "SELECT 
-            p.*,
-            pt.name AS species_name,
-            b.name AS breed_name,
-            u.username AS owner_name,
-            u.id AS owner_id
-            FROM pets p
-            LEFT JOIN pet_types pt ON p.type_id = pt.id
-            LEFT JOIN breeds b ON p.breed_id = b.id
-            LEFT JOIN users u ON p.owner_id = u.id
-            WHERE p.id = ?";
-$stmt = $conn->prepare($sql_pet);
-$stmt->bind_param("i", $pet_id);
-$stmt->execute();
-$pet = $stmt->get_result()->fetch_assoc();
-$stmt->close();
-
-if (!$pet) {
-    die("Mascota no encontrada.");
-}
-
-// Verificar permisos
-if ($role_name === 'Propietario' && $pet['owner_id'] != $user_id) {
-    die("No tienes permiso para ver este expediente.");
-}
-
-// Obtener consultas
+$pet = null;
 $consultations = [];
-$sql_cons = "SELECT c.*, u.username AS vet_name 
-             FROM consultations c
-             LEFT JOIN users u ON c.attendant_id = u.id
-             WHERE c.pet_id = ? 
-             ORDER BY c.consultation_date DESC";
-$stmt = $conn->prepare($sql_cons);
-$stmt->bind_param("i", $pet_id);
-$stmt->execute();
-$result = $stmt->get_result();
-while ($row = $result->fetch_assoc()) {
-    $consultations[] = $row;
-}
-$stmt->close();
-
-// Obtener vacunas
 $vaccinations = [];
-$sql_vac = "SELECT v.*, vt.name AS vaccine_name 
-            FROM vaccinations v
-            LEFT JOIN vaccine_types vt ON v.vaccine_type_id = vt.id
-            WHERE v.pet_id = ? 
-            ORDER BY v.application_date DESC";
-if ($conn->query("SHOW TABLES LIKE 'vaccinations'")->num_rows > 0) {
-    $stmt = $conn->prepare($sql_vac);
-    $stmt->bind_param("i", $pet_id);
-    $stmt->execute();
-    $res_vac = $stmt->get_result();
-    while ($row = $res_vac->fetch_assoc()) {
-        $vaccinations[] = $row;
-    }
-    $stmt->close();
-}
-
-// Obtener tratamientos
 $treatments = [];
-if ($conn->query("SHOW TABLES LIKE 'treatments'")->num_rows > 0) {
-    $columns = [];
-    $col_result = $conn->query("SHOW COLUMNS FROM treatments");
-    while ($col = $col_result->fetch_assoc()) {
-        $columns[] = $col['Field'];
-    }
-    
-    $select_fields = ['id'];
-    $field_map = ['description' => 'description', 'start_date' => 'start_date', 'end_date' => 'end_date'];
-    foreach ($field_map as $alias => $field) {
-        if (in_array($field, $columns)) {
-            $select_fields[] = $field;
-        } else {
-            $select_fields[] = "NULL AS $alias";
-        }
-    }
-    $select_sql = implode(', ', $select_fields);
-    $sql_treat = "SELECT $select_sql FROM treatments WHERE pet_id = ? ORDER BY start_date DESC";
-    
-    $stmt = $conn->prepare($sql_treat);
-    if ($stmt) {
-        $stmt->bind_param("i", $pet_id);
-        $stmt->execute();
-        $res_treat = $stmt->get_result();
-        while ($row = $res_treat->fetch_assoc()) {
-            $treatments[] = $row;
-        }
-        $stmt->close();
-    }
-}
 
-$conn->close();
+try {
+    // Obtener datos del paciente
+    $sql_pet = "SELECT 
+                p.*,
+                pt.name AS species_name,
+                b.name AS breed_name,
+                u.username AS owner_name,
+                u.id AS owner_id
+                FROM pets p
+                LEFT JOIN pet_types pt ON p.type_id = pt.id
+                LEFT JOIN breeds b ON p.breed_id = b.id
+                LEFT JOIN users u ON p.owner_id = u.id
+                WHERE p.id = :pet_id";
+    $stmt = $conn->prepare($sql_pet);
+    $stmt->bindValue(':pet_id', $pet_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $pet = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$pet) {
+        die("Mascota no encontrada.");
+    }
+
+    // Verificar permisos
+    if ($role_name === 'Propietario' && $pet['owner_id'] != $user_id) {
+        die("No tienes permiso para ver este expediente.");
+    }
+
+    // Obtener consultas
+    $sql_cons = "SELECT c.*, u.username AS vet_name 
+                 FROM consultations c
+                 LEFT JOIN users u ON c.attendant_id = u.id
+                 WHERE c.pet_id = :pet_id 
+                 ORDER BY c.consultation_date DESC";
+    $stmt = $conn->prepare($sql_cons);
+    $stmt->bindValue(':pet_id', $pet_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $consultations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Obtener vacunas (si la tabla existe)
+    $tableCheck = $conn->query("SHOW TABLES LIKE 'vaccinations'");
+    if ($tableCheck->rowCount() > 0) {
+        $sql_vac = "SELECT v.*, vt.name AS vaccine_name 
+                    FROM vaccinations v
+                    LEFT JOIN vaccine_types vt ON v.vaccine_type_id = vt.id
+                    WHERE v.pet_id = :pet_id 
+                    ORDER BY v.application_date DESC";
+        $stmt = $conn->prepare($sql_vac);
+        $stmt->bindValue(':pet_id', $pet_id, PDO::PARAM_INT);
+        $stmt->execute();
+        $vaccinations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    // Obtener tratamientos (si la tabla existe)
+    $tableTreat = $conn->query("SHOW TABLES LIKE 'treatments'");
+    if ($tableTreat->rowCount() > 0) {
+        // Obtener columnas de la tabla treatments para construir SELECT dinámico
+        $columns = [];
+        $colResult = $conn->query("SHOW COLUMNS FROM treatments");
+        $columns = $colResult->fetchAll(PDO::FETCH_COLUMN);
+
+        $select_fields = ['id'];
+        $field_map = ['description' => 'description', 'start_date' => 'start_date', 'end_date' => 'end_date'];
+        foreach ($field_map as $alias => $field) {
+            if (in_array($field, $columns)) {
+                $select_fields[] = $field;
+            } else {
+                $select_fields[] = "NULL AS $alias";
+            }
+        }
+        $select_sql = implode(', ', $select_fields);
+        $sql_treat = "SELECT $select_sql FROM treatments WHERE pet_id = :pet_id ORDER BY start_date DESC";
+
+        $stmt = $conn->prepare($sql_treat);
+        $stmt->bindValue(':pet_id', $pet_id, PDO::PARAM_INT);
+        $stmt->execute();
+        $treatments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+} catch (PDOException $e) {
+    // En un entorno real podrías loguear el error y mostrar un mensaje genérico
+    die("Error al cargar el expediente: " . $e->getMessage());
+}
 
 $issue_date = date('d/m/Y H:i');
 ?>
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -120,6 +111,7 @@ $issue_date = date('d/m/Y H:i');
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://unpkg.com/jspdf-autotable@3.5.25/dist/jspdf.plugin.autotable.js"></script>
     <style>
+        /* (los mismos estilos que tenías) */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Roboto, Arial, sans-serif;
