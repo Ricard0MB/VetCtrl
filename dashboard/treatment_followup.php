@@ -7,8 +7,8 @@ ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
-    exit; // ¡Error corregido aquí!
+    header("Location: ../index.php");
+    exit;
 }
 
 // Variables necesarias para la navbar y la lógica
@@ -16,83 +16,70 @@ $username = $_SESSION["username"] ?? 'Veterinario';
 $user_id = $_SESSION['user_id'] ?? 0;
 $owner_id = $user_id; // El ID del veterinario que registró el tratamiento
 
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
 $active_treatments = [];
 $message = '';
 
-
+// Procesar actualización de estado
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['action'] === 'update_status') {
     
-    
-    $treatment_id = trim($_POST['treatment_id'] ?? 0);
-    $new_status = trim($_POST['new_status'] ?? '');
-    
+    $treatment_id = $_POST['treatment_id'] ?? 0;
+    $new_status = $_POST['new_status'] ?? '';
     
     if (is_numeric($treatment_id) && in_array($new_status, ['ACTIVO', 'COMPLETADO', 'PAUSADO'])) {
-        
-        // Se valida que solo el veterinario que registró el tratamiento pueda actualizarlo
-        $sql_update = "UPDATE treatments SET status = ? WHERE id = ? AND attendant_id = ?";
-        
-        if ($stmt_update = $conn->prepare($sql_update)) {
-            $stmt_update->bind_param("sii", $new_status, $treatment_id, $owner_id);
+        try {
+            // Se valida que solo el veterinario que registró el tratamiento pueda actualizarlo
+            $sql_update = "UPDATE treatments SET status = :status WHERE id = :id AND attendant_id = :attendant_id";
+            $stmt_update = $conn->prepare($sql_update);
+            $stmt_update->bindValue(':status', $new_status);
+            $stmt_update->bindValue(':id', $treatment_id, PDO::PARAM_INT);
+            $stmt_update->bindValue(':attendant_id', $owner_id, PDO::PARAM_INT);
             
             if ($stmt_update->execute()) {
-                // Uso de etiquetas HTML dentro de PHP para el mensaje de éxito
                 $message = "<p class='success-message'>✅ Estado del tratamiento actualizado a <strong>{$new_status}</strong>.</p>";
             } else {
-                $message = "<p class='error-message'>Error al actualizar el estado: " . $stmt_update->error . "</p>";
+                $errorInfo = $stmt_update->errorInfo();
+                $message = "<p class='error-message'>Error al actualizar el estado: " . $errorInfo[2] . "</p>";
             }
-            $stmt_update->close();
-        } else {
-            $message = "<p class='error-message'>Error de preparación de la consulta UPDATE: " . $conn->error . "</p>";
+        } catch (PDOException $e) {
+            $message = "<p class='error-message'>Error de base de datos: " . $e->getMessage() . "</p>";
         }
     } else {
         $message = "<p class='error-message'>Datos inválidos para la actualización de estado.</p>";
     }
 }
 
-
 // Consulta para obtener SOLO los tratamientos ACTIVO asociados a este veterinario
-$sql_select = "SELECT 
-                t.id, t.title, t.diagnosis, t.medication_details, t.start_date, t.end_date, t.status, 
-                p.name as pet_name,
-                p.id as pet_id,
-                pt.name AS pet_species_name,
-                b.name AS pet_breed_name       
-            FROM treatments t
-            JOIN pets p ON t.pet_id = p.id
-            LEFT JOIN pet_types pt ON p.type_id = pt.id 
-            LEFT JOIN breeds b ON p.breed_id = b.id        
-            WHERE t.attendant_id = ? AND t.status = 'ACTIVO'
-            ORDER BY t.start_date DESC"; 
-            
-if ($stmt_select = $conn->prepare($sql_select)) {
-    $stmt_select->bind_param("i", $owner_id);
+try {
+    $sql_select = "SELECT 
+                    t.id, t.title, t.diagnosis, t.medication_details, t.start_date, t.end_date, t.status, 
+                    p.name as pet_name,
+                    p.id as pet_id,
+                    pt.name AS pet_species_name,
+                    b.name AS pet_breed_name       
+                FROM treatments t
+                JOIN pets p ON t.pet_id = p.id
+                LEFT JOIN pet_types pt ON p.type_id = pt.id 
+                LEFT JOIN breeds b ON p.breed_id = b.id        
+                WHERE t.attendant_id = :attendant_id AND t.status = 'ACTIVO'
+                ORDER BY t.start_date DESC";
     
-    if ($stmt_select->execute()) {
-        $result = $stmt_select->get_result();
-        
-        while ($row = $result->fetch_assoc()) {
-            $active_treatments[] = $row;
-        }
-        $result->free();
-        
-        if (empty($active_treatments)) {
-            $message .= "<p class='info-message'>No hay tratamientos activos actualmente.</p>";
-        }
-        
-    } else {
-        $message .= "<p class='error-message'>Error al ejecutar la consulta de selección: " . $stmt_select->error . "</p>";
+    $stmt_select = $conn->prepare($sql_select);
+    $stmt_select->bindValue(':attendant_id', $owner_id, PDO::PARAM_INT);
+    $stmt_select->execute();
+    
+    $active_treatments = $stmt_select->fetchAll(PDO::FETCH_ASSOC);
+    
+    if (empty($active_treatments)) {
+        $message .= "<p class='info-message'>No hay tratamientos activos actualmente.</p>";
     }
-    $stmt_select->close();
-} else {
-    $message .= "<p class='error-message'>Error de preparación de la consulta SELECT: " . $conn->error . "</p>";
+    
+} catch (PDOException $e) {
+    $message .= "<p class='error-message'>Error al cargar tratamientos: " . $e->getMessage() . "</p>";
 }
 
-if (isset($conn)) {
-    $conn->close();
-}
+// No es necesario cerrar la conexión explícitamente
 ?>
 
 <!DOCTYPE html>
@@ -249,10 +236,7 @@ if (isset($conn)) {
                                 <strong><a href="pet_profile.php?id=<?php echo $treatment['pet_id']; ?>"><?php echo htmlspecialchars($treatment['pet_name']); ?></a></strong>
                                 <br><small>
                                     <?php 
-                                        
                                         echo htmlspecialchars($treatment['pet_species_name'] ?? 'Desconocida'); 
-                                        
-                                        
                                         if (!empty($treatment['pet_breed_name'])) {
                                             echo ' (' . htmlspecialchars($treatment['pet_breed_name']) . ')';
                                         }
@@ -300,7 +284,6 @@ if (isset($conn)) {
 
         // Usa una función personalizada en lugar de alert/confirm para notificaciones
         function showMessage(type, text) {
-            // Ejemplo de implementación simple para mostrar mensajes, puedes usar un modal más sofisticado si lo prefieres
             console.log(`[${type.toUpperCase()}] ${text}`);
             const messageArea = document.querySelector('.main-content');
             if (messageArea) {
@@ -313,13 +296,13 @@ if (isset($conn)) {
                 tempDiv.style.fontWeight = '500';
                 tempDiv.innerHTML = text;
                 messageArea.insertBefore(tempDiv, messageArea.querySelector('table') || messageArea.querySelector('h1').nextSibling);
-                setTimeout(() => tempDiv.remove(), 5000); // Eliminar después de 5 segundos
+                setTimeout(() => tempDiv.remove(), 5000);
             }
         }
 
         function exportPDF() {
             try {
-                const doc = new jsPDF('l', 'mm', 'a4'); // 'l' para orientación horizontal (Landscape)
+                const doc = new jsPDF('l', 'mm', 'a4');
                 const table = document.getElementById('treatmentTable');
 
                 if (!table) {
@@ -327,45 +310,34 @@ if (isset($conn)) {
                     return;
                 }
 
-                // 1. Título y Metadata
                 const title = 'Reporte de Tratamientos Activos';
                 doc.setFontSize(18);
-                doc.text(title, 14, 20); // (x, y)
+                doc.text(title, 14, 20);
 
                 doc.setFontSize(10);
                 doc.text(`Generado por: <?php echo htmlspecialchars($username); ?>`, 14, 28);
                 doc.text(`Fecha: ${new Date().toLocaleDateString('es-ES')}`, 14, 34);
 
-                // 2. Preparar los datos
-                // Se omite la última columna "Acción"
                 const headers = ['Paciente', 'Tratamiento', 'Medicación', 'Inicio/Fin Est.', 'Estado Actual'];
                 const data = [];
 
-                // Iterar sobre las filas del cuerpo de la tabla (omitiendo la última columna 'Acción')
                 const rows = table.querySelectorAll('tbody tr');
                 rows.forEach(row => {
                     const cells = row.querySelectorAll('td');
-                    // Solo tomamos las primeras 5 celdas 
                     const rowData = [];
 
                     for (let i = 0; i < 5; i++) {
                         const cell = cells[i];
-                        // Limpiamos el texto para el PDF, eliminando saltos de línea y enlaces
                         let text = cell.innerText.trim();
-                            
-                        // Para la columna de Inicio/Fin, reemplazamos **Inicio:** y **Fin Est.:** que no se ven en innerText
-                        // Pero aseguramos una mejor presentación de la fecha
-                        if (i === 3) { // Columna de Inicio/Fin Estimado
-                            // Reemplazamos los saltos de línea por espacios o comas para que se muestre en una línea o con salto de línea en autoTable
+
+                        if (i === 3) {
                             text = text.replace(/\n/g, ' / ');
-                        } else if (i === 4) { // Estado Actual
-                            // Solo tomamos el texto del tag, que es el estado en mayúsculas
+                        } else if (i === 4) {
                             const statusTag = cell.querySelector('.status-tag');
                             if (statusTag) {
                                 text = statusTag.innerText.trim();
                             }
                         }
-                        
                         rowData.push(text);
                     }
                     data.push(rowData);
@@ -376,14 +348,13 @@ if (isset($conn)) {
                     return;
                 }
 
-                // 3. Generar la tabla con jspdf-autotable
                 doc.autoTable({
                     head: [headers],
                     body: data,
                     startY: 40,
                     theme: 'striped',
                     headStyles: { 
-                        fillColor: [64, 145, 108], // #40916c
+                        fillColor: [64, 145, 108],
                         textColor: 255, 
                         fontStyle: 'bold' 
                     },
@@ -393,23 +364,19 @@ if (isset($conn)) {
                         overflow: 'linebreak'
                     },
                     columnStyles: {
-                        // Ancho de columnas para el formato A4 horizontal
-                        0: { cellWidth: 40 }, // Paciente
-                        1: { cellWidth: 70 }, // Tratamiento
-                        2: { cellWidth: 100 }, // Medicación
-                        3: { cellWidth: 35 }, // Inicio/Fin
-                        4: { cellWidth: 20 }, // Estado
+                        0: { cellWidth: 40 },
+                        1: { cellWidth: 70 },
+                        2: { cellWidth: 100 },
+                        3: { cellWidth: 35 },
+                        4: { cellWidth: 20 },
                     }
                 });
 
-                // 4. Guardar el PDF
                 doc.save('Tratamientos_Activos_<?php echo date('Ymd'); ?>.pdf');
                 showMessage('success', '✅ PDF generado exitosamente. La descarga debería comenzar en breve.');
 
-
             } catch (e) {
                 console.error("Error al generar el PDF:", e);
-                // Usamos la función de mensaje personalizada para evitar alert()
                 showMessage('error', 'Ocurrió un error al generar el PDF. Revisa la consola para más detalles.');
             }
         }
