@@ -2,11 +2,11 @@
 session_start();
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn debe ser un objeto PDO
 
 $username = $_SESSION["username"] ?? 'Veterinario';
 $user_id = $_SESSION['user_id'] ?? 0;
@@ -23,18 +23,20 @@ $error = '';
 $success = '';
 $preselected_pet_id = isset($_GET['pet_id']) ? intval($_GET['pet_id']) : 0;
 
-// Cargar todas las mascotas (con dueño para referencia)
-$sql_pets = "SELECT p.id, p.name, u.username as owner_name 
-             FROM pets p 
-             LEFT JOIN users u ON p.owner_id = u.id 
-             ORDER BY p.name ASC";
-$result = $conn->query($sql_pets);
-while ($row = $result->fetch_assoc()) {
-    $pets[] = $row;
+try {
+    // Cargar todas las mascotas (con dueño para referencia)
+    $sql_pets = "SELECT p.id, p.name, u.username as owner_name 
+                 FROM pets p 
+                 LEFT JOIN users u ON p.owner_id = u.id 
+                 ORDER BY p.name ASC";
+    $stmtPets = $conn->query($sql_pets);
+    $pets = $stmtPets->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $error = "Error al cargar mascotas: " . $e->getMessage();
 }
 
 // Procesar formulario
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
+if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
     $pet_id = intval($_POST['pet_id'] ?? 0);
     $consultation_date = $_POST['consultation_date'] ?? '';
     $reason = trim($_POST['reason'] ?? '');
@@ -50,28 +52,33 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $error = "Fecha inválida.";
         } else {
             $formatted_date = date('Y-m-d H:i:s', $timestamp);
-            $sql_insert = "INSERT INTO consultations (pet_id, attendant_id, consultation_date, reason, diagnosis, treatment, notes) 
-                           VALUES (?, ?, ?, ?, ?, ?, ?)";
-            $stmt = $conn->prepare($sql_insert);
-            $stmt->bind_param("iisssss", $pet_id, $user_id, $formatted_date, $reason, $diagnosis, $treatment, $notes);
-            if ($stmt->execute()) {
-                $new_id = $stmt->insert_id;
+            try {
+                $sql_insert = "INSERT INTO consultations (pet_id, attendant_id, consultation_date, reason, diagnosis, treatment, notes) 
+                               VALUES (:pet_id, :attendant_id, :date, :reason, :diagnosis, :treatment, :notes)";
+                $stmtInsert = $conn->prepare($sql_insert);
+                $stmtInsert->bindValue(':pet_id', $pet_id, PDO::PARAM_INT);
+                $stmtInsert->bindValue(':attendant_id', $user_id, PDO::PARAM_INT);
+                $stmtInsert->bindValue(':date', $formatted_date, PDO::PARAM_STR);
+                $stmtInsert->bindValue(':reason', $reason, PDO::PARAM_STR);
+                $stmtInsert->bindValue(':diagnosis', $diagnosis, PDO::PARAM_STR);
+                $stmtInsert->bindValue(':treatment', $treatment, PDO::PARAM_STR);
+                $stmtInsert->bindValue(':notes', $notes, PDO::PARAM_STR);
+                $stmtInsert->execute();
+
+                $new_id = $conn->lastInsertId();
+
                 require_once '../includes/bitacora_function.php';
                 $action = "Nueva consulta #$new_id registrada para mascota ID $pet_id";
                 log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
-                
+
                 $success = "Consulta registrada correctamente.";
-                // Limpiar POST
-                $_POST = [];
-            } else {
-                $error = "Error al registrar: " . $stmt->error;
+                $_POST = []; // Limpiar POST
+            } catch (PDOException $e) {
+                $error = "Error al registrar: " . $e->getMessage();
             }
-            $stmt->close();
         }
     }
 }
-
-$conn->close();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -153,7 +160,7 @@ $conn->close();
                 <?php foreach ($pets as $pet): ?>
                     <option value="<?php echo $pet['id']; ?>" <?php echo ($preselected_pet_id == $pet['id']) ? 'selected' : ''; ?>>
                         <?php echo htmlspecialchars($pet['name']); ?>
-                        <?php if ($pet['owner_name']) echo ' (Dueño: ' . htmlspecialchars($pet['owner_name']) . ')'; ?>
+                        <?php if (!empty($pet['owner_name'])) echo ' (Dueño: ' . htmlspecialchars($pet['owner_name']) . ')'; ?>
                     </option>
                 <?php endforeach; ?>
             </select>
