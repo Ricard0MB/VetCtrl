@@ -6,7 +6,7 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     exit;
 }
 
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es PDO
 
 $username = $_SESSION["username"] ?? 'Veterinario';
 $user_id = $_SESSION['user_id'] ?? 0;
@@ -24,109 +24,112 @@ if ($appointment_id <= 0) {
     exit;
 }
 
-// Cargar datos de la cita
-$sql = "SELECT * FROM appointments WHERE id = ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("i", $appointment_id);
-$stmt->execute();
-$result = $stmt->get_result();
-$appointment = $result->fetch_assoc();
-$stmt->close();
-
-if (!$appointment) {
-    header("Location: appointment_list.php?error=notfound");
-    exit;
-}
-
-// Verificar permisos: propietario solo puede editar sus propias citas
-if ($role_name === 'Propietario' && $appointment['attendant_id'] != $user_id) {
-    header("Location: appointment_list.php?error=unauthorized");
-    exit;
-}
-
-// Cargar mascotas según rol (para el select)
-if ($role_name === 'Propietario') {
-    $sql_pets = "SELECT id, name FROM pets WHERE owner_id = ? ORDER BY name ASC";
-    $stmt = $conn->prepare($sql_pets);
-    $stmt->bind_param("i", $user_id);
-} else {
-    $sql_pets = "SELECT id, name FROM pets ORDER BY name ASC";
-    $stmt = $conn->prepare($sql_pets);
-}
-$stmt->execute();
-$pets = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
-
 $error = '';
 $success = '';
+$appointment = null;
+$pets = [];
 
-// Procesar POST
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    if (isset($_POST['cancel_appointment'])) {
-        // Cancelar cita
-        $sql = "UPDATE appointments SET status = 'CANCELADA' WHERE id = ?";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("i", $appointment_id);
-        if ($stmt->execute()) {
-            require_once '../includes/bitacora_function.php';
-            $action = "Cita #$appointment_id cancelada";
-            log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
-            header("Location: appointment_list.php?msg=cancelled");
-            exit;
-        } else {
-            $error = "Error al cancelar: " . $stmt->error;
-        }
-        $stmt->close();
-    } elseif (isset($_POST['save_changes'])) {
-        $pet_id = intval($_POST['pet_id']);
-        $appointment_date = $_POST['appointment_date'];
-        $reason = trim($_POST['reason']);
+try {
+    // Cargar datos de la cita
+    $sql = "SELECT * FROM appointments WHERE id = :id";
+    $stmt = $conn->prepare($sql);
+    $stmt->bindValue(':id', $appointment_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $appointment = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($pet_id <= 0 || empty($appointment_date) || empty($reason)) {
-            $error = "Todos los campos son obligatorios.";
-        } else {
-            $timestamp = strtotime($appointment_date);
-            if (!$timestamp || $timestamp <= time()) {
-                $error = "La fecha debe ser futura.";
+    if (!$appointment) {
+        header("Location: appointment_list.php?error=notfound");
+        exit;
+    }
+
+    // Verificar permisos: propietario solo puede editar sus propias citas
+    if ($role_name === 'Propietario' && $appointment['attendant_id'] != $user_id) {
+        header("Location: appointment_list.php?error=unauthorized");
+        exit;
+    }
+
+    // Cargar mascotas según rol (para el select)
+    if ($role_name === 'Propietario') {
+        $sql_pets = "SELECT id, name FROM pets WHERE owner_id = :owner_id ORDER BY name ASC";
+        $stmtPets = $conn->prepare($sql_pets);
+        $stmtPets->bindValue(':owner_id', $user_id, PDO::PARAM_INT);
+    } else {
+        $sql_pets = "SELECT id, name FROM pets ORDER BY name ASC";
+        $stmtPets = $conn->prepare($sql_pets);
+    }
+    $stmtPets->execute();
+    $pets = $stmtPets->fetchAll(PDO::FETCH_ASSOC);
+
+    // Procesar POST
+    if ($_SERVER["REQUEST_METHOD"] == "POST") {
+        if (isset($_POST['cancel_appointment'])) {
+            // Cancelar cita
+            $sqlCancel = "UPDATE appointments SET status = 'CANCELADA' WHERE id = :id";
+            $stmtCancel = $conn->prepare($sqlCancel);
+            $stmtCancel->bindValue(':id', $appointment_id, PDO::PARAM_INT);
+            if ($stmtCancel->execute()) {
+                require_once '../includes/bitacora_function.php';
+                $action = "Cita #$appointment_id cancelada";
+                log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
+                header("Location: appointment_list.php?msg=cancelled");
+                exit;
             } else {
-                $formatted = date('Y-m-d H:i:s', $timestamp);
-                
-                // Si es propietario, verificar que la mascota le pertenezca
-                if ($role_name === 'Propietario') {
-                    $check = $conn->prepare("SELECT id FROM pets WHERE id = ? AND owner_id = ?");
-                    $check->bind_param("ii", $pet_id, $user_id);
-                    $check->execute();
-                    $check->store_result();
-                    if ($check->num_rows == 0) {
-                        $error = "La mascota seleccionada no le pertenece.";
+                $error = "Error al cancelar: " . implode(", ", $stmtCancel->errorInfo());
+            }
+        } elseif (isset($_POST['save_changes'])) {
+            $pet_id = intval($_POST['pet_id']);
+            $appointment_date = $_POST['appointment_date'];
+            $reason = trim($_POST['reason']);
+
+            if ($pet_id <= 0 || empty($appointment_date) || empty($reason)) {
+                $error = "Todos los campos son obligatorios.";
+            } else {
+                $timestamp = strtotime($appointment_date);
+                if (!$timestamp || $timestamp <= time()) {
+                    $error = "La fecha debe ser futura.";
+                } else {
+                    $formatted = date('Y-m-d H:i:s', $timestamp);
+                    
+                    // Si es propietario, verificar que la mascota le pertenezca
+                    if ($role_name === 'Propietario') {
+                        $checkSql = "SELECT id FROM pets WHERE id = :pet_id AND owner_id = :owner_id";
+                        $checkStmt = $conn->prepare($checkSql);
+                        $checkStmt->bindValue(':pet_id', $pet_id, PDO::PARAM_INT);
+                        $checkStmt->bindValue(':owner_id', $user_id, PDO::PARAM_INT);
+                        $checkStmt->execute();
+                        if ($checkStmt->rowCount() == 0) {
+                            $error = "La mascota seleccionada no le pertenece.";
+                        }
                     }
-                    $check->close();
-                }
-                
-                if (empty($error)) {
-                    $sql = "UPDATE appointments SET pet_id = ?, appointment_date = ?, reason = ? WHERE id = ?";
-                    $stmt = $conn->prepare($sql);
-                    $stmt->bind_param("issi", $pet_id, $formatted, $reason, $appointment_id);
-                    if ($stmt->execute()) {
-                        require_once '../includes/bitacora_function.php';
-                        $action = "Cita #$appointment_id actualizada";
-                        log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
-                        $success = "Cita actualizada correctamente.";
-                        // Actualizar datos locales
-                        $appointment['pet_id'] = $pet_id;
-                        $appointment['appointment_date'] = $formatted;
-                        $appointment['reason'] = $reason;
-                    } else {
-                        $error = "Error al actualizar: " . $stmt->error;
+                    
+                    if (empty($error)) {
+                        $updateSql = "UPDATE appointments SET pet_id = :pet_id, appointment_date = :date, reason = :reason WHERE id = :id";
+                        $updateStmt = $conn->prepare($updateSql);
+                        $updateStmt->bindValue(':pet_id', $pet_id, PDO::PARAM_INT);
+                        $updateStmt->bindValue(':date', $formatted, PDO::PARAM_STR);
+                        $updateStmt->bindValue(':reason', $reason, PDO::PARAM_STR);
+                        $updateStmt->bindValue(':id', $appointment_id, PDO::PARAM_INT);
+                        if ($updateStmt->execute()) {
+                            require_once '../includes/bitacora_function.php';
+                            $action = "Cita #$appointment_id actualizada";
+                            log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
+                            $success = "Cita actualizada correctamente.";
+                            // Actualizar datos locales
+                            $appointment['pet_id'] = $pet_id;
+                            $appointment['appointment_date'] = $formatted;
+                            $appointment['reason'] = $reason;
+                        } else {
+                            $error = "Error al actualizar: " . implode(", ", $updateStmt->errorInfo());
+                        }
                     }
-                    $stmt->close();
                 }
             }
         }
     }
+} catch (PDOException $e) {
+    $error = "Error de base de datos: " . $e->getMessage();
 }
-
-$conn->close();
+// No es necesario cerrar la conexión explícitamente
 ?>
 <!DOCTYPE html>
 <html lang="es">
