@@ -1,9 +1,9 @@
 <?php
 session_start();
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
@@ -13,19 +13,35 @@ if (!in_array($role_name, ['Veterinario', 'admin'])) {
     exit;
 }
 
-// Obtener métricas simples
+// Obtener métricas simples con PDO
 $kpis = [];
-$sql = "SELECT 
-    (SELECT COUNT(*) FROM users) as usuarios_totales,
-    (SELECT COUNT(*) FROM pets) as pacientes_totales,
-    (SELECT COUNT(*) FROM consultations WHERE DATE(consultation_date) = CURDATE()) as consultas_hoy,
-    (SELECT COUNT(*) FROM appointments WHERE status = 'PENDIENTE') as citas_pendientes";
-$result = $conn->query($sql);
-$kpis = $result->fetch_assoc();
+$ultimos = [];
 
-$ultimos = $conn->query("SELECT p.name, pt.name as especie, p.created_at FROM pets p LEFT JOIN pet_types pt ON p.type_id = pt.id ORDER BY p.created_at DESC LIMIT 5")->fetch_all(MYSQLI_ASSOC);
+try {
+    // KPIs principales
+    $sql = "SELECT 
+        (SELECT COUNT(*) FROM users) as usuarios_totales,
+        (SELECT COUNT(*) FROM pets) as pacientes_totales,
+        (SELECT COUNT(*) FROM consultations WHERE DATE(consultation_date) = CURDATE()) as consultas_hoy,
+        (SELECT COUNT(*) FROM appointments WHERE status = 'PENDIENTE') as citas_pendientes";
+    $stmt = $conn->query($sql);
+    $kpis = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
-$conn->close();
+    // Últimos 5 pacientes registrados
+    $sql2 = "SELECT p.name, pt.name as especie, p.created_at 
+             FROM pets p 
+             LEFT JOIN pet_types pt ON p.type_id = pt.id 
+             ORDER BY p.created_at DESC 
+             LIMIT 5";
+    $stmt2 = $conn->query($sql2);
+    $ultimos = $stmt2->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    // En producción podrías loguear el error y asignar valores por defecto
+    $kpis = ['usuarios_totales' => 0, 'pacientes_totales' => 0, 'consultas_hoy' => 0, 'citas_pendientes' => 0];
+    $ultimos = [];
+    // Opcional: mostrar mensaje de error
+    // $error = "Error al cargar métricas: " . $e->getMessage();
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -69,21 +85,25 @@ $conn->close();
         <div class="card">
             <h1><i class="fas fa-chart-bar"></i> Dashboard de Métricas</h1>
 
+            <?php if (isset($error)): ?>
+                <div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div>
+            <?php endif; ?>
+
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-value"><?php echo $kpis['usuarios_totales']; ?></div>
+                    <div class="stat-value"><?php echo $kpis['usuarios_totales'] ?? 0; ?></div>
                     <div class="stat-label">Usuarios totales</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value"><?php echo $kpis['pacientes_totales']; ?></div>
+                    <div class="stat-value"><?php echo $kpis['pacientes_totales'] ?? 0; ?></div>
                     <div class="stat-label">Pacientes totales</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value"><?php echo $kpis['consultas_hoy']; ?></div>
+                    <div class="stat-value"><?php echo $kpis['consultas_hoy'] ?? 0; ?></div>
                     <div class="stat-label">Consultas hoy</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value"><?php echo $kpis['citas_pendientes']; ?></div>
+                    <div class="stat-value"><?php echo $kpis['citas_pendientes'] ?? 0; ?></div>
                     <div class="stat-label">Citas pendientes</div>
                 </div>
             </div>
@@ -94,7 +114,7 @@ $conn->close();
                     <tr><th>Nombre</th><th>Especie</th><th>Fecha</th></tr>
                 </thead>
                 <tbody>
-                    <?php if ($ultimos): ?>
+                    <?php if (!empty($ultimos)): ?>
                         <?php foreach ($ultimos as $p): ?>
                         <tr>
                             <td><?php echo htmlspecialchars($p['name']); ?></td>
