@@ -2,11 +2,11 @@
 session_start();
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
 $username = $_SESSION["username"] ?? 'Usuario';
 $user_id = $_SESSION['user_id'] ?? 0;
@@ -22,37 +22,48 @@ $error = '';
 $success = '';
 $type_name = '';
 
-// Obtener especies existentes
-$types = $conn->query("SELECT name, created_at FROM pet_types ORDER BY name ASC")->fetch_all(MYSQLI_ASSOC);
+try {
+    // Obtener especies existentes
+    $stmtTypes = $conn->query("SELECT name, created_at FROM pet_types ORDER BY name ASC");
+    $types = $stmtTypes->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $error = "Error al cargar especies: " . $e->getMessage();
+    $types = [];
+}
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
+if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
     $type_name = trim($_POST['type_name'] ?? '');
     if (empty($type_name)) {
         $error = "Ingrese el nombre de la especie.";
     } else {
-        $sql = "INSERT INTO pet_types (name, attendant_id) VALUES (?, ?)";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("si", $type_name, $user_id);
-        if ($stmt->execute()) {
+        try {
+            $sql = "INSERT INTO pet_types (name, attendant_id) VALUES (:name, :attendant_id)";
+            $stmt = $conn->prepare($sql);
+            $stmt->bindValue(':name', $type_name);
+            $stmt->bindValue(':attendant_id', $user_id, PDO::PARAM_INT);
+            $stmt->execute();
+
             require_once '../includes/bitacora_function.php';
             $action = "Nueva especie registrada: $type_name";
             log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
+
             $success = "Especie '$type_name' registrada correctamente.";
             $type_name = '';
+
             // Recargar lista
-            $types = $conn->query("SELECT name, created_at FROM pet_types ORDER BY name ASC")->fetch_all(MYSQLI_ASSOC);
-        } else {
-            if ($conn->errno == 1062) {
+            $stmtTypes = $conn->query("SELECT name, created_at FROM pet_types ORDER BY name ASC");
+            $types = $stmtTypes->fetchAll(PDO::FETCH_ASSOC);
+
+        } catch (PDOException $e) {
+            // Código 1062: entrada duplicada
+            if ($e->errorInfo[1] == 1062) {
                 $error = "La especie '$type_name' ya existe.";
             } else {
-                $error = "Error al registrar: " . $stmt->error;
+                $error = "Error al registrar: " . $e->getMessage();
             }
         }
-        $stmt->close();
     }
 }
-
-$conn->close();
 ?>
 <!DOCTYPE html>
 <html lang="es">
