@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
 // Verificar permisos
 $user_role = $_SESSION['role_name'] ?? '';
@@ -10,30 +10,37 @@ if (!in_array($user_role, ['Veterinario', 'admin'])) {
 }
 
 // Obtener ID del empleado
-$employee_id = intval($_GET['id'] ?? 0);
+$employee_id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 
-if ($employee_id <= 0) {
+if (!$employee_id || $employee_id <= 0) {
     header("Location: employee_list.php");
     exit;
 }
 
-// Consultar datos del empleado
-$sql = "SELECT u.*, r.name as role_name 
-        FROM users u 
-        LEFT JOIN roles r ON u.role_id = r.id 
-        WHERE u.id = ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("i", $employee_id);
-$stmt->execute();
-$result = $stmt->get_result();
+$employee = null;
 
-if ($result->num_rows === 0) {
-    header("Location: employee_list.php");
-    exit;
+try {
+    // Consultar datos del empleado
+    $sql = "SELECT u.*, r.name as role_name 
+            FROM users u 
+            LEFT JOIN roles r ON u.role_id = r.id 
+            WHERE u.id = :id";
+    $stmt = $conn->prepare($sql);
+    $stmt->bindValue(':id', $employee_id, PDO::PARAM_INT);
+    $stmt->execute();
+
+    $employee = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$employee) {
+        header("Location: employee_list.php");
+        exit;
+    }
+} catch (PDOException $e) {
+    // Manejo de error: podrías redirigir con mensaje o mostrar error
+    die("Error al cargar empleado: " . $e->getMessage());
 }
 
-$employee = $result->fetch_assoc();
-$stmt->close();
+// No es necesario cerrar la conexión explícitamente, pero si se desea se puede hacer $conn = null;
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -415,5 +422,6 @@ $stmt->close();
 </body>
 </html>
 <?php
-$conn->close();
+// Opcional: cerrar conexión explícitamente (no necesario con PDO)
+// $conn = null;
 ?>
