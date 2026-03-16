@@ -1,19 +1,14 @@
 <?php
 session_start();
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
 // --- Activar solo para depuración (quitar en producción) ---
 // error_reporting(E_ALL);
 // ini_set('display_errors', 1);
 
-// Verificar conexión a la base de datos
-if (!isset($conn) || $conn->connect_error) {
-    die("Error de conexión a la base de datos: " . ($conn->connect_error ?? 'conexión no disponible'));
-}
-
 // Verificar autenticación
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
@@ -27,9 +22,13 @@ if (!in_array($role_name, ['Veterinario', 'admin'])) {
 define('LOG_TABLE', 'db_bitacora');
 
 // Verificar que la tabla exista (opcional, pero útil para diagnóstico)
-$checkTable = $conn->query("SHOW TABLES LIKE '" . LOG_TABLE . "'");
-if ($checkTable->num_rows == 0) {
-    die("La tabla '" . LOG_TABLE . "' no existe en la base de datos.");
+try {
+    $checkTable = $conn->query("SHOW TABLES LIKE '" . LOG_TABLE . "'");
+    if ($checkTable->rowCount() == 0) {
+        die("La tabla '" . LOG_TABLE . "' no existe en la base de datos.");
+    }
+} catch (PDOException $e) {
+    die("Error al verificar tabla: " . $e->getMessage());
 }
 
 $limit = 20;
@@ -38,13 +37,13 @@ $offset = ($page - 1) * $limit;
 
 // Obtener lista de usuarios para el filtro (con manejo de error)
 $users = [];
-$res = $conn->query("SELECT DISTINCT username FROM " . LOG_TABLE . " ORDER BY username");
-if ($res) {
-    while ($row = $res->fetch_assoc()) {
+try {
+    $res = $conn->query("SELECT DISTINCT username FROM " . LOG_TABLE . " ORDER BY username");
+    while ($row = $res->fetch(PDO::FETCH_ASSOC)) {
         $users[] = $row['username'];
     }
-} else {
-    error_log("Error al obtener usuarios para filtro: " . $conn->error);
+} catch (PDOException $e) {
+    error_log("Error al obtener usuarios para filtro: " . $e->getMessage());
     // No detenemos la ejecución, simplemente no mostramos el filtro
 }
 
@@ -56,44 +55,37 @@ $filter_search = $_GET['search'] ?? '';
 
 $where = "WHERE 1=1";
 $params = [];
-$types = '';
 
 if (!empty($filter_search)) {
-    $where .= " AND (action LIKE ? OR username LIKE ?)";
-    $types .= "ss";
-    $search_term = "%$filter_search%";
-    $params[] = $search_term;
-    $params[] = $search_term;
+    $where .= " AND (action LIKE :search1 OR username LIKE :search2)";
+    $params[':search1'] = "%$filter_search%";
+    $params[':search2'] = "%$filter_search%";
 }
 if (!empty($filter_user)) {
-    $where .= " AND username = ?";
-    $types .= "s";
-    $params[] = $filter_user;
+    $where .= " AND username = :user";
+    $params[':user'] = $filter_user;
 }
 if (!empty($filter_start)) {
-    $where .= " AND timestamp >= ?";
-    $types .= "s";
-    $params[] = $filter_start . " 00:00:00";
+    $where .= " AND timestamp >= :start_date";
+    $params[':start_date'] = $filter_start . " 00:00:00";
 }
 if (!empty($filter_end)) {
-    $where .= " AND timestamp <= ?";
-    $types .= "s";
-    $params[] = $filter_end . " 23:59:59";
+    $where .= " AND timestamp <= :end_date";
+    $params[':end_date'] = $filter_end . " 23:59:59";
 }
 
 // ----- Consulta para contar total de registros (con paginación) -----
-$count_sql = "SELECT COUNT(*) as total FROM " . LOG_TABLE . " " . $where;
-$stmt_count = $conn->prepare($count_sql);
-if (!$stmt_count) {
-    die("Error preparando consulta de conteo: " . $conn->error);
+try {
+    $count_sql = "SELECT COUNT(*) as total FROM " . LOG_TABLE . " " . $where;
+    $stmt_count = $conn->prepare($count_sql);
+    foreach ($params as $key => $value) {
+        $stmt_count->bindValue($key, $value);
+    }
+    $stmt_count->execute();
+    $total = $stmt_count->fetch(PDO::FETCH_ASSOC)['total'];
+} catch (PDOException $e) {
+    die("Error al contar registros: " . $e->getMessage());
 }
-
-if (!empty($params)) {
-    $stmt_count->bind_param($types, ...$params);
-}
-$stmt_count->execute();
-$total = $stmt_count->get_result()->fetch_assoc()['total'];
-$stmt_count->close();
 
 $total_pages = ceil($total / $limit);
 if ($page > $total_pages && $total_pages > 0) {
@@ -102,30 +94,22 @@ if ($page > $total_pages && $total_pages > 0) {
 }
 
 // ----- Consulta principal con límite y offset -----
-$sql = "SELECT id, timestamp, action, username, role_id FROM " . LOG_TABLE . " " . $where . " ORDER BY timestamp DESC LIMIT ? OFFSET ?";
-$stmt = $conn->prepare($sql);
-if (!$stmt) {
-    die("Error preparando consulta principal: " . $conn->error);
-}
-
-// Agregar parámetros de límite y offset al final
-$types_full = $types . "ii";
-$params_full = $params;
-$params_full[] = $limit;
-$params_full[] = $offset;
-
-if (!empty($params_full)) {
-    $stmt->bind_param($types_full, ...$params_full);
-}
-$stmt->execute();
-$result = $stmt->get_result();
-
-// Recorrer resultados de forma compatible (sin fetch_all)
 $logs = [];
-while ($row = $result->fetch_assoc()) {
-    $logs[] = $row;
+try {
+    $sql = "SELECT id, timestamp, action, username, role_id FROM " . LOG_TABLE . " " . $where . " ORDER BY timestamp DESC LIMIT :limit OFFSET :offset";
+    $stmt = $conn->prepare($sql);
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value);
+    }
+    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+    $stmt->execute();
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $logs[] = $row;
+    }
+} catch (PDOException $e) {
+    die("Error al obtener registros: " . $e->getMessage());
 }
-$stmt->close();
 
 // Mapa de roles (ajusta los IDs según tu tabla 'users')
 $role_map = [1 => 'Veterinario', 2 => 'Propietario', 3 => 'Admin'];
@@ -267,5 +251,5 @@ $pagination_params = http_build_query([
 </body>
 </html>
 <?php
-$conn->close();
+// No es necesario cerrar la conexión explícitamente con PDO
 ?>
