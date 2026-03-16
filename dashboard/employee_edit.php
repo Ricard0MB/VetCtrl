@@ -1,9 +1,9 @@
 <?php
 session_start();
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
@@ -16,80 +16,97 @@ if ($role_name !== 'admin') {
     exit;
 }
 
-$employee_id = intval($_GET['id'] ?? 0);
-if ($employee_id <= 0) {
+$employee_id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+if (!$employee_id || $employee_id <= 0) {
     header("Location: employee_list.php");
     exit;
 }
 
-// Obtener datos actuales del empleado
-$sql = "SELECT * FROM users WHERE id = ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("i", $employee_id);
-$stmt->execute();
-$result = $stmt->get_result();
-$employee = $result->fetch_assoc();
-$stmt->close();
-
-if (!$employee) {
-    header("Location: employee_list.php");
-    exit;
-}
-
-// Obtener lista de roles
-$roles = $conn->query("SELECT id, name FROM roles ORDER BY id")->fetch_all(MYSQLI_ASSOC);
-
+$employee = null;
 $error = '';
 $success = '';
 
-// Procesar actualización
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $ci = trim($_POST['ci']);
-    $first_name = trim($_POST['first_name']);
-    $last_name = trim($_POST['last_name']);
-    $email = trim($_POST['email']);
-    $phone = trim($_POST['phone']);
-    $address = trim($_POST['address']);
-    $position = trim($_POST['position']);
-    $role_id = intval($_POST['role_id']);
-    $status = $_POST['status'];
+try {
+    // Obtener datos actuales del empleado
+    $sql = "SELECT * FROM users WHERE id = :id";
+    $stmt = $conn->prepare($sql);
+    $stmt->bindValue(':id', $employee_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $employee = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (empty($first_name) || empty($email) || empty($position)) {
-        $error = "Nombres, email y cargo son obligatorios.";
-    } else {
-        // Verificar email único (excepto el mismo)
-        $check = $conn->prepare("SELECT id FROM users WHERE email = ? AND id != ?");
-        $check->bind_param("si", $email, $employee_id);
-        $check->execute();
-        $check->store_result();
-        if ($check->num_rows > 0) {
-            $error = "El email ya está registrado por otro usuario.";
-            $check->close();
+    if (!$employee) {
+        header("Location: employee_list.php");
+        exit;
+    }
+
+    // Obtener lista de roles
+    $roles = [];
+    $stmtRoles = $conn->query("SELECT id, name FROM roles ORDER BY id");
+    $roles = $stmtRoles->fetchAll(PDO::FETCH_ASSOC);
+
+    // Procesar actualización
+    if ($_SERVER["REQUEST_METHOD"] == "POST") {
+        $ci = trim($_POST['ci'] ?? '');
+        $first_name = trim($_POST['first_name'] ?? '');
+        $last_name = trim($_POST['last_name'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $phone = trim($_POST['phone'] ?? '');
+        $address = trim($_POST['address'] ?? '');
+        $position = trim($_POST['position'] ?? '');
+        $role_id = intval($_POST['role_id'] ?? 0);
+        $status = $_POST['status'] ?? 'active';
+
+        if (empty($first_name) || empty($email) || empty($position)) {
+            $error = "Nombres, email y cargo son obligatorios.";
         } else {
-            $check->close();
-            $update = $conn->prepare("UPDATE users SET ci=?, first_name=?, last_name=?, email=?, phone=?, address=?, position=?, role_id=?, status=? WHERE id=?");
-            $update->bind_param("sssssssisi", $ci, $first_name, $last_name, $email, $phone, $address, $position, $role_id, $status, $employee_id);
-            if ($update->execute()) {
-                require_once '../includes/bitacora_function.php';
-                $action = "Empleado ID $employee_id actualizado";
-                log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
-                
-                $success = "Empleado actualizado correctamente.";
-                // Actualizar datos locales
-                $employee = array_merge($employee, [
-                    'ci' => $ci, 'first_name' => $first_name, 'last_name' => $last_name,
-                    'email' => $email, 'phone' => $phone, 'address' => $address,
-                    'position' => $position, 'role_id' => $role_id, 'status' => $status
-                ]);
+            // Verificar email único (excepto el mismo)
+            $checkSql = "SELECT COUNT(*) FROM users WHERE email = :email AND id != :id";
+            $checkStmt = $conn->prepare($checkSql);
+            $checkStmt->bindValue(':email', $email);
+            $checkStmt->bindValue(':id', $employee_id, PDO::PARAM_INT);
+            $checkStmt->execute();
+            $count = $checkStmt->fetchColumn();
+
+            if ($count > 0) {
+                $error = "El email ya está registrado por otro usuario.";
             } else {
-                $error = "Error al actualizar: " . $update->error;
+                $updateSql = "UPDATE users SET ci = :ci, first_name = :first_name, last_name = :last_name, email = :email, phone = :phone, address = :address, position = :position, role_id = :role_id, status = :status WHERE id = :id";
+                $updateStmt = $conn->prepare($updateSql);
+                $updateStmt->bindValue(':ci', $ci);
+                $updateStmt->bindValue(':first_name', $first_name);
+                $updateStmt->bindValue(':last_name', $last_name);
+                $updateStmt->bindValue(':email', $email);
+                $updateStmt->bindValue(':phone', $phone);
+                $updateStmt->bindValue(':address', $address);
+                $updateStmt->bindValue(':position', $position);
+                $updateStmt->bindValue(':role_id', $role_id, PDO::PARAM_INT);
+                $updateStmt->bindValue(':status', $status);
+                $updateStmt->bindValue(':id', $employee_id, PDO::PARAM_INT);
+
+                if ($updateStmt->execute()) {
+                    require_once '../includes/bitacora_function.php';
+                    $action = "Empleado ID $employee_id actualizado";
+                    log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
+
+                    $success = "Empleado actualizado correctamente.";
+                    // Actualizar datos locales
+                    $employee = array_merge($employee, [
+                        'ci' => $ci, 'first_name' => $first_name, 'last_name' => $last_name,
+                        'email' => $email, 'phone' => $phone, 'address' => $address,
+                        'position' => $position, 'role_id' => $role_id, 'status' => $status
+                    ]);
+                } else {
+                    $errorInfo = $updateStmt->errorInfo();
+                    $error = "Error al actualizar: " . ($errorInfo[2] ?? 'Error desconocido');
+                }
             }
-            $update->close();
         }
     }
+} catch (PDOException $e) {
+    $error = "Error de base de datos: " . $e->getMessage();
 }
 
-$conn->close();
+// No es necesario cerrar la conexión explícitamente
 ?>
 <!DOCTYPE html>
 <html lang="es">
