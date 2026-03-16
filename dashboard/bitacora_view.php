@@ -1,125 +1,94 @@
 <?php
 session_start();
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 require_once '../includes/bitacora_function.php';
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || ($_SESSION['role_id'] != 1)) {
-    header("location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
-define('LOG_TABLE', 'db_bitacora'); 
-
+define('LOG_TABLE', 'db_bitacora');
+$limit = 15; // Número de registros por página (definido en el código original, lo agregamos)
 $page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
 
-
-$users_query = $conn->query("SELECT username FROM users ORDER BY username ASC");
-$users = [];
-while ($row = $users_query->fetch_assoc()) {
-    $users[] = $row['username'];
-}
-
-
-$filter_user = $_GET['user'] ?? '';
-$filter_start_date = $_GET['start_date'] ?? '';
-$filter_end_date = $_GET['end_date'] ?? '';
-$filter_search = $_GET['search'] ?? ''; 
-
-$where_clause = " WHERE 1";
-$params = [];
-$types = '';
-
-
-if (!empty($filter_search)) {
-    $where_clause .= " AND (action LIKE ? OR username LIKE ?)";
-    $types .= "ss";
-    $search_param = "%" . $filter_search . "%";
-    $params[] = $search_param;
-    $params[] = $search_param;
-}
-
-if (!empty($filter_user)) {
-    $where_clause .= " AND username = ?";
-    $types .= "s";
-    $params[] = $filter_user;
-}
-
-if (!empty($filter_start_date)) {
-    $where_clause .= " AND timestamp >= ?";
-    $types .= "s";
-    $params[] = $filter_start_date . " 00:00:00"; 
-}
-
-if (!empty($filter_end_date)) {
-    $where_clause .= " AND timestamp <= ?";
-    $types .= "s";
-    $params[] = $filter_end_date . " 23:59:59";
-}
-
-
-$count_sql = "SELECT COUNT(*) AS total FROM " . LOG_TABLE . $where_clause;
-$count_stmt = $conn->prepare($count_sql);
-
-$filter_params = $params; 
-$filter_types = $types;
-
-if ($count_stmt) {
-    if (!empty($filter_params)) {
-        $count_stmt->bind_param($filter_types, ...$filter_params);
+try {
+    // Obtener lista de usuarios para el filtro
+    $users = [];
+    $stmtUsers = $conn->query("SELECT username FROM users ORDER BY username ASC");
+    while ($row = $stmtUsers->fetch(PDO::FETCH_ASSOC)) {
+        $users[] = $row['username'];
     }
-    
-    if (!$count_stmt->execute()) {
-        $error = "Error al ejecutar la consulta de conteo: " . $count_stmt->error;
-        $total_records = 0;
-    } else {
-        $count_result = $count_stmt->get_result()->fetch_assoc();
-        $total_records = $count_result['total'];
+
+    // Filtros
+    $filter_user = $_GET['user'] ?? '';
+    $filter_start_date = $_GET['start_date'] ?? '';
+    $filter_end_date = $_GET['end_date'] ?? '';
+    $filter_search = $_GET['search'] ?? '';
+
+    $where_clause = " WHERE 1";
+    $params = [];
+
+    if (!empty($filter_search)) {
+        $where_clause .= " AND (action LIKE :search1 OR username LIKE :search2)";
+        $params[':search1'] = "%" . $filter_search . "%";
+        $params[':search2'] = "%" . $filter_search . "%";
     }
+
+    if (!empty($filter_user)) {
+        $where_clause .= " AND username = :user";
+        $params[':user'] = $filter_user;
+    }
+
+    if (!empty($filter_start_date)) {
+        $where_clause .= " AND timestamp >= :start_date";
+        $params[':start_date'] = $filter_start_date . " 00:00:00";
+    }
+
+    if (!empty($filter_end_date)) {
+        $where_clause .= " AND timestamp <= :end_date";
+        $params[':end_date'] = $filter_end_date . " 23:59:59";
+    }
+
+    // Contar total de registros con filtros
+    $count_sql = "SELECT COUNT(*) AS total FROM " . LOG_TABLE . $where_clause;
+    $count_stmt = $conn->prepare($count_sql);
+    foreach ($params as $key => $value) {
+        $count_stmt->bindValue($key, $value);
+    }
+    $count_stmt->execute();
+    $total_records = $count_stmt->fetch(PDO::FETCH_ASSOC)['total'];
     $total_pages = ceil($total_records / $limit);
-    $count_stmt->close();
-} else {
-    $error = "Error al preparar la consulta de conteo: " . $conn->error;
+
+    if ($page > $total_pages) { $page = max(1, $total_pages); }
+    if ($page < 1) { $page = 1; }
+    $offset = ($page - 1) * $limit;
+
+    // Consulta principal con paginación
+    $sql = "SELECT * FROM " . LOG_TABLE . $where_clause . " ORDER BY timestamp DESC LIMIT :limit OFFSET :offset";
+    $stmt = $conn->prepare($sql);
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value);
+    }
+    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+    $stmt->execute();
+    $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+    $error = "Error de base de datos: " . $e->getMessage();
     $total_records = 0;
     $total_pages = 1;
+    $result = [];
 }
 
-if ($page > $total_pages) { $page = $total_pages; }
-if ($page < 1) { $page = 1; }
-$offset = ($page - 1) * $limit; 
-
-
-$sql = "SELECT * FROM " . LOG_TABLE . $where_clause . " ORDER BY timestamp DESC LIMIT ? OFFSET ?";
-
-$final_types = $filter_types . "ii"; 
-$final_params = $filter_params;
-$final_params[] = $limit;
-$final_params[] = $offset;
-
-
-$stmt = $conn->prepare($sql);
-
-if ($stmt) {
-    if (!empty($final_params)) {
-        $stmt->bind_param($final_types, ...$final_params);
-    }
-    
-    if ($stmt->execute()) {
-        $result = $stmt->get_result();
-    } else {
-        $error = "Error al ejecutar la consulta principal: " . $stmt->error;
-    }
-} else {
-    $error = "Error al preparar la consulta principal: " . $conn->error;
-}
-
-
+// Construir parámetros para paginación
 $pagination_params = http_build_query([
     'user' => $filter_user,
     'start_date' => $filter_start_date,
     'end_date' => $filter_end_date,
     'search' => $filter_search
 ]);
-
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -224,8 +193,8 @@ $pagination_params = http_build_query([
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
-                    <?php if (isset($result) && $result && $result->num_rows > 0): ?>
-                        <?php while ($row = $result->fetch_assoc()): ?>
+                    <?php if (!empty($result)): ?>
+                        <?php foreach ($result as $row): ?>
                             <tr class="hover:bg-gray-50">
                                 <td class="py-4 px-6 text-sm font-medium text-gray-900"><?= htmlspecialchars($row['id'] ?? '') ?></td>
                                 <td class="py-4 px-6 text-sm text-gray-500 whitespace-nowrap"><?= htmlspecialchars($row['timestamp'] ?? '') ?></td>
@@ -233,7 +202,7 @@ $pagination_params = http_build_query([
                                 <td class="py-4 px-6 text-sm text-gray-500"><?= htmlspecialchars($row['role_id'] ?? '') ?></td>
                                 <td class="py-4 px-6 text-sm text-gray-900 action-cell"><?= htmlspecialchars($row['action'] ?? '') ?></td>
                             </tr>
-                        <?php endwhile; ?>
+                        <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
                             <td colspan="5" class="py-8 text-center text-gray-500 text-lg">
@@ -287,115 +256,3 @@ $pagination_params = http_build_query([
 
 </body>
 </html>
-<?php
-if (isset($stmt)) { $stmt->close(); }
-if (isset($conn)) { $conn->close(); }
-?>
-
- body {
-            background-color: #e9ecef;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            font-family: 'Inter', sans-serif;
-        }
-        .login-container {
-            background-color: #ffffff;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 400px;
-            text-align: center;
-            border-top: 5px solid #2d6a4f;
-        }
-        h1 {
-            color: #1b4332;
-            margin-bottom: 25px;
-            font-size: 2em;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        h1 span {
-            margin-left: 10px;
-            font-size: 1.2em;
-        }
-        .form-group {
-            margin-bottom: 20px;
-            text-align: left;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #495057;
-        }
-        .form-group input[type="text"],
-        .form-group input[type="password"] {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ced4da;
-            border-radius: 8px;
-            font-size: 1em;
-            box-sizing: border-box;
-            transition: border-color 0.3s;
-        }
-        .form-group input[type="text"]:focus,
-        .form-group input[type="password"]:focus {
-             border-color: #40916c;
-             box-shadow: 0 0 0 0.2rem rgba(64, 145, 108, 0.25);
-             outline: none;
-        }
-        .btn-primary {
-            background-color: #2d6a4f;
-            color: white;
-            padding: 12px 20px;
-            border: none;
-            cursor: pointer;
-            border-radius: 8px;
-            font-size: 1.1em;
-            width: 100%;
-            font-weight: 700;
-            transition: background-color 0.3s ease, transform 0.1s;
-        }
-        .btn-primary:hover {
-            background-color: #1b4332;
-            transform: translateY(-1px);
-        }
-        .error-message {
-            background-color: #f8d7da;
-            color: #721c24;
-            padding: 15px;
-            margin-bottom: 20px;
-            border: 1px solid #f5c6cb;
-            border-radius: 8px;
-            text-align: left;
-            font-size: 0.95em;
-            font-weight: 600;
-        }
-        .register-link {
-            margin-top: 20px;
-            font-size: 0.95em;
-            color: #495057;
-        }
-        .register-link a {
-            color: #40916c;
-            text-decoration: none;
-            font-weight: 600;
-            transition: color 0.3s;
-        }
-        .register-link a:hover {
-            color: #2d6a4f;
-            text-decoration: underline;
-        }
-        
-        /* Media Query para pantallas pequeñas */
-        @media (max-width: 500px) {
-            .login-container {
-                margin: 20px;
-                padding: 30px 20px;
-            }
-        }
