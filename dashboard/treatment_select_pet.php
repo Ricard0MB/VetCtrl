@@ -2,7 +2,7 @@
 session_start();
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
@@ -11,68 +11,47 @@ $username = $_SESSION["username"] ?? 'Veterinario';
 $user_id = $_SESSION['user_id'] ?? 0;
 $owner_id = $user_id; // ID del veterinario logueado
 
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
 $pets = [];
 $message = '';
 
-// Consulta para obtener las mascotas registradas por este veterinario
-$sql = "SELECT 
-            p.id, 
-            p.name, 
-            pt.name AS species_name, 
-            b.name AS breed_name    
-        FROM pets p
-        LEFT JOIN pet_types pt ON p.type_id = pt.id 
-        LEFT JOIN breeds b ON p.breed_id = b.id      
-        WHERE p.owner_id = ? 
-        ORDER BY p.name ASC";
-
-if ($stmt = $conn->prepare($sql)) {
-    $stmt->bind_param("i", $owner_id);
-    if ($stmt->execute()) {
-        $result = $stmt->get_result();
-        while ($row = $result->fetch_assoc()) {
-            $pets[] = $row;
-        }
-        $result->free();
-    } else {
-        $message = "Error al cargar pacientes: " . $stmt->error;
-    }
-    $stmt->close();
-} else {
-    $message = "Error de preparación de la consulta: " . $conn->error;
-}
-
-if (isset($conn)) {
-    // Si la conexión no se ha cerrado antes del POST (lo cual no ocurre aquí, pero por seguridad)
-    // Se comenta temporalmente para evitar que se cierre si el formulario POST está activo.
-    // La cerraremos al final del script si no hay POST, o al final del POST si hubo un error.
-}
-
-
+// Procesar POST antes de cualquier salida (redirección)
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // La conexión ya debe estar cerrada si no hubo errores antes
-    if (isset($conn)) { $conn->close(); }
-
-    $selected_pet_id = trim($_POST['pet_id'] ?? '');
+    $selected_pet_id = $_POST['pet_id'] ?? '';
 
     if (is_numeric($selected_pet_id) && $selected_pet_id > 0) {
-      
         // Redirigir a la página de registro de tratamiento usando el ID de la mascota
         header("Location: treatment_register.php?id=" . $selected_pet_id);
         exit;
     } else {
         $message = "<p class='error-message'>Por favor, seleccione un paciente válido.</p>";
+        // Continuar para mostrar el formulario nuevamente
     }
 }
 
-// Cerrar conexión si no se cerró antes (ejecución inicial GET)
-if (isset($conn)) {
-    $conn->close();
-}
-?>
+// Consulta para obtener las mascotas registradas por este veterinario (aunque owner_id debería ser el dueño real, se mantiene la lógica original)
+try {
+    $sql = "SELECT 
+                p.id, 
+                p.name, 
+                pt.name AS species_name, 
+                b.name AS breed_name    
+            FROM pets p
+            LEFT JOIN pet_types pt ON p.type_id = pt.id 
+            LEFT JOIN breeds b ON p.breed_id = b.id      
+            WHERE p.owner_id = :owner_id 
+            ORDER BY p.name ASC";
 
+    $stmt = $conn->prepare($sql);
+    $stmt->bindValue(':owner_id', $owner_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $pets = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $message = "<p class='error-message'>Error al cargar pacientes: " . htmlspecialchars($e->getMessage()) . "</p>";
+}
+// No es necesario cerrar la conexión explícitamente
+?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -173,7 +152,6 @@ if (isset($conn)) {
                         <?php foreach ($pets as $pet): ?>
                             <option value="<?php echo $pet['id']; ?>">
                                 <?php 
-                                    
                                     $species = htmlspecialchars($pet['species_name'] ?? 'Desconocida');
                                     $breed = htmlspecialchars($pet['breed_name'] ?? 'Sin Raza');
                                     echo htmlspecialchars($pet['name']) . " (" . $species . " - " . $breed . ")"; 
