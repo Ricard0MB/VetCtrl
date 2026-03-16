@@ -2,11 +2,11 @@
 session_start();
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
 // Inicializar variables de sesión para la barra de navegación
 $username = $_SESSION["username"] ?? 'Veterinario'; 
@@ -16,56 +16,45 @@ $message = '';
 $today = date('Y-m-d');
 $future_date = date('Y-m-d', strtotime('+60 days')); 
 
-// Consulta SQL corregida - incluyendo teléfono del dueño
-$sql = "SELECT 
-            v.*, 
-            p.name as pet_name,
-            p.owner_id,
-            u.username as owner_name,
-            u.id as user_id,
-            -- Asumiendo que hay un campo 'phone' en la tabla users
-            -- Si no existe, deberás crearlo o usar otro campo
-            '' as owner_phone, -- Placeholder - ajustar según tu estructura de BD
-            pt.name AS pet_species_name,   
-            b.name AS pet_breed_name,     
-            vt.name AS vaccine_name
-        FROM vaccines v
-        JOIN pets p ON v.pet_id = p.id
-        LEFT JOIN pet_types pt ON p.type_id = pt.id 
-        LEFT JOIN breeds b ON p.breed_id = b.id      
-        LEFT JOIN vaccine_types vt ON v.vaccine_type_id = vt.id
-        LEFT JOIN users u ON p.owner_id = u.id
-        WHERE v.attendant_id = ? 
-        AND v.next_due_date IS NOT NULL
-        AND v.next_due_date <= ?
-        ORDER BY v.next_due_date ASC"; 
-        
-if ($stmt = $conn->prepare($sql)) {
-    $stmt->bind_param("is", $attendant_id, $future_date);
-    
-    if ($stmt->execute()) {
-        $result = $stmt->get_result();
-        
-        while ($row = $result->fetch_assoc()) {
-            $alert_records[] = $row;
-        }
-        $result->free();
-        
-        if (empty($alert_records)) {
-            $message = "<p class='success-message'>🎉 ¡Excelente! No hay vacunas vencidas ni próximas a vencer en los próximos 60 días.</p>";
-        }
-        
-    } else {
-        $message = "<p class='error-message'>Error al ejecutar la consulta: " . $stmt->error . "</p>";
+try {
+    // Consulta SQL - incluyendo teléfono del dueño (asumiendo campo 'phone' en users)
+    $sql = "SELECT 
+                v.*, 
+                p.name as pet_name,
+                p.owner_id,
+                u.username as owner_name,
+                u.id as user_id,
+                u.phone as owner_phone,
+                pt.name AS pet_species_name,   
+                b.name AS pet_breed_name,     
+                vt.name AS vaccine_name
+            FROM vaccines v
+            JOIN pets p ON v.pet_id = p.id
+            LEFT JOIN pet_types pt ON p.type_id = pt.id 
+            LEFT JOIN breeds b ON p.breed_id = b.id      
+            LEFT JOIN vaccine_types vt ON v.vaccine_type_id = vt.id
+            LEFT JOIN users u ON p.owner_id = u.id
+            WHERE v.attendant_id = :attendant_id 
+            AND v.next_due_date IS NOT NULL
+            AND v.next_due_date <= :future_date
+            ORDER BY v.next_due_date ASC";
+
+    $stmt = $conn->prepare($sql);
+    $stmt->bindValue(':attendant_id', $attendant_id, PDO::PARAM_INT);
+    $stmt->bindValue(':future_date', $future_date);
+    $stmt->execute();
+
+    $alert_records = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (empty($alert_records)) {
+        $message = "<p class='success-message'>🎉 ¡Excelente! No hay vacunas vencidas ni próximas a vencer en los próximos 60 días.</p>";
     }
-    $stmt->close();
-} else {
-    $message = "<p class='error-message'>Error de preparación de la consulta: " . $conn->error . "</p>";
+
+} catch (PDOException $e) {
+    $message = "<p class='error-message'>Error al cargar alertas: " . htmlspecialchars($e->getMessage()) . "</p>";
 }
 
-if (isset($conn)) {
-    $conn->close();
-}
+// No es necesario cerrar la conexión explícitamente con PDO
 ?>
 
 <!DOCTYPE html>
