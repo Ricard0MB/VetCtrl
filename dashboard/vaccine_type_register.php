@@ -2,11 +2,11 @@
 session_start();
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
 $username = $_SESSION["username"] ?? 'Usuario';
 $user_id = $_SESSION['user_id'] ?? 0;
@@ -25,34 +25,39 @@ $success = '';
 $species_options = ['Canino', 'Felino', 'Ave', 'Roedor', 'Reptil', 'Otros'];
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $name = trim($_POST['name']);
-    $species_target = $_POST['species_target'];
-    $description = trim($_POST['description']) ?: null;
+    $name = trim($_POST['name'] ?? '');
+    $species_target = $_POST['species_target'] ?? '';
+    $description = !empty($_POST['description']) ? trim($_POST['description']) : null;
 
     if (empty($name) || empty($species_target)) {
         $error = "El nombre y la especie objetivo son obligatorios.";
     } else {
-        $sql = "INSERT INTO vaccine_types (name, description, species_target, attendant_id) VALUES (?, ?, ?, ?)";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("sssi", $name, $description, $species_target, $user_id);
-        if ($stmt->execute()) {
+        try {
+            $sql = "INSERT INTO vaccine_types (name, description, species_target, attendant_id) 
+                    VALUES (:name, :description, :species_target, :attendant_id)";
+            $stmt = $conn->prepare($sql);
+            $stmt->bindValue(':name', $name);
+            $stmt->bindValue(':description', $description);
+            $stmt->bindValue(':species_target', $species_target);
+            $stmt->bindValue(':attendant_id', $user_id, PDO::PARAM_INT);
+            $stmt->execute();
+
             require_once '../includes/bitacora_function.php';
             $action = "Nuevo tipo de vacuna registrado: $name ($species_target)";
             log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
+
             $success = "Tipo de vacuna registrado correctamente.";
-            $_POST = [];
-        } else {
-            if ($conn->errno == 1062) {
+            $_POST = []; // Limpiar formulario
+        } catch (PDOException $e) {
+            // Código 1062: entrada duplicada (SQLSTATE 23000)
+            if ($e->errorInfo[1] == 1062) {
                 $error = "Ya existe un tipo de vacuna con ese nombre.";
             } else {
-                $error = "Error al registrar: " . $stmt->error;
+                $error = "Error al registrar: " . $e->getMessage();
             }
         }
-        $stmt->close();
     }
 }
-
-$conn->close();
 ?>
 <!DOCTYPE html>
 <html lang="es">
