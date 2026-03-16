@@ -1,9 +1,9 @@
 <?php
 session_start();
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
@@ -20,23 +20,22 @@ $role_filter = $_GET['role'] ?? '';
 
 $where_clause = "WHERE 1=1";
 $params = [];
-$types = "";
 
 if (!empty($search)) {
-    $where_clause .= " AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.email LIKE ? OR u.username LIKE ? OR u.ci LIKE ?)";
-    $search_param = "%$search%";
-    $params = array_merge($params, array_fill(0, 5, $search_param));
-    $types .= "sssss";
+    $where_clause .= " AND (u.first_name LIKE :search1 OR u.last_name LIKE :search2 OR u.email LIKE :search3 OR u.username LIKE :search4 OR u.ci LIKE :search5)";
+    $params[':search1'] = "%$search%";
+    $params[':search2'] = "%$search%";
+    $params[':search3'] = "%$search%";
+    $params[':search4'] = "%$search%";
+    $params[':search5'] = "%$search%";
 }
 if (!empty($status) && $status !== 'all') {
-    $where_clause .= " AND u.status = ?";
-    $params[] = $status;
-    $types .= "s";
+    $where_clause .= " AND u.status = :status";
+    $params[':status'] = $status;
 }
 if (!empty($role_filter) && $role_filter !== 'all') {
-    $where_clause .= " AND u.role_id = ?";
-    $params[] = $role_filter;
-    $types .= "i";
+    $where_clause .= " AND u.role_id = :role_id";
+    $params[':role_id'] = $role_filter;
 }
 
 $sql = "SELECT u.id, u.ci, u.first_name, u.last_name, u.email, u.phone, 
@@ -47,25 +46,28 @@ $sql = "SELECT u.id, u.ci, u.first_name, u.last_name, u.email, u.phone,
         $where_clause
         ORDER BY u.first_name, u.last_name";
 
-$stmt = $conn->prepare($sql);
-if (!empty($params)) {
-    $stmt->bind_param($types, ...$params);
-}
-$stmt->execute();
-$result = $stmt->get_result();
-$employees = [];
-while ($row = $result->fetch_assoc()) {
-    $employees[] = $row;
-}
-$stmt->close();
+try {
+    $stmt = $conn->prepare($sql);
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value);
+    }
+    $stmt->execute();
+    $employees = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Obtener roles para filtro
-$roles_list = [];
-$roles_query = $conn->query("SELECT id, name FROM roles ORDER BY id");
-while ($row = $roles_query->fetch_assoc()) {
-    $roles_list[] = $row;
+    // Obtener roles para filtro
+    $roles_list = [];
+    $roles_query = $conn->query("SELECT id, name FROM roles ORDER BY id");
+    $roles_list = $roles_query->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+    // Manejo de errores: podrías guardar en log y mostrar mensaje genérico
+    $employees = [];
+    $roles_list = [];
+    // Opcional: establecer un mensaje de error para mostrar al usuario
+    $error_message = "Error al cargar los datos: " . $e->getMessage();
 }
-$conn->close();
+
+// No es necesario cerrar la conexión explícitamente
 ?>
 <!DOCTYPE html>
 <html lang="es">
