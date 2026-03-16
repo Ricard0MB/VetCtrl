@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
 // Verificar permisos
 $user_role = $_SESSION['role_name'] ?? '';
@@ -15,6 +15,13 @@ $end_date = $_GET['end_date'] ?? date('Y-m-d');
 
 // Configurar para impresión/PDF
 header('Content-Type: text/html; charset=utf-8');
+
+// Nota: Los datos mostrados son de ejemplo, pero aquí podrías
+// realizar consultas PDO para obtener datos reales si se desea.
+// Ejemplo de consulta PDO (comentado):
+// $stmt = $conn->prepare("SELECT ... FROM ... WHERE fecha BETWEEN :start AND :end");
+// $stmt->execute([':start' => $start_date, ':end' => $end_date]);
+// $resultados = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -330,7 +337,7 @@ header('Content-Type: text/html; charset=utf-8');
         <h2 class="section-title">📈 RESUMEN ESTADÍSTICO</h2>
         <div class="section-content">
             <?php
-            // lógica para obtener estadísticas
+            // Datos de ejemplo; aquí podrías reemplazar con consultas PDO reales.
             $stats = [
                 ['Consultas', '15', '🩺'],
                 ['Citas', '8', '📅'],
@@ -576,14 +583,16 @@ header('Content-Type: text/html; charset=utf-8');
 </body>
 </html>
 <?php
-// Registrar generación de PDF en bitácora
+// Registrar generación de PDF en bitácora (asumiendo que bitacora_function.php usa PDO)
 if (file_exists('../includes/bitacora_function.php')) {
     require_once '../includes/bitacora_function.php';
-    if (function_exists('register_log')) {
+    // Usamos log_to_bitacora si existe (ajusta según tu función)
+    if (function_exists('log_to_bitacora')) {
         $action_text = "Reporte diario PDF generado: " . $start_date . " al " . $end_date;
-        register_log($action_text);
+        log_to_bitacora($conn, $action_text, $_SESSION['username'] ?? '', $_SESSION['role_id'] ?? 0);
     }
 }
 
-$conn->close();
+// La conexión PDO se cierra automáticamente al finalizar el script.
+// Opcionalmente: $conn = null;
 ?>
