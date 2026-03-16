@@ -1,9 +1,9 @@
 <?php
 session_start();
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
@@ -13,8 +13,8 @@ if ($role_name !== 'admin') {
     exit;
 }
 
-// Crear tabla si no existe
-$conn->query("CREATE TABLE IF NOT EXISTS system_config (
+// Crear tabla si no existe (usando PDO)
+$conn->exec("CREATE TABLE IF NOT EXISTS system_config (
     id INT AUTO_INCREMENT PRIMARY KEY,
     config_key VARCHAR(100) NOT NULL UNIQUE,
     config_value TEXT NOT NULL,
@@ -38,8 +38,8 @@ $defaults = [
 
 // Cargar configuraciones actuales
 $config = $defaults;
-$res = $conn->query("SELECT config_key, config_value FROM system_config");
-while ($row = $res->fetch_assoc()) {
+$stmt = $conn->query("SELECT config_key, config_value FROM system_config");
+while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
     $config[$row['config_key']] = $row['config_value'];
 }
 
@@ -60,36 +60,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $mensaje = "El nombre de la clínica es obligatorio.";
             $tipo = 'danger';
         } else {
-            $conn->begin_transaction();
-            $ok = true;
-            foreach ($nuevos as $k => $v) {
-                $stmt = $conn->prepare("INSERT INTO system_config (config_key, config_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE config_value = ?");
-                $stmt->bind_param("sss", $k, $v, $v);
-                if (!$stmt->execute()) {
-                    $ok = false;
-                    $mensaje = "Error al guardar: " . $stmt->error;
-                    $tipo = 'danger';
-                    break;
+            try {
+                $conn->beginTransaction();
+                foreach ($nuevos as $k => $v) {
+                    $sql = "INSERT INTO system_config (config_key, config_value) VALUES (:key, :value) ON DUPLICATE KEY UPDATE config_value = :value2";
+                    $stmt = $conn->prepare($sql);
+                    $stmt->bindValue(':key', $k);
+                    $stmt->bindValue(':value', $v);
+                    $stmt->bindValue(':value2', $v);
+                    $stmt->execute();
                 }
-            }
-            if ($ok) {
                 $conn->commit();
                 $mensaje = "Configuración guardada correctamente.";
                 $tipo = 'success';
                 $config = $nuevos;
-            } else {
-                $conn->rollback();
+            } catch (PDOException $e) {
+                $conn->rollBack();
+                $mensaje = "Error al guardar: " . $e->getMessage();
+                $tipo = 'danger';
             }
         }
     } elseif (isset($_POST['accion']) && $_POST['accion'] === 'restaurar') {
-        $conn->query("DELETE FROM system_config");
+        $conn->exec("DELETE FROM system_config");
         $mensaje = "Valores por defecto restaurados.";
         $tipo = 'success';
         $config = $defaults;
     }
 }
-
-$conn->close();
 ?>
 <!DOCTYPE html>
 <html lang="es">
