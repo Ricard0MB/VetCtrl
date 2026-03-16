@@ -2,78 +2,78 @@
 session_start();
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
 $username = $_SESSION["username"] ?? 'Veterinario';
 $user_id = $_SESSION['user_id'] ?? 0;
 $role_name = $_SESSION['role_name'] ?? 'Propietario';
 
-// Solo Veterinario y Admin pueden acceder
-if ($role_name === 'admin') {
-    $sql = "SELECT c.*, p.name AS pet_name, pt.name AS species_name, u.username AS vet_name 
-            FROM consultations c
-            JOIN pets p ON c.pet_id = p.id
-            LEFT JOIN pet_types pt ON p.type_id = pt.id
-            LEFT JOIN users u ON c.attendant_id = u.id
-            ORDER BY c.consultation_date DESC";
-    $stmt = $conn->prepare($sql);
-} elseif ($role_name === 'Veterinario') {
-    $sql = "SELECT c.*, p.name AS pet_name, pt.name AS species_name 
-            FROM consultations c
-            JOIN pets p ON c.pet_id = p.id
-            LEFT JOIN pet_types pt ON p.type_id = pt.id
-            WHERE c.attendant_id = ?
-            ORDER BY c.consultation_date DESC";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $user_id);
-} else {
-    // propietario no debería acceder a este listado según matriz, pero si accede, solo sus mascotas
-    $sql = "SELECT c.*, p.name AS pet_name, pt.name AS species_name 
-            FROM consultations c
-            JOIN pets p ON c.pet_id = p.id
-            LEFT JOIN pet_types pt ON p.type_id = pt.id
-            WHERE p.owner_id = ?
-            ORDER BY c.consultation_date DESC";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $user_id);
-}
-
 $consultations = [];
 $error_message = '';
 
-$sql = "SELECT 
-            c.id, 
-            c.consultation_date, 
-            c.diagnosis, 
-            p.name AS pet_name,
-            pt.name AS species_name 
-        FROM consultations c
-        JOIN pets p ON c.pet_id = p.id
-        LEFT JOIN pet_types pt ON p.type_id = pt.id
-        WHERE c.attendant_id = ? 
-        ORDER BY c.consultation_date DESC";
-
-if ($stmt = $conn->prepare($sql)) {
-    $stmt->bind_param("i", $user_id);
-    if ($stmt->execute()) {
-        $result = $stmt->get_result();
-        while ($row = $result->fetch_assoc()) {
-            $consultations[] = $row;
-        }
-        $result->free();
+try {
+    // Construir consulta según rol
+    if ($role_name === 'admin') {
+        // Admin: todas las consultas con nombre del veterinario
+        $sql = "SELECT 
+                    c.id, 
+                    c.consultation_date, 
+                    c.diagnosis, 
+                    p.name AS pet_name,
+                    pt.name AS species_name,
+                    u.username AS vet_name 
+                FROM consultations c
+                JOIN pets p ON c.pet_id = p.id
+                LEFT JOIN pet_types pt ON p.type_id = pt.id
+                LEFT JOIN users u ON c.attendant_id = u.id
+                ORDER BY c.consultation_date DESC";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+        $consultations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } elseif ($role_name === 'Veterinario') {
+        // Veterinario: solo las suyas
+        $sql = "SELECT 
+                    c.id, 
+                    c.consultation_date, 
+                    c.diagnosis, 
+                    p.name AS pet_name,
+                    pt.name AS species_name 
+                FROM consultations c
+                JOIN pets p ON c.pet_id = p.id
+                LEFT JOIN pet_types pt ON p.type_id = pt.id
+                WHERE c.attendant_id = :user_id
+                ORDER BY c.consultation_date DESC";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindValue(':user_id', $user_id, PDO::PARAM_INT);
+        $stmt->execute();
+        $consultations = $stmt->fetchAll(PDO::FETCH_ASSOC);
     } else {
-        $error_message = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Error al ejecutar la consulta: " . htmlspecialchars($stmt->error) . "</div>";
+        // Propietario: consultas de sus mascotas
+        $sql = "SELECT 
+                    c.id, 
+                    c.consultation_date, 
+                    c.diagnosis, 
+                    p.name AS pet_name,
+                    pt.name AS species_name 
+                FROM consultations c
+                JOIN pets p ON c.pet_id = p.id
+                LEFT JOIN pet_types pt ON p.type_id = pt.id
+                WHERE p.owner_id = :user_id
+                ORDER BY c.consultation_date DESC";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindValue(':user_id', $user_id, PDO::PARAM_INT);
+        $stmt->execute();
+        $consultations = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
-    $stmt->close();
-} else {
-    $error_message = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Error de preparación: " . htmlspecialchars($conn->error) . "</div>";
+} catch (PDOException $e) {
+    $error_message = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Error al cargar consultas: " . htmlspecialchars($e->getMessage()) . "</div>";
 }
 
-$conn->close();
+// No es necesario cerrar la conexión explícitamente
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -203,8 +203,10 @@ $conn->close();
             <?php if (empty($consultations)): ?>
                 <div class="no-data">
                     <i class="fas fa-notes-medical" style="font-size: 3rem; margin-bottom: 15px;"></i>
-                    <p>No has registrado consultas aún.</p>
-                    <a href="consultation_register.php" class="action-link">Registrar nueva consulta</a>
+                    <p>No hay consultas registradas.</p>
+                    <?php if (in_array($role_name, ['Veterinario', 'admin'])): ?>
+                        <a href="consultation_register.php" class="action-link">Registrar nueva consulta</a>
+                    <?php endif; ?>
                 </div>
             <?php else: ?>
                 <button id="btnExportPdf" class="btn-pdf"><i class="fas fa-file-pdf"></i> Exportar PDF</button>
@@ -216,6 +218,9 @@ $conn->close();
                             <th>Paciente</th>
                             <th>Especie</th>
                             <th>Diagnóstico</th>
+                            <?php if ($role_name === 'admin'): ?>
+                                <th>Veterinario</th>
+                            <?php endif; ?>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -226,6 +231,9 @@ $conn->close();
                                 <td><strong><?php echo htmlspecialchars($c['pet_name']); ?></strong></td>
                                 <td><?php echo htmlspecialchars($c['species_name'] ?? 'Desconocida'); ?></td>
                                 <td><?php echo htmlspecialchars(substr($c['diagnosis'], 0, 50)) . (strlen($c['diagnosis']) > 50 ? '...' : ''); ?></td>
+                                <?php if ($role_name === 'admin'): ?>
+                                    <td><?php echo htmlspecialchars($c['vet_name'] ?? 'N/A'); ?></td>
+                                <?php endif; ?>
                                 <td><a href="consultation_view.php?id=<?php echo $c['id']; ?>" class="action-link">Ver</a></td>
                             </tr>
                         <?php endforeach; ?>
