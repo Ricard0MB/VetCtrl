@@ -32,8 +32,7 @@ try {
     $conn = new PDO($dsn, $user, $password, $options);
     
 } catch (PDOException $e) {
-    // Registrar error pero no mostrar detalles sensibles
-    error_log("Error de conexión PDO: " . $e->getMessage());
-    die("Error de conexión a la base de datos. Por favor, contacte al administrador.");
+    // Mostrar el error real (solo temporalmente para debug)
+    die("Error de conexión DETALLADO: " . $e->getMessage());
 }
 ?>
