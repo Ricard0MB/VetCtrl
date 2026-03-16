@@ -2,11 +2,11 @@
 session_start();
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 require_once '../includes/bitacora_function.php';
 
 $username = $_SESSION["username"] ?? 'Usuario';
@@ -19,53 +19,71 @@ if ($pet_id <= 0) {
     exit;
 }
 
-// Obtener datos de la mascota
-$sql = "SELECT p.*, pt.name AS species_name, b.name AS breed_name, u.username AS owner_name 
-        FROM pets p
-        LEFT JOIN pet_types pt ON p.type_id = pt.id
-        LEFT JOIN breeds b ON p.breed_id = b.id
-        LEFT JOIN users u ON p.owner_id = u.id
-        WHERE p.id = ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("i", $pet_id);
-$stmt->execute();
-$result = $stmt->get_result();
-$pet = $result->fetch_assoc();
-$stmt->close();
-
-if (!$pet) {
-    header("Location: search_pet_owner.php?error=notfound");
-    exit;
-}
-
-// Verificar permisos: propietario solo puede editar sus mascotas, admin/vet todas
-if ($role_name === 'Propietario' && $pet['owner_id'] != $user_id) {
-    header("Location: search_pet_owner.php?error=unauthorized");
-    exit;
-}
-
-// Obtener especies y razas para selects
-$pet_types = $conn->query("SELECT id, name FROM pet_types ORDER BY name")->fetch_all(MYSQLI_ASSOC);
-$breeds = $conn->query("SELECT id, name, type_id FROM breeds ORDER BY name")->fetch_all(MYSQLI_ASSOC);
-
+$pet = null;
+$pet_types = [];
+$breeds = [];
 $error = '';
 $success = '';
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $name = trim($_POST['name']);
-    $type_id = intval($_POST['type_id']);
-    $breed_id = intval($_POST['breed_id']) ?: null;
-    $dob = $_POST['dob'] ?: null;
-    $gender = $_POST['gender'] ?: null;
-    $medical_history = trim($_POST['medical_history']) ?: null;
+try {
+    // Obtener datos de la mascota
+    $sql = "SELECT p.*, pt.name AS species_name, b.name AS breed_name, u.username AS owner_name 
+            FROM pets p
+            LEFT JOIN pet_types pt ON p.type_id = pt.id
+            LEFT JOIN breeds b ON p.breed_id = b.id
+            LEFT JOIN users u ON p.owner_id = u.id
+            WHERE p.id = :pet_id";
+    $stmt = $conn->prepare($sql);
+    $stmt->bindValue(':pet_id', $pet_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $pet = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$pet) {
+        header("Location: search_pet_owner.php?error=notfound");
+        exit;
+    }
+
+    // Verificar permisos: propietario solo puede editar sus mascotas, admin/vet todas
+    if ($role_name === 'Propietario' && $pet['owner_id'] != $user_id) {
+        header("Location: search_pet_owner.php?error=unauthorized");
+        exit;
+    }
+
+    // Obtener especies
+    $stmtTypes = $conn->query("SELECT id, name FROM pet_types ORDER BY name");
+    $pet_types = $stmtTypes->fetchAll(PDO::FETCH_ASSOC);
+
+    // Obtener razas
+    $stmtBreeds = $conn->query("SELECT id, name, type_id FROM breeds ORDER BY name");
+    $breeds = $stmtBreeds->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+    $error = "Error al cargar datos: " . $e->getMessage();
+}
+
+if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
+    $name = trim($_POST['name'] ?? '');
+    $type_id = intval($_POST['type_id'] ?? 0);
+    $breed_id = !empty($_POST['breed_id']) ? intval($_POST['breed_id']) : null;
+    $dob = !empty($_POST['dob']) ? $_POST['dob'] : null;
+    $gender = !empty($_POST['gender']) ? $_POST['gender'] : null;
+    $medical_history = !empty($_POST['medical_history']) ? trim($_POST['medical_history']) : null;
 
     if (empty($name) || $type_id == 0) {
         $error = "El nombre y la especie son obligatorios.";
     } else {
-        $sql_update = "UPDATE pets SET name=?, type_id=?, breed_id=?, date_of_birth=?, gender=?, medical_history=? WHERE id=?";
-        $stmt = $conn->prepare($sql_update);
-        $stmt->bind_param("siisssi", $name, $type_id, $breed_id, $dob, $gender, $medical_history, $pet_id);
-        if ($stmt->execute()) {
+        try {
+            $sql_update = "UPDATE pets SET name = :name, type_id = :type_id, breed_id = :breed_id, date_of_birth = :dob, gender = :gender, medical_history = :medical_history WHERE id = :pet_id";
+            $stmt = $conn->prepare($sql_update);
+            $stmt->bindValue(':name', $name);
+            $stmt->bindValue(':type_id', $type_id, PDO::PARAM_INT);
+            $stmt->bindValue(':breed_id', $breed_id, PDO::PARAM_INT);
+            $stmt->bindValue(':dob', $dob);
+            $stmt->bindValue(':gender', $gender);
+            $stmt->bindValue(':medical_history', $medical_history);
+            $stmt->bindValue(':pet_id', $pet_id, PDO::PARAM_INT);
+            $stmt->execute();
+
             // Registrar cambios si los hubo
             $changes = [];
             if ($name != $pet['name']) $changes[] = "nombre: '{$pet['name']}' → '$name'";
@@ -78,16 +96,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $action = "Mascota ID $pet_id actualizada: " . implode(', ', $changes);
                 log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
             }
+
             header("Location: pet_profile.php?id=$pet_id&success=updated");
             exit;
-        } else {
-            $error = "Error al actualizar: " . $stmt->error;
+        } catch (PDOException $e) {
+            $error = "Error al actualizar: " . $e->getMessage();
         }
-        $stmt->close();
     }
 }
-
-$conn->close();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -116,7 +132,7 @@ $conn->close();
         .btn-secondary:hover { background: #5a6268; }
     </style>
     <script>
-        const allBreeds = <?php echo json_encode($breeds); ?>;
+        const allBreeds = <?php echo json_encode($breeds, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         function filterBreeds() {
             const typeSelect = document.getElementById('type_id');
             const breedSelect = document.getElementById('breed_id');
@@ -128,7 +144,7 @@ $conn->close();
                     const opt = document.createElement('option');
                     opt.value = b.id;
                     opt.textContent = b.name;
-                    if (b.id == <?php echo json_encode($pet['breed_id']); ?>) opt.selected = true;
+                    if (b.id == <?php echo json_encode($pet['breed_id'] ?? 0); ?>) opt.selected = true;
                     breedSelect.appendChild(opt);
                 });
             }
@@ -172,7 +188,7 @@ $conn->close();
             </select>
 
             <label for="dob">Fecha de nacimiento:</label>
-            <input type="date" name="dob" id="dob" value="<?php echo htmlspecialchars($pet['date_of_birth']); ?>">
+            <input type="date" name="dob" id="dob" value="<?php echo htmlspecialchars($pet['date_of_birth'] ?? ''); ?>">
 
             <label for="gender">Género:</label>
             <select name="gender" id="gender">
