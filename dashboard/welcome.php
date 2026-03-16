@@ -1,4 +1,5 @@
 <?php
+<?php
 header('Content-Type: text/html; charset=utf-8');
 session_start();
 
@@ -17,54 +18,45 @@ $role_id = $_SESSION['role_id'] ?? 2;
 $pets = [];
 $message = '';
 
-// Consulta según el rol
-if ($role_name === 'Propietario') {
-    $sql = "SELECT p.id, p.name, p.date_of_birth, p.gender, 
-                   pt.name AS species_name, 
-                   b.name AS breed_name 
-            FROM pets p
-            LEFT JOIN pet_types pt ON p.type_id = pt.id
-            LEFT JOIN breeds b ON p.breed_id = b.id
-            WHERE p.owner_id = ? 
-            ORDER BY p.name ASC";
-    
-    if ($stmt = $conn->prepare($sql)) {
-        $stmt->bind_param("i", $user_id);
+try {
+    // Consulta según el rol usando PDO
+    if ($role_name === 'Propietario') {
+        $sql = "SELECT p.id, p.name, p.date_of_birth, p.gender, 
+                       pt.name AS species_name, 
+                       b.name AS breed_name 
+                FROM pets p
+                LEFT JOIN pet_types pt ON p.type_id = pt.id
+                LEFT JOIN breeds b ON p.breed_id = b.id
+                WHERE p.owner_id = ? 
+                ORDER BY p.name ASC";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([$user_id]);
+    } elseif ($role_name === 'Veterinario' || $role_name === 'admin') {
+        $sql = "SELECT p.id, p.name, p.date_of_birth, p.gender, 
+                       pt.name AS species_name, 
+                       b.name AS breed_name,
+                       u.username as owner_name
+                FROM pets p
+                LEFT JOIN pet_types pt ON p.type_id = pt.id
+                LEFT JOIN breeds b ON p.breed_id = b.id
+                LEFT JOIN users u ON p.owner_id = u.id
+                ORDER BY p.name ASC";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
     } else {
-        $message = "Error de preparación: " . $conn->error;
+        $message = "Rol no reconocido: " . htmlspecialchars($role_name, ENT_QUOTES, 'UTF-8');
     }
-} elseif ($role_name === 'Veterinario' || $role_name === 'admin') {
-    $sql = "SELECT p.id, p.name, p.date_of_birth, p.gender, 
-                   pt.name AS species_name, 
-                   b.name AS breed_name,
-                   u.username as owner_name
-            FROM pets p
-            LEFT JOIN pet_types pt ON p.type_id = pt.id
-            LEFT JOIN breeds b ON p.breed_id = b.id
-            LEFT JOIN users u ON p.owner_id = u.id
-            ORDER BY p.name ASC";
-    
-    if (!($stmt = $conn->prepare($sql))) {
-        $message = "Error de preparación: " . $conn->error;
+
+    if (isset($stmt) && empty($message)) {
+        $pets = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
-} else {
-    $message = "Rol no reconocido: " . htmlspecialchars($role_name, ENT_QUOTES, 'UTF-8');
+
+} catch (PDOException $e) {
+    $message = "Error de base de datos: " . $e->getMessage();
+    error_log("Error en welcome.php: " . $e->getMessage());
 }
 
-if (isset($stmt) && empty($message)) {
-    if ($stmt->execute()) {
-        $result = $stmt->get_result();
-        while ($row = $result->fetch_assoc()) {
-            $pets[] = $row;
-        }
-        $result->free();
-    } else {
-        $message = "Error al ejecutar consulta: " . $stmt->error;
-    }
-    $stmt->close();
-}
-
-$conn->close();
+// No es necesario cerrar la conexión explícitamente con PDO
 ?>
 
 <!DOCTYPE html>
