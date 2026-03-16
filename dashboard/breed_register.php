@@ -2,11 +2,11 @@
 session_start();
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
 $username = $_SESSION["username"] ?? 'Veterinario';
 $user_id = $_SESSION['user_id'] ?? 0;
@@ -25,60 +25,69 @@ $selected_type_id = 0;
 $pet_types = [];
 $current_breeds = [];
 
-// Cargar especies
-$sql_types = "SELECT id, name FROM pet_types ORDER BY name ASC";
-$result_types = $conn->query($sql_types);
-while ($row = $result_types->fetch_assoc()) {
-    $pet_types[] = $row;
-}
+try {
+    // Cargar especies
+    $stmtTypes = $conn->query("SELECT id, name FROM pet_types ORDER BY name ASC");
+    while ($row = $stmtTypes->fetch(PDO::FETCH_ASSOC)) {
+        $pet_types[] = $row;
+    }
 
-// Cargar razas existentes
-$sql_breeds = "SELECT b.name AS breed_name, pt.name AS type_name, b.created_at 
-               FROM breeds b 
-               JOIN pet_types pt ON b.type_id = pt.id
-               ORDER BY pt.name, b.name ASC";
-$result_breeds = $conn->query($sql_breeds);
-while ($row = $result_breeds->fetch_assoc()) {
-    $current_breeds[] = $row;
-}
+    // Cargar razas existentes
+    $sql_breeds = "SELECT b.name AS breed_name, pt.name AS type_name, b.created_at 
+                   FROM breeds b 
+                   JOIN pet_types pt ON b.type_id = pt.id
+                   ORDER BY pt.name, b.name ASC";
+    $stmtBreeds = $conn->query($sql_breeds);
+    while ($row = $stmtBreeds->fetch(PDO::FETCH_ASSOC)) {
+        $current_breeds[] = $row;
+    }
 
-// Procesar formulario
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $breed_name = trim($_POST['breed_name'] ?? '');
-    $selected_type_id = intval($_POST['type_id'] ?? 0);
+    // Procesar formulario
+    if ($_SERVER["REQUEST_METHOD"] == "POST") {
+        $breed_name = trim($_POST['breed_name'] ?? '');
+        $selected_type_id = intval($_POST['type_id'] ?? 0);
 
-    if (empty($breed_name) || $selected_type_id == 0) {
-        $error = "Debe ingresar el nombre de la raza y seleccionar una especie.";
-    } else {
-        $sql_insert = "INSERT INTO breeds (type_id, name, attendant_id) VALUES (?, ?, ?)";
-        $stmt = $conn->prepare($sql_insert);
-        $stmt->bind_param("isi", $selected_type_id, $breed_name, $user_id);
-        if ($stmt->execute()) {
-            require_once '../includes/bitacora_function.php';
-            $action = "Nueva raza registrada: $breed_name para especie ID $selected_type_id";
-            log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
-            
-            $success = "Raza '$breed_name' registrada correctamente.";
-            $breed_name = '';
-            $selected_type_id = 0;
-            // Recargar lista
-            $result_breeds = $conn->query($sql_breeds);
-            $current_breeds = [];
-            while ($row = $result_breeds->fetch_assoc()) {
-                $current_breeds[] = $row;
-            }
+        if (empty($breed_name) || $selected_type_id == 0) {
+            $error = "Debe ingresar el nombre de la raza y seleccionar una especie.";
         } else {
-            if ($conn->errno == 1062) {
-                $error = "La raza '$breed_name' ya existe para esta especie.";
-            } else {
-                $error = "Error al registrar: " . $stmt->error;
+            try {
+                $sql_insert = "INSERT INTO breeds (type_id, name, attendant_id) VALUES (:type_id, :name, :attendant_id)";
+                $stmtInsert = $conn->prepare($sql_insert);
+                $stmtInsert->bindValue(':type_id', $selected_type_id, PDO::PARAM_INT);
+                $stmtInsert->bindValue(':name', $breed_name, PDO::PARAM_STR);
+                $stmtInsert->bindValue(':attendant_id', $user_id, PDO::PARAM_INT);
+                $stmtInsert->execute();
+
+                require_once '../includes/bitacora_function.php';
+                $action = "Nueva raza registrada: $breed_name para especie ID $selected_type_id";
+                log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
+
+                $success = "Raza '$breed_name' registrada correctamente.";
+                $breed_name = '';
+                $selected_type_id = 0;
+
+                // Recargar lista de razas
+                $current_breeds = [];
+                $stmtBreeds = $conn->query($sql_breeds);
+                while ($row = $stmtBreeds->fetch(PDO::FETCH_ASSOC)) {
+                    $current_breeds[] = $row;
+                }
+
+            } catch (PDOException $e) {
+                // Código 1062: Duplicate entry
+                if ($e->errorInfo[1] == 1062) {
+                    $error = "La raza '$breed_name' ya existe para esta especie.";
+                } else {
+                    $error = "Error al registrar: " . $e->getMessage();
+                }
             }
         }
-        $stmt->close();
     }
+} catch (PDOException $e) {
+    $error = "Error de base de datos: " . $e->getMessage();
 }
 
-$conn->close();
+// No es necesario cerrar la conexión explícitamente
 ?>
 <!DOCTYPE html>
 <html lang="es">
