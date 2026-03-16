@@ -2,11 +2,11 @@
 session_start();
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-    header("Location: ../public/index.php");
+    header("Location: ../index.php");
     exit;
 }
 
-require_once '../includes/config.php';
+require_once '../includes/config.php'; // $conn es un objeto PDO
 
 $username = $_SESSION["username"] ?? 'Veterinario';
 $user_id = $_SESSION['user_id'] ?? 0;
@@ -28,34 +28,35 @@ if ($consultation_id <= 0) {
     exit;
 }
 
-// Obtener lista de mascotas (todas, para selección)
-$sql_pets = "SELECT id, name FROM pets ORDER BY name ASC";
-$result_pets = $conn->query($sql_pets);
-while ($row = $result_pets->fetch_assoc()) {
-    $pets[] = $row;
-}
+try {
+    // Obtener lista de mascotas (todas, para selección)
+    $stmtPets = $conn->query("SELECT id, name FROM pets ORDER BY name ASC");
+    $pets = $stmtPets->fetchAll(PDO::FETCH_ASSOC);
 
-// Obtener datos de la consulta
-$sql = "SELECT * FROM consultations WHERE id = ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("i", $consultation_id);
-$stmt->execute();
-$result = $stmt->get_result();
-if ($result->num_rows == 1) {
-    $consultation = $result->fetch_assoc();
+    // Obtener datos de la consulta
+    $sql = "SELECT * FROM consultations WHERE id = :id";
+    $stmt = $conn->prepare($sql);
+    $stmt->bindValue(':id', $consultation_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $consultation = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$consultation) {
+        header("Location: consultation_history.php?error=notfound");
+        exit;
+    }
+
     // Verificar que el usuario pueda editar (attendant_id debe coincidir o ser admin)
     if ($role_name !== 'admin' && $consultation['attendant_id'] != $user_id) {
         header("Location: consultation_history.php?error=unauthorized");
         exit;
     }
-} else {
-    header("Location: consultation_history.php?error=notfound");
-    exit;
+
+} catch (PDOException $e) {
+    $error = "Error al cargar datos: " . $e->getMessage();
 }
-$stmt->close();
 
 // Procesar formulario
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
+if ($_SERVER["REQUEST_METHOD"] == "POST" && !$error) {
     $pet_id = intval($_POST['pet_id'] ?? 0);
     $consultation_date = $_POST['consultation_date'] ?? '';
     $diagnosis = trim($_POST['diagnosis'] ?? '');
@@ -70,25 +71,29 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $error = "Fecha inválida.";
         } else {
             $formatted_date = date('Y-m-d H:i:s', $timestamp);
-            $sql_update = "UPDATE consultations SET pet_id = ?, consultation_date = ?, diagnosis = ?, treatment = ?, notes = ? WHERE id = ?";
-            $stmt = $conn->prepare($sql_update);
-            $stmt->bind_param("issssi", $pet_id, $formatted_date, $diagnosis, $treatment, $notes, $consultation_id);
-            if ($stmt->execute()) {
+            try {
+                $sql_update = "UPDATE consultations SET pet_id = :pet_id, consultation_date = :date, diagnosis = :diagnosis, treatment = :treatment, notes = :notes WHERE id = :id";
+                $stmtUpdate = $conn->prepare($sql_update);
+                $stmtUpdate->bindValue(':pet_id', $pet_id, PDO::PARAM_INT);
+                $stmtUpdate->bindValue(':date', $formatted_date, PDO::PARAM_STR);
+                $stmtUpdate->bindValue(':diagnosis', $diagnosis, PDO::PARAM_STR);
+                $stmtUpdate->bindValue(':treatment', $treatment, PDO::PARAM_STR);
+                $stmtUpdate->bindValue(':notes', $notes, PDO::PARAM_STR);
+                $stmtUpdate->bindValue(':id', $consultation_id, PDO::PARAM_INT);
+                $stmtUpdate->execute();
+
                 require_once '../includes/bitacora_function.php';
                 $action = "Consulta #$consultation_id actualizada";
                 log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
-                
+
                 header("Location: consultation_view.php?id=$consultation_id&success=updated");
                 exit;
-            } else {
-                $error = "Error al actualizar: " . $stmt->error;
+            } catch (PDOException $e) {
+                $error = "Error al actualizar: " . $e->getMessage();
             }
-            $stmt->close();
         }
     }
 }
-
-$conn->close();
 ?>
 <!DOCTYPE html>
 <html lang="es">
