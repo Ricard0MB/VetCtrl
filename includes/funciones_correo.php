@@ -8,8 +8,8 @@ function enviarCorreoPHPMailer($destinatario, $asunto, $cuerpoHTML, $cuerpoPlano
     $smtpHost = 'smtp.gmail.com';
     $smtpPort = 587;
     $smtpSecure = 'tls';
-    $smtpUser = 'tucorreo@gmail.com'; // REEMPLAZA
-    $smtpPass = 'tu-contraseña-de-aplicacion'; // REEMPLAZA
+    $smtpUser = 'ricardomejias2808@gmail.com'; // REEMPLAZA
+    $smtpPass = '31205408'; // REEMPLAZA
 
     $mail = new PHPMailer(true);
     try {
