@@ -1,44 +1,73 @@
 <?php
-// public/forgot_password.php
+session_start();
+require_once '../includes/config.php';
+require_once '../includes/funciones_correo.php';
+
+$error = '';
+$success = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $email = trim($_POST['email'] ?? '');
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $error = "Correo electrónico inválido.";
+    } else {
+        // Buscar usuario por email
+        $stmt = $conn->prepare("SELECT id FROM users WHERE email = :email");
+        $stmt->bindValue(':email', $email);
+        $stmt->execute();
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($user) {
+            // Generar token
+            $token = bin2hex(random_bytes(32));
+            $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
+
+            // Guardar token
+            $update = $conn->prepare("UPDATE users SET reset_token = :token, reset_expires = :expires WHERE id = :id");
+            $update->bindValue(':token', $token);
+            $update->bindValue(':expires', $expires);
+            $update->bindValue(':id', $user['id'], PDO::PARAM_INT);
+            $update->execute();
+
+            // Enviar correo
+            $resetLink = "http://localhost/VetCtrl/public/reset_password.php?token=" . $token;
+            $asunto = "Recuperación de contraseña - VetCtrl";
+            $mensajeHTML = "<h2>Recupera tu contraseña</h2><p>Haz clic en el siguiente enlace para restablecer tu contraseña:</p><p><a href='$resetLink'>$resetLink</a></p><p>Este enlace expirará en 1 hora.</p>";
+            $mensajePlano = "Recupera tu contraseña\n\nHaz clic en este enlace: $resetLink\n\nExpira en 1 hora.";
+
+            $envio = enviarCorreoPHPMailer($email, $asunto, $mensajeHTML, $mensajePlano);
+            if ($envio === true) {
+                $success = "Se ha enviado un enlace de recuperación a tu correo.";
+            } else {
+                error_log("Error enviando correo: $envio");
+                $error = "Ocurrió un error al enviar el correo. Intenta más tarde.";
+            }
+        } else {
+            // Por seguridad, no revelamos si el email existe
+            $success = "Si el correo está registrado, recibirás un enlace.";
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
-<html lang="es">
+<html>
 <head>
-    <meta charset="utf-8">
-    <title>Olvidé mi contraseña</title>
-    <link rel="stylesheet" href="css/style_l.css">
-    <link rel="stylesheet" href="css/auth.css">
-    <style>
-        .container { max-width: 480px; margin: 60px auto; background: #fff; padding: 24px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
-        label, input, button { display:block; width:100%; }
-        input { padding: 10px; margin: 10px 0 16px; }
-        .info { font-size:0.95em; color:#555; }
-    </style>
+    <title>Recuperar contraseña</title>
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+    <?php include '../includes/navbar.php'; ?>
     <div class="container">
-        <h2>¿Olvidaste tu contraseña?</h2>
-        <p class="info">Introduce tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.</p>
-
-        <?php if (isset($_GET['msg'])): ?>
-            <p class="message-success"><?php echo htmlspecialchars($_GET['msg']); ?></p>
-        <?php endif; ?>
-        <?php if (isset($_GET['error'])): ?>
-            <p class="message-error"><?php echo htmlspecialchars($_GET['error']); ?></p>
-        <?php endif; ?>
-
-        <?php if (isset($_GET['link'])): ?>
-            <p class="message-error">En entorno local no se pudo enviar el correo. Usa este enlace para probar:</p>
-            <p><a href="<?php echo htmlspecialchars($_GET['link']); ?>"><?php echo htmlspecialchars($_GET['link']); ?></a></p>
-        <?php endif; ?>
-
-        <form action="../auth/forgot_password_submit.php" method="post">
-            <label for="email">Correo electrónico</label>
-            <input type="email" id="email" name="email" required>
-            <button type="submit">Enviar enlace de recuperación</button>
+        <h1>Recuperar contraseña</h1>
+        <?php if ($error): ?><div class="alert alert-danger"><?php echo $error; ?></div><?php endif; ?>
+        <?php if ($success): ?><div class="alert alert-success"><?php echo $success; ?></div><?php endif; ?>
+        <form method="post">
+            <label>Email:</label>
+            <input type="email" name="email" required>
+            <button type="submit">Enviar enlace</button>
+            <a href="login.php">Volver</a>
         </form>
-
-        <p class="auth-link"><a href="../index.php">← Volver al inicio</a></p>
     </div>
+    <?php include '../includes/footer.php'; ?>
 </body>
 </html>

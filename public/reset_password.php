@@ -1,77 +1,66 @@
 <?php
-require_once __DIR__ . '/../includes/config.php';
+session_start();
+require_once '../includes/config.php';
 
-$token = isset($_GET['token']) ? trim($_GET['token']) : '';
-$email = isset($_GET['email']) ? trim($_GET['email']) : '';
+$token = $_GET['token'] ?? '';
+if (empty($token)) {
+    die("Token no proporcionado.");
+}
+
 $error = '';
-$show_form = false;
+$success = '';
 
-if (empty($token) || empty($email)) {
-    $error = 'Enlace inválido.';
-} else {
-    // Buscar token válido y no expirado
-    $sql = "SELECT pr.id AS reset_id, pr.expires_at, u.id AS user_id 
-            FROM password_resets pr 
-            JOIN users u ON pr.user_id = u.id 
-            WHERE pr.token = ? AND u.email = ? LIMIT 1";
-    if ($stmt = $conn->prepare($sql)) {
-        $stmt->bind_param('ss', $token, $email);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $row = $result->fetch_assoc();
-        $stmt->close();
+// Buscar token válido
+$stmt = $conn->prepare("SELECT id FROM users WHERE reset_token = :token AND reset_expires > NOW()");
+$stmt->bindValue(':token', $token);
+$stmt->execute();
+$user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$row) {
-            $error = 'Token inválido o ya utilizado.';
-        } else {
-            $expires_at = $row['expires_at'];
-            if (strtotime($expires_at) < time()) {
-                $error = 'El enlace ha expirado.';
-            } else {
-                $show_form = true;
-                $reset_id = $row['reset_id'];
-                $user_id = $row['user_id'];
-            }
-        }
+if (!$user) {
+    die("Token inválido o expirado.");
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $password = $_POST['password'] ?? '';
+    $confirm = $_POST['confirm_password'] ?? '';
+
+    if (strlen($password) < 8) {
+        $error = "La contraseña debe tener al menos 8 caracteres.";
+    } elseif ($password !== $confirm) {
+        $error = "Las contraseñas no coinciden.";
     } else {
-        $error = 'Error interno al validar el token.';
+        $hash = password_hash($password, PASSWORD_DEFAULT);
+        $update = $conn->prepare("UPDATE users SET password = :hash, reset_token = NULL, reset_expires = NULL WHERE id = :id");
+        $update->bindValue(':hash', $hash);
+        $update->bindValue(':id', $user['id'], PDO::PARAM_INT);
+        $update->execute();
+
+        $success = "Contraseña actualizada. <a href='login.php'>Iniciar sesión</a>";
     }
 }
 ?>
-
 <!DOCTYPE html>
-<html lang="es">
+<html>
 <head>
-    <meta charset="utf-8">
-    <title>Restablecer contraseña - VetCtrl</title>
-    <link rel="stylesheet" href="css/style_l.css">
-    <link rel="stylesheet" href="css/auth.css">
+    <title>Restablecer contraseña</title>
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <div class="auth-box">
-        <h2>Restablecer contraseña</h2>
-
-        <?php if ($error): ?>
-            <p class="message-error"><?php echo htmlspecialchars($error); ?></p>
-            <p><a href="forgot_password.php">Solicitar nuevo enlace</a></p>
+    <?php include '../includes/navbar.php'; ?>
+    <div class="container">
+        <h1>Restablecer contraseña</h1>
+        <?php if ($error): ?><div class="alert alert-danger"><?php echo $error; ?></div><?php endif; ?>
+        <?php if ($success): ?><div class="alert alert-success"><?php echo $success; ?></div><?php endif; ?>
+        <?php if (!$success): ?>
+        <form method="post">
+            <label>Nueva contraseña:</label>
+            <input type="password" name="password" required minlength="8">
+            <label>Confirmar:</label>
+            <input type="password" name="confirm_password" required minlength="8">
+            <button type="submit">Cambiar contraseña</button>
+        </form>
         <?php endif; ?>
-
-        <?php if ($show_form): ?>
-            <form action="reset_password_submit.php" method="post">
-                <input type="hidden" name="token" value="<?php echo htmlspecialchars($token); ?>">
-                <input type="hidden" name="email" value="<?php echo htmlspecialchars($email); ?>">
-
-                <label for="password">Nueva contraseña</label>
-                <input type="password" id="password" name="password" required minlength="6">
-
-                <label for="password_confirm">Confirmar nueva contraseña</label>
-                <input type="password" id="password_confirm" name="password_confirm" required minlength="6">
-
-                <button type="submit">Actualizar contraseña</button>
-            </form>
-        <?php endif; ?>
-
-        <p class="auth-link"><a href="../index.php">← Volver al inicio</a></p>
     </div>
+    <?php include '../includes/footer.php'; ?>
 </body>
 </html>
