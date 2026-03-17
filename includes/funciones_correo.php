@@ -12,13 +12,16 @@ function enviarCorreoPHPMailer($destinatario, $asunto, $cuerpoHTML, $cuerpoPlano
     $smtpUser = getenv('SMTP_USER');
     $smtpPass = getenv('SMTP_PASS');
 
+    // Verificar credenciales
     if (!$smtpUser || !$smtpPass) {
-        error_log("Error: Credenciales SMTP no configuradas.");
-        return false;
+        $errorMsg = "Error: Credenciales SMTP no configuradas. SMTP_USER: " . ($smtpUser ? 'OK' : 'falta') . ", SMTP_PASS: " . ($smtpPass ? 'OK' : 'falta');
+        error_log($errorMsg);
+        return $errorMsg;
     }
 
     $mail = new PHPMailer(true);
     try {
+        // Configuración SMTP
         $mail->isSMTP();
         $mail->Host       = $smtpHost;
         $mail->SMTPAuth   = true;
@@ -26,6 +29,11 @@ function enviarCorreoPHPMailer($destinatario, $asunto, $cuerpoHTML, $cuerpoPlano
         $mail->Password   = $smtpPass;
         $mail->SMTPSecure = $smtpSecure;
         $mail->Port       = $smtpPort;
+        // Activar depuración (los mensajes se guardarán en error_log de Render)
+        $mail->SMTPDebug  = 2;
+        $mail->Debugoutput = function($str, $level) {
+            error_log("PHPMailer debug: $str");
+        };
 
         $mail->setFrom($smtpUser, 'VetCtrl');
         $mail->addAddress($destinatario);
@@ -38,8 +46,9 @@ function enviarCorreoPHPMailer($destinatario, $asunto, $cuerpoHTML, $cuerpoPlano
         $mail->send();
         return true;
     } catch (Exception $e) {
-        error_log("Error enviando correo: " . $mail->ErrorInfo);
-        return false;
+        $errorMsg = "Error de PHPMailer: " . $mail->ErrorInfo;
+        error_log($errorMsg);
+        return $errorMsg;
     }
 }
 ?>
