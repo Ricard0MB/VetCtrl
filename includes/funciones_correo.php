@@ -56,7 +56,7 @@ function enviarCorreoPHPMailer($destinatario, $asunto, $cuerpoHTML, $cuerpoPlano
         //     )
         // );
 
-        $mail->setFrom($smtpUser, 'VetCtrl');
+        $mail->setFrom('ricardomejias2808@gmail.com', 'VetCtrl');
         $mail->addAddress($destinatario);
 
         $mail->isHTML(true);
