@@ -1,0 +1,16 @@
+{
+    "name": "user/vet-ctrl",
+    "description": "sistema de gestion veterinaria",
+    "type": "project",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Ricard0MB",
+            "email": "ricardomejias2808@gmail.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {
+        "phpmailer/phpmailer": "^7.0"
+    }
+}
