@@ -5,11 +5,17 @@ use PHPMailer\PHPMailer\Exception;
 require_once __DIR__ . '/../vendor/autoload.php';
 
 function enviarCorreoPHPMailer($destinatario, $asunto, $cuerpoHTML, $cuerpoPlano = '') {
-    $smtpHost = 'smtp.gmail.com';
-    $smtpPort = 587;
-    $smtpSecure = 'tls';
-    $smtpUser = 'ricardomejias2808@gmail.com'; // REEMPLAZA
-    $smtpPass = '31205408'; // REEMPLAZA
+    // Obtener credenciales de variables de entorno
+    $smtpHost = getenv('SMTP_HOST') ?: 'smtp.gmail.com';
+    $smtpPort = getenv('SMTP_PORT') ?: 587;
+    $smtpSecure = getenv('SMTP_SECURE') ?: 'tls';
+    $smtpUser = getenv('SMTP_USER');
+    $smtpPass = getenv('SMTP_PASS');
+
+    if (!$smtpUser || !$smtpPass) {
+        error_log("Error: Credenciales SMTP no configuradas.");
+        return false;
+    }
 
     $mail = new PHPMailer(true);
     try {
@@ -32,7 +38,8 @@ function enviarCorreoPHPMailer($destinatario, $asunto, $cuerpoHTML, $cuerpoPlano
         $mail->send();
         return true;
     } catch (Exception $e) {
-        return "Error al enviar: " . $mail->ErrorInfo;
+        error_log("Error enviando correo: " . $mail->ErrorInfo);
+        return false;
     }
 }
 ?>
