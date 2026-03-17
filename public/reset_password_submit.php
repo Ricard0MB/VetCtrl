@@ -4,7 +4,7 @@ require_once __DIR__ . '/../includes/config.php';
 
 // Solo aceptar POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    header('Location: ../public/index.php');
+    header('Location: ../index.php');
     exit;
 }
 
