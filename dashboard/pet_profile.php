@@ -9,14 +9,23 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
 require_once '../includes/config.php'; // $conn es un objeto PDO
 
 $username = $_SESSION["username"] ?? 'Veterinario';
-$user_id = $_SESSION['user_id'] ?? 0; // Cambié 'id' por 'user_id' para consistencia
+$user_id = $_SESSION['user_id'] ?? 0;
 $role_name = $_SESSION['role_name'] ?? 'Propietario';
+
+// Capturar mensajes de error/success desde la URL
+$error_msg = $_GET['error'] ?? '';
+$success_msg = $_GET['msg'] ?? '';
+$message = '';
+if ($error_msg) {
+    $message = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> " . htmlspecialchars($error_msg) . "</div>";
+} elseif ($success_msg) {
+    $message = "<div class='alert alert-success'><i class='fas fa-check-circle'></i> " . htmlspecialchars($success_msg) . "</div>";
+}
 
 $pet_id = null;
 $pet_data = null;
 $owner_data = null;
 $consultation_history = [];
-$message = '';
 
 if (isset($_GET['id']) && is_numeric($_GET['id'])) {
     $pet_id = intval($_GET['id']);
@@ -101,7 +110,7 @@ try {
     <link rel="stylesheet" href="../public/css/style.css"> 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://unpkg.com/jspdf-autotable@3.5.25/dist/jspdf.plugin.autotable.js"></script>
-
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body {
             font-family: 'Segoe UI', sans-serif;
@@ -215,6 +224,18 @@ try {
         }
         .btn-outline:hover { background:#1b4332; color:white; }
         .btn-sm { padding:5px 12px; font-size:0.9rem; }
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
         /* Mensajes de alerta */
         .alert {
             padding: 15px 20px;
@@ -261,6 +282,9 @@ try {
                     <a href="search_pet_owner.php" class="btn back-to-search"><i class="fas fa-search"></i> Volver a Búsqueda</a>
                     <button id="exportPdfBtn" class="btn export-pdf-btn"><i class="fas fa-file-pdf"></i> Descargar Historial</button>
                     <a href="medical_record.php?id=<?php echo $pet_data['id']; ?>" class="btn btn-record">📄 Expediente Médico</a>
+                    <?php if (in_array($role_name, ['Veterinario', 'admin'])): ?>
+                        <button id="deletePetBtn" class="btn-danger"><i class="fas fa-trash-alt"></i> Eliminar Mascota</button>
+                    <?php endif; ?>
                 </div>
 
                 <?php if ($owner_data): ?>
@@ -337,7 +361,6 @@ try {
         </div>
     </div>
 
-    <!-- Script para PDF (se mantiene igual) -->
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         const exportPdfBtn = document.getElementById('exportPdfBtn');
@@ -452,10 +475,20 @@ try {
             }
             doc.save(`Historial_${pet.name.replace(/\s/g,'_')}.pdf`);
         }
+
+        // Eliminar mascota: confirmación y redirección
+        const deleteBtn = document.getElementById('deletePetBtn');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (confirm('¿Estás seguro de que deseas eliminar esta mascota?\nEsta acción eliminará permanentemente la mascota y todos sus registros asociados (consultas, vacunas, etc.). Esta operación no se puede deshacer.')) {
+                    window.location.href = 'pet_delete.php?id=<?php echo $pet_id; ?>&confirm=1';
+                }
+            });
+        }
     });
     </script>
 
     <?php include_once '../includes/footer.php'; ?>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </body>
 </html>
