@@ -13,36 +13,84 @@ $role_name = $_SESSION['role_name'] ?? 'Propietario';
 $user_id = $_SESSION['user_id'] ?? 0;
 $username = $_SESSION['username'] ?? 'Usuario';
 
+// Obtener filtros de la URL (GET)
+$search_name = trim($_GET['search_name'] ?? '');
+$species_filter = intval($_GET['species'] ?? 0);
+$owner_filter = intval($_GET['owner'] ?? 0);
+
+// Obtener especies para el filtro
+$species_list = [];
+try {
+    $stmt = $conn->query("SELECT id, name FROM pet_types ORDER BY name");
+    $species_list = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    // silencioso, no mostrar error aquí
+}
+
+// Obtener dueños para el filtro (solo para roles que lo necesiten)
+$owners_list = [];
+if (in_array($role_name, ['Veterinario', 'admin'])) {
+    try {
+        $stmt = $conn->query("SELECT id, username, first_name, last_name FROM users WHERE role_id = 3 ORDER BY first_name");
+        $owners_list = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        // silencioso
+    }
+}
+
 $pets = [];
 $message = '';
 
 try {
+    // Construir la consulta base según el rol
+    $sqlBase = "";
+    $params = [];
+
     if ($role_name === 'Veterinario' || $role_name === 'admin') {
-        $sql = "SELECT 
-                    p.id, p.name, pt.name AS species_name, b.name AS breed_name, 
-                    p.gender, p.date_of_birth, u.username AS owner_name,
-                    u.email AS owner_email, p.created_at
-                FROM pets p
-                LEFT JOIN pet_types pt ON p.type_id = pt.id
-                LEFT JOIN breeds b ON p.breed_id = b.id
-                LEFT JOIN users u ON p.owner_id = u.id
-                ORDER BY p.name ASC";
-        $stmt = $conn->prepare($sql);
+        $sqlBase = "SELECT 
+                        p.id, p.name, pt.name AS species_name, b.name AS breed_name, 
+                        p.gender, p.date_of_birth, u.username AS owner_name,
+                        u.email AS owner_email, p.created_at
+                    FROM pets p
+                    LEFT JOIN pet_types pt ON p.type_id = pt.id
+                    LEFT JOIN breeds b ON p.breed_id = b.id
+                    LEFT JOIN users u ON p.owner_id = u.id
+                    WHERE 1=1";
     } else {
-        $sql = "SELECT 
-                    p.id, p.name, pt.name AS species_name, b.name AS breed_name, 
-                    p.gender, p.date_of_birth, p.created_at
-                FROM pets p
-                LEFT JOIN pet_types pt ON p.type_id = pt.id
-                LEFT JOIN breeds b ON p.breed_id = b.id
-                WHERE p.owner_id = :owner_id
-                ORDER BY p.name ASC";
-        $stmt = $conn->prepare($sql);
-        $stmt->bindValue(':owner_id', $user_id, PDO::PARAM_INT);
+        $sqlBase = "SELECT 
+                        p.id, p.name, pt.name AS species_name, b.name AS breed_name, 
+                        p.gender, p.date_of_birth, p.created_at
+                    FROM pets p
+                    LEFT JOIN pet_types pt ON p.type_id = pt.id
+                    LEFT JOIN breeds b ON p.breed_id = b.id
+                    WHERE p.owner_id = :owner_id";
+        $params[':owner_id'] = $user_id;
     }
 
+    // Añadir filtros dinámicos
+    if (!empty($search_name)) {
+        $sqlBase .= " AND p.name LIKE :search_name";
+        $params[':search_name'] = "%$search_name%";
+    }
+    if ($species_filter > 0) {
+        $sqlBase .= " AND p.type_id = :species_id";
+        $params[':species_id'] = $species_filter;
+    }
+    if (($role_name === 'Veterinario' || $role_name === 'admin') && $owner_filter > 0) {
+        $sqlBase .= " AND p.owner_id = :owner_id_filter";
+        $params[':owner_id_filter'] = $owner_filter;
+    }
+
+    // Ordenar por más reciente primero
+    $sqlBase .= " ORDER BY p.created_at DESC";
+
+    $stmt = $conn->prepare($sqlBase);
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value);
+    }
     $stmt->execute();
     $pets = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
 } catch (PDOException $e) {
     $message = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Error al cargar pacientes: " . htmlspecialchars($e->getMessage()) . "</div>";
 }
@@ -103,7 +151,7 @@ try {
             padding: 30px;
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            overflow: hidden; /* Evita desbordes */
+            overflow: hidden;
         }
 
         /* ===== TÍTULOS ===== */
@@ -137,6 +185,64 @@ try {
         .alert-success { background: #d4edda; color: #155724; border-left-color: #28a745; }
         .alert-info { background: #d1ecf1; color: #0c5460; border-left-color: #17a2b8; }
         .alert-danger { background: #f8d7da; color: #721c24; border-left-color: #dc3545; }
+
+        /* ===== FILTROS ===== */
+        .filter-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            border: 1px solid #e9ecef;
+        }
+        .filter-form {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: flex-end;
+        }
+        .filter-group {
+            flex: 1 1 200px;
+        }
+        .filter-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #1b4332;
+        }
+        .filter-group input, .filter-group select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            transition: 0.2s;
+        }
+        .filter-group input:focus, .filter-group select:focus {
+            border-color: #40916c;
+            outline: none;
+        }
+        .filter-buttons {
+            display: flex;
+            gap: 10px;
+            flex: 0 0 auto;
+        }
+        .btn-filter, .btn-reset {
+            background: #40916c;
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-reset {
+            background: #6c757d;
+        }
+        .btn-filter:hover { background: #2d6a4f; }
+        .btn-reset:hover { background: #5a6268; }
 
         /* ===== BOTONES PRINCIPALES ===== */
         .action-buttons {
@@ -269,6 +375,21 @@ try {
 
         /* ===== MEDIA QUERIES PARA MÓVIL ===== */
         @media (max-width: 768px) {
+            .filter-form {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .filter-group {
+                width: 100%;
+            }
+            .filter-buttons {
+                flex-direction: column;
+                width: 100%;
+            }
+            .btn-filter, .btn-reset {
+                width: 100%;
+                justify-content: center;
+            }
             .action-buttons {
                 flex-direction: column;
                 align-items: stretch;
@@ -279,7 +400,6 @@ try {
             .pet-table th {
                 white-space: normal;
             }
-            /* En móvil, los botones de acción se muestran uno debajo del otro */
             .pet-table td:last-child {
                 display: flex;
                 flex-direction: column;
@@ -317,15 +437,56 @@ try {
 
             <?php echo $message; ?>
 
+            <!-- SECCIÓN DE FILTROS -->
+            <div class="filter-section">
+                <form method="get" class="filter-form" id="filterForm">
+                    <div class="filter-group">
+                        <label><i class="fas fa-search"></i> Buscar por nombre</label>
+                        <input type="text" name="search_name" placeholder="Ej: Max" value="<?php echo htmlspecialchars($search_name); ?>">
+                    </div>
+                    <div class="filter-group">
+                        <label><i class="fas fa-paw"></i> Especie</label>
+                        <select name="species">
+                            <option value="0">Todas</option>
+                            <?php foreach ($species_list as $specie): ?>
+                                <option value="<?php echo $specie['id']; ?>" <?php echo ($species_filter == $specie['id']) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($specie['name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <?php if (in_array($role_name, ['Veterinario', 'admin'])): ?>
+                    <div class="filter-group">
+                        <label><i class="fas fa-user"></i> Dueño</label>
+                        <select name="owner">
+                            <option value="0">Todos</option>
+                            <?php foreach ($owners_list as $owner): 
+                                $owner_name = trim($owner['first_name'] . ' ' . $owner['last_name']);
+                                if (empty($owner_name)) $owner_name = $owner['username'];
+                            ?>
+                                <option value="<?php echo $owner['id']; ?>" <?php echo ($owner_filter == $owner['id']) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($owner_name); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <?php endif; ?>
+                    <div class="filter-buttons">
+                        <button type="submit" class="btn-filter"><i class="fas fa-filter"></i> Filtrar</button>
+                        <a href="pet_list.php" class="btn-reset"><i class="fas fa-times"></i> Limpiar</a>
+                    </div>
+                </form>
+            </div>
+
             <div class="action-buttons">
                 <a href="pet_register.php" class="btn-primary"><i class="fas fa-plus-circle"></i> Registrar Mascota</a>
-                <a href="search_pet_owner.php" class="btn-primary" style="background: #3F51B5;"><i class="fas fa-search"></i> Buscar</a>
+                <a href="search_pet_owner.php" class="btn-primary" style="background: #3F51B5;"><i class="fas fa-search"></i> Buscar avanzado</a>
             </div>
 
             <?php if (empty($pets)): ?>
                 <div class="empty-state">
                     <i class="fas fa-dog"></i>
-                    <p>No hay mascotas registradas.</p>
+                    <p>No hay mascotas registradas con los filtros seleccionados.</p>
                     <a href="pet_register.php" class="btn-primary">Registrar primera mascota</a>
                 </div>
             <?php else: ?>
