@@ -4,6 +4,15 @@ use GuzzleHttp\Exception\GuzzleException;
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
+/**
+ * Envía un correo usando la API de SendGrid.
+ *
+ * @param string $destinatario Correo del destinatario.
+ * @param string $asunto Asunto del mensaje.
+ * @param string $cuerpoHTML Cuerpo en formato HTML.
+ * @param string $cuerpoPlano Versión en texto plano (opcional).
+ * @return true|string True si se envió, o mensaje de error.
+ */
 function enviarCorreoSendGrid($destinatario, $asunto, $cuerpoHTML, $cuerpoPlano = '') {
     $apiKey = getenv('SENDGRID_API_KEY');
     if (empty($apiKey)) {
@@ -55,7 +64,4 @@ function enviarCorreoSendGrid($destinatario, $asunto, $cuerpoHTML, $cuerpoPlano 
         return $errorMsg;
     }
 }
-
-// (Opcional) Mantener la función PHPMailer por compatibilidad, pero no se usará
-function enviarCorreoPHPMailer(...) { ... }
 ?>
