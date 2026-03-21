@@ -246,7 +246,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <input type="email" name="email" required placeholder="tuemail@ejemplo.com">
             <button type="submit">Enviar enlace de recuperación</button>
         </form>
-        <a href="login.php" class="back-link">← Volver al inicio de sesión</a>
+        <a href="../index.php" class="back-link">← Volver al inicio de sesión</a>
     </div>
     <?php include '../includes/footer.php'; ?>
 </body>
