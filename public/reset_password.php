@@ -219,7 +219,7 @@ if (!$user) {
             <input type="password" name="password_confirm" required minlength="8">
             <button type="submit">Cambiar contraseña</button>
         </form>
-        <a href="index.php" class="back-link">← Volver al inicio de sesión</a>
+        <a href="../index.php" class="back-link">← Volver al inicio de sesión</a>
     </div>
     <?php include '../includes/footer.php'; ?>
 </body>
