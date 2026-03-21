@@ -7,7 +7,8 @@ ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    header('Location: ../index.php');
+    // Redirige a la página principal (index.php)
+    header('Location: index.php');
     exit;
 }
 
@@ -64,8 +65,8 @@ try {
         exit;
     }
 
-    // Redirigir al login (login.php está en la misma carpeta public)
-    header('Location: login.php?msg=' . urlencode('Contraseña actualizada correctamente. Inicia sesión.'));
+    // Redirigir a index.php (la página principal de login) con mensaje de éxito
+    header('Location: index.php?msg=' . urlencode('Contraseña actualizada correctamente. Inicia sesión.'));
     exit;
 
 } catch (PDOException $e) {
