@@ -12,7 +12,7 @@ if (!in_array($role_name, ['Veterinario', 'admin'])) {
 }
 
 require_once '../includes/config.php';
-require_once '../includes/bitacora_function.php'; // si existe, para log
+require_once '../includes/bitacora_function.php'; // si no existe, comenta esta línea
 
 $pet_id = isset($_GET['id']) && is_numeric($_GET['id']) ? intval($_GET['id']) : 0;
 $confirm = isset($_GET['confirm']) && $_GET['confirm'] == 1;
@@ -38,39 +38,32 @@ try {
         exit;
     }
 
-    // Verificar si hay registros dependientes
-    // Consultas
-    $stmt = $conn->prepare("SELECT COUNT(*) as count FROM consultations WHERE pet_id = :id");
-    $stmt->bindValue(':id', $pet_id, PDO::PARAM_INT);
-    $stmt->execute();
-    $consultations = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+    // ===== VERIFICAR REGISTROS DEPENDIENTES =====
+    // Ajusta las tablas según tu esquema real
+    $dependent_tables = [
+        'consultations' => 'pet_id',
+        'vaccinations' => 'pet_id',
+        'appointments' => 'pet_id',
+        'treatment_records' => 'pet_id',
+        // Agrega aquí cualquier otra tabla que tenga pet_id como FK
+    ];
 
-    // Vacunas (asumiendo tabla vaccinations con pet_id)
-    $stmt = $conn->prepare("SELECT COUNT(*) as count FROM vaccinations WHERE pet_id = :id");
-    $stmt->bindValue(':id', $pet_id, PDO::PARAM_INT);
-    $stmt->execute();
-    $vaccinations = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+    $has_dependencies = false;
+    $dependencies_list = [];
 
-    // Citas (appointments)
-    $stmt = $conn->prepare("SELECT COUNT(*) as count FROM appointments WHERE pet_id = :id");
-    $stmt->bindValue(':id', $pet_id, PDO::PARAM_INT);
-    $stmt->execute();
-    $appointments = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+    foreach ($dependent_tables as $table => $fk_column) {
+        $stmt = $conn->prepare("SELECT COUNT(*) as count FROM $table WHERE $fk_column = :id");
+        $stmt->bindValue(':id', $pet_id, PDO::PARAM_INT);
+        $stmt->execute();
+        $count = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+        if ($count > 0) {
+            $has_dependencies = true;
+            $dependencies_list[] = "$count registro(s) en $table";
+        }
+    }
 
-    // Tratamientos (si hay tabla treatment_records)
-    $stmt = $conn->prepare("SELECT COUNT(*) as count FROM treatment_records WHERE pet_id = :id");
-    $stmt->bindValue(':id', $pet_id, PDO::PARAM_INT);
-    $stmt->execute();
-    $treatments = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
-
-    if ($consultations > 0 || $vaccinations > 0 || $appointments > 0 || $treatments > 0) {
-        $msg = "No se puede eliminar la mascota porque tiene registros asociados: ";
-        $details = [];
-        if ($consultations > 0) $details[] = "$consultations consulta(s)";
-        if ($vaccinations > 0) $details[] = "$vaccinations vacuna(s)";
-        if ($appointments > 0) $details[] = "$appointments cita(s)";
-        if ($treatments > 0) $details[] = "$treatments tratamiento(s)";
-        $msg .= implode(', ', $details);
+    if ($has_dependencies) {
+        $msg = "No se puede eliminar la mascota porque tiene registros asociados: " . implode(', ', $dependencies_list);
         header("Location: pet_profile.php?id=$pet_id&error=" . urlencode($msg));
         exit;
     }
@@ -78,7 +71,7 @@ try {
     // Iniciar transacción
     $conn->beginTransaction();
 
-    // Eliminar mascota (las tablas dependientes ya fueron verificadas como vacías)
+    // Eliminar mascota
     $stmt = $conn->prepare("DELETE FROM pets WHERE id = :id");
     $stmt->bindValue(':id', $pet_id, PDO::PARAM_INT);
     $stmt->execute();
@@ -88,6 +81,9 @@ try {
     $action = "Mascota eliminada: {$pet['name']} (ID $pet_id)";
     if (function_exists('log_to_bitacora')) {
         log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
+    } else {
+        // Si no existe la función, al menos escribimos en log de errores
+        error_log("Eliminación de mascota: $action por $username");
     }
 
     $conn->commit();
@@ -97,9 +93,16 @@ try {
     exit;
 
 } catch (PDOException $e) {
-    if ($conn->inTransaction()) $conn->rollBack();
-    error_log("Error al eliminar mascota $pet_id: " . $e->getMessage());
-    header("Location: pet_profile.php?id=$pet_id&error=" . urlencode("Error interno al eliminar. Contacta al administrador."));
+    if ($conn->inTransaction()) {
+        $conn->rollBack();
+    }
+    // Registrar el error completo en el log del servidor
+    error_log("Error al eliminar mascota ID $pet_id: " . $e->getMessage());
+    error_log("Código SQL: " . $e->getCode());
+    
+    // Opcional: Mostrar el error real en la URL para depuración (solo temporal)
+    $error_detail = urlencode("Error: " . $e->getMessage());
+    header("Location: pet_profile.php?id=$pet_id&error=$error_detail");
     exit;
 }
 ?>
