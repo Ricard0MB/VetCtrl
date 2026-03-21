@@ -1,19 +1,16 @@
 <?php
 session_start();
-set_time_limit(120); // Aumentar tiempo de ejecución
+set_time_limit(120);
 require_once '../includes/config.php';
 
 $error = '';
 $success = '';
-
-// URL base del sitio (configurar en Render como variable de entorno SITE_URL)
-$baseUrl = getenv('SITE_URL') ?: 'https://vetctrl.onrender.com'; // Cambia si es necesario
+$baseUrl = getenv('SITE_URL') ?: 'https://vetctrl.onrender.com'; // Ajusta si es necesario
 
 // ------------------------------------------------------------------
 // Función para enviar correo usando la API de SendGrid con cURL
 // ------------------------------------------------------------------
 function enviarCorreoSendGrid($destinatario, $asunto, $cuerpoHTML, $cuerpoPlano = '') {
-    // Leer la clave de API desde la variable de entorno SMTP_PASS (ya existe)
     $apiKey = getenv('SMTP_PASS') ?: getenv('SENDGRID_API_KEY');
     if (empty($apiKey)) {
         return "Error: Clave de API no encontrada (SMTP_PASS o SENDGRID_API_KEY no definida)";
@@ -22,7 +19,13 @@ function enviarCorreoSendGrid($destinatario, $asunto, $cuerpoHTML, $cuerpoPlano 
     $fromEmail = getenv('SENDGRID_FROM_EMAIL') ?: 'no-reply@vetctrl.com';
     $fromName  = getenv('SENDGRID_FROM_NAME') ?: 'VetCtrl';
 
-    // Estructura del correo
+    // Construir el array de contenido respetando el orden: text/plain primero, luego text/html
+    $content = [];
+    if (!empty($cuerpoPlano)) {
+        $content[] = ['type' => 'text/plain', 'value' => $cuerpoPlano];
+    }
+    $content[] = ['type' => 'text/html', 'value' => $cuerpoHTML];
+
     $data = [
         'personalizations' => [
             [
@@ -31,21 +34,8 @@ function enviarCorreoSendGrid($destinatario, $asunto, $cuerpoHTML, $cuerpoPlano 
             ]
         ],
         'from' => ['email' => $fromEmail, 'name' => $fromName],
-        'content' => [
-            [
-                'type' => 'text/html',
-                'value' => $cuerpoHTML,
-            ]
-        ]
+        'content' => $content,
     ];
-
-    // Agregar versión texto plano si se proporciona
-    if (!empty($cuerpoPlano)) {
-        $data['content'][] = [
-            'type' => 'text/plain',
-            'value' => $cuerpoPlano,
-        ];
-    }
 
     $jsonData = json_encode($data);
     $ch = curl_init('https://api.sendgrid.com/v3/mail/send');
@@ -65,14 +55,8 @@ function enviarCorreoSendGrid($destinatario, $asunto, $cuerpoHTML, $cuerpoPlano 
     $curlError = curl_error($ch);
     curl_close($ch);
     
-    if ($curlError) {
-        return "Error cURL: " . $curlError;
-    }
-    
-    if ($httpCode === 202) {
-        return true;
-    }
-    
+    if ($curlError) return "Error cURL: " . $curlError;
+    if ($httpCode === 202) return true;
     return "Error HTTP $httpCode - Respuesta: " . $response;
 }
 // ------------------------------------------------------------------
@@ -122,12 +106,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        /* (Mantén todos los estilos iguales) */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
@@ -139,29 +119,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             padding: 20px;
             position: relative;
         }
-
-        body::before {
-            content: "🐾";
-            font-size: 120px;
-            opacity: 0.05;
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            pointer-events: none;
-            transform: rotate(-15deg);
-        }
-
-        body::after {
-            content: "🐾";
-            font-size: 180px;
-            opacity: 0.05;
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            pointer-events: none;
-            transform: rotate(15deg);
-        }
-
+        body::before { content: "🐾"; font-size: 120px; opacity: 0.05; position: absolute; bottom: 20px; left: 20px; pointer-events: none; transform: rotate(-15deg); }
+        body::after { content: "🐾"; font-size: 180px; opacity: 0.05; position: absolute; top: 20px; right: 20px; pointer-events: none; transform: rotate(15deg); }
         .container {
             background: white;
             border-radius: 28px;
@@ -175,11 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             z-index: 1;
             border: 1px solid rgba(76, 175, 80, 0.2);
         }
-
-        .container:hover {
-            transform: translateY(-3px);
-        }
-
+        .container:hover { transform: translateY(-3px); }
         h1 {
             color: #2e7d32;
             font-size: 1.9rem;
@@ -190,17 +145,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             gap: 10px;
             flex-wrap: wrap;
         }
-
-        h1::before {
-            content: "🐕";
-            font-size: 2rem;
-        }
-
-        h1::after {
-            content: "🐈";
-            font-size: 2rem;
-        }
-
+        h1::before { content: "🐕"; font-size: 2rem; }
+        h1::after { content: "🐈"; font-size: 2rem; }
         .alert {
             padding: 12px 18px;
             border-radius: 40px;
@@ -210,23 +156,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background: #f8f9fa;
             border-left: 5px solid;
         }
-
-        .alert-danger {
-            background-color: #ffebee;
-            border-left-color: #d32f2f;
-            color: #b71c1c;
-        }
-
-        .alert-success {
-            background-color: #e8f5e9;
-            border-left-color: #2e7d32;
-            color: #1b5e20;
-        }
-
-        form {
-            margin-top: 10px;
-        }
-
+        .alert-danger { background-color: #ffebee; border-left-color: #d32f2f; color: #b71c1c; }
+        .alert-success { background-color: #e8f5e9; border-left-color: #2e7d32; color: #1b5e20; }
+        form { margin-top: 10px; }
         label {
             display: block;
             text-align: left;
@@ -235,7 +167,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             color: #1b5e20;
             font-size: 0.9rem;
         }
-
         input[type="email"] {
             width: 100%;
             padding: 14px 18px;
@@ -247,13 +178,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             outline: none;
             font-family: inherit;
         }
-
         input[type="email"]:focus {
             border-color: #4caf50;
             box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
             background-color: #ffffff;
         }
-
         button {
             background: linear-gradient(95deg, #2e7d32, #4caf50);
             color: white;
@@ -269,13 +198,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
             font-family: inherit;
         }
-
         button:hover {
             background: linear-gradient(95deg, #1b5e20, #388e3c);
             transform: scale(0.98);
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
-
         .back-link {
             display: inline-block;
             margin-top: 20px;
@@ -285,12 +212,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border-bottom: 1px dashed #2e7d32;
             transition: all 0.2s;
         }
-
-        .back-link:hover {
-            color: #1b5e20;
-            border-bottom: 1px solid #1b5e20;
-        }
-
+        .back-link:hover { color: #1b5e20; border-bottom: 1px solid #1b5e20; }
         footer {
             margin-top: 30px;
             text-align: center;
@@ -303,18 +225,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             width: auto;
             z-index: 2;
         }
-
-        footer p {
-            margin: 0;
-        }
-
+        footer p { margin: 0; }
         @media (max-width: 550px) {
-            .container {
-                padding: 30px 20px;
-            }
-            h1 {
-                font-size: 1.6rem;
-            }
+            .container { padding: 30px 20px; }
+            h1 { font-size: 1.6rem; }
         }
     </style>
 </head>
