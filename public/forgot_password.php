@@ -37,12 +37,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Usar API de SendGrid
             $envio = enviarCorreoSendGrid($email, $asunto, $mensajeHTML, $mensajePlano);
-            if ($envio === true) {
-                $success = "Se ha enviado un enlace de recuperación a tu correo.";
-            } else {
-                error_log("Error enviando correo: $envio");
-                $error = "Ocurrió un error al enviar el correo. Intenta más tarde.";
-            }
+if ($envio === true) {
+    $success = "Se ha enviado un enlace de recuperación a tu correo.";
+} else {
+    // Mostrar el error real (solo para depuración)
+    $error = "Error: " . $envio;  // <--- aquí se muestra el mensaje de error
+    error_log("Error enviando correo: $envio");
+}
         } else {
             $success = "Si el correo está registrado, recibirás un enlace.";
         }
