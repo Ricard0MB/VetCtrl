@@ -2,13 +2,80 @@
 session_start();
 set_time_limit(120); // Aumentar tiempo de ejecución
 require_once '../includes/config.php';
-require_once '../includes/funciones_correo.php';
 
 $error = '';
 $success = '';
 
 // URL base del sitio (configurar en Render como variable de entorno SITE_URL)
-$baseUrl = getenv('SITE_URL') ?: 'https://tudominio.com';
+$baseUrl = getenv('SITE_URL') ?: 'https://vetctrl.onrender.com'; // Cambia si es necesario
+
+// ------------------------------------------------------------------
+// Función para enviar correo usando la API de SendGrid con cURL
+// ------------------------------------------------------------------
+function enviarCorreoSendGrid($destinatario, $asunto, $cuerpoHTML, $cuerpoPlano = '') {
+    // Leer la clave de API desde la variable de entorno SMTP_PASS (ya existe)
+    $apiKey = getenv('SMTP_PASS') ?: getenv('SENDGRID_API_KEY');
+    if (empty($apiKey)) {
+        return "Error: Clave de API no encontrada (SMTP_PASS o SENDGRID_API_KEY no definida)";
+    }
+
+    $fromEmail = getenv('SENDGRID_FROM_EMAIL') ?: 'no-reply@vetctrl.com';
+    $fromName  = getenv('SENDGRID_FROM_NAME') ?: 'VetCtrl';
+
+    // Estructura del correo
+    $data = [
+        'personalizations' => [
+            [
+                'to' => [['email' => $destinatario]],
+                'subject' => $asunto,
+            ]
+        ],
+        'from' => ['email' => $fromEmail, 'name' => $fromName],
+        'content' => [
+            [
+                'type' => 'text/html',
+                'value' => $cuerpoHTML,
+            ]
+        ]
+    ];
+
+    // Agregar versión texto plano si se proporciona
+    if (!empty($cuerpoPlano)) {
+        $data['content'][] = [
+            'type' => 'text/plain',
+            'value' => $cuerpoPlano,
+        ];
+    }
+
+    $jsonData = json_encode($data);
+    $ch = curl_init('https://api.sendgrid.com/v3/mail/send');
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonData);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Authorization: Bearer ' . $apiKey,
+        'Content-Type: application/json',
+        'Content-Length: ' . strlen($jsonData)
+    ]);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+    
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+    
+    if ($curlError) {
+        return "Error cURL: " . $curlError;
+    }
+    
+    if ($httpCode === 202) {
+        return true;
+    }
+    
+    return "Error HTTP $httpCode - Respuesta: " . $response;
+}
+// ------------------------------------------------------------------
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email'] ?? '');
@@ -35,15 +102,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $mensajeHTML = "<h2>Recupera tu contraseña</h2><p>Haz clic en el siguiente enlace para restablecer tu contraseña:</p><p><a href='$resetLink'>$resetLink</a></p><p>Este enlace expirará en 1 hora.</p>";
             $mensajePlano = "Recupera tu contraseña\n\nHaz clic en este enlace: $resetLink\n\nExpira en 1 hora.";
 
-            // Usar API de SendGrid
             $envio = enviarCorreoSendGrid($email, $asunto, $mensajeHTML, $mensajePlano);
-if ($envio === true) {
-    $success = "Se ha enviado un enlace de recuperación a tu correo.";
-} else {
-    // Mostrar el error real (solo para depuración)
-    $error = "Error: " . $envio;  // <--- aquí se muestra el mensaje de error
-    error_log("Error enviando correo: $envio");
-}
+            if ($envio === true) {
+                $success = "Se ha enviado un enlace de recuperación a tu correo.";
+            } else {
+                $error = "Error al enviar: " . $envio;
+                error_log("Error enviando correo: $envio");
+            }
         } else {
             $success = "Si el correo está registrado, recibirás un enlace.";
         }
@@ -75,7 +140,6 @@ if ($envio === true) {
             position: relative;
         }
 
-        /* Decoración con huellas */
         body::before {
             content: "🐾";
             font-size: 120px;
@@ -227,7 +291,6 @@ if ($envio === true) {
             border-bottom: 1px solid #1b5e20;
         }
 
-        /* Footer minimalista */
         footer {
             margin-top: 30px;
             text-align: center;
