@@ -25,6 +25,42 @@ $owners = [];
 $error = '';
 $success = '';
 
+// ========== FUNCIONES DE VALIDACIÓN ==========
+/**
+ * Limpia el nombre: elimina números y caracteres no deseados, recorta espacios.
+ */
+function sanitizePetName($name) {
+    // Eliminar números
+    $name = preg_replace('/[0-9]/', '', $name);
+    // Eliminar caracteres no permitidos: solo letras, espacios, apóstrofes, guiones, acentos (conservar ñ)
+    $name = preg_replace('/[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s\-\']/u', '', $name);
+    // Reducir espacios múltiples a uno
+    $name = preg_replace('/\s+/', ' ', $name);
+    return trim($name);
+}
+
+/**
+ * Valida que el nombre no contenga groserías (lista en español e inglés).
+ */
+function containsProfanity($name) {
+    $profanityList = [
+        // Español
+        'puta', 'puto', 'pendejo', 'cabrón', 'cabron', 'coño', 'cojones', 'joder', 'mierda', 'imbécil', 'imbecil',
+        'gilipollas', 'zorra', 'bastardo', 'malparido', 'hijueputa', 'hijo de puta', 'maricón', 'maricon',
+        'chucha', 'concha', 'culiao', 'weon', 'weón', 'weona', 'ctm', 'conchetumare',
+        // Inglés
+        'fuck', 'shit', 'bitch', 'asshole', 'bastard', 'cunt', 'dick', 'pussy', 'whore', 'slut', 'motherfucker'
+    ];
+    $lower = strtolower($name);
+    foreach ($profanityList as $word) {
+        if (strpos($lower, $word) !== false) {
+            return true;
+        }
+    }
+    return false;
+}
+// ============================================
+
 try {
     // Obtener tipos de mascota
     $stmtTypes = $conn->query("SELECT id, name FROM pet_types ORDER BY name");
@@ -51,18 +87,35 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
     $dob = !empty($_POST['dob']) ? $_POST['dob'] : null;
     $medical_history = !empty($_POST['medical_history']) ? trim($_POST['medical_history']) : null;
 
-    // Determinar owner_id
-    if (in_array($role_name, ['Veterinario', 'admin'])) {
-        $owner_id = intval($_POST['owner_id'] ?? 0);
-        if ($owner_id <= 0) {
-            $error = "Debe seleccionar un dueño para la mascota.";
-        }
+    // Validación del nombre (antes de determinar owner_id)
+    if (empty($name)) {
+        $error = "El nombre de la mascota es obligatorio.";
     } else {
-        $owner_id = $user_id; // propietario, su propio ID
+        // Limpiar nombre (quitar números y caracteres no deseados)
+        $name = sanitizePetName($name);
+        if (strlen($name) < 2) {
+            $error = "El nombre debe tener al menos 2 caracteres válidos (letras, espacios, guiones).";
+        } elseif (strlen($name) > 50) {
+            $error = "El nombre no puede exceder los 50 caracteres.";
+        } elseif (containsProfanity($name)) {
+            $error = "El nombre contiene palabras inapropiadas. Por favor, elige otro nombre.";
+        }
+    }
+
+    // Determinar owner_id (después de validar nombre)
+    if (empty($error)) {
+        if (in_array($role_name, ['Veterinario', 'admin'])) {
+            $owner_id = intval($_POST['owner_id'] ?? 0);
+            if ($owner_id <= 0) {
+                $error = "Debe seleccionar un dueño para la mascota.";
+            }
+        } else {
+            $owner_id = $user_id; // propietario, su propio ID
+        }
     }
 
     if (empty($name) || $type_id == 0) {
-        $error = "El nombre y la especie son obligatorios.";
+        if (empty($error)) $error = "El nombre y la especie son obligatorios.";
     }
 
     if (empty($error)) {
@@ -133,7 +186,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
             padding: 30px;
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            overflow: hidden; /* Evita desbordes */
+            overflow: hidden;
         }
         h1 {
             color: #1b4332;
@@ -169,14 +222,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
             padding: 10px;
             border: 2px solid #e0e0e0;
             border-radius: 6px;
-            box-sizing: border-box; /* asegura que padding no desborde */
+            box-sizing: border-box;
         }
         input:focus, select:focus, textarea:focus {
             border-color: #40916c;
             outline: none;
         }
-
-        /* Botón primario (Registrar) */
+        .input-error {
+            border-color: #dc3545 !important;
+        }
+        .error-message {
+            color: #dc3545;
+            font-size: 0.85rem;
+            margin-top: 4px;
+        }
         .btn {
             padding: 12px 25px;
             border: none;
@@ -196,8 +255,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
             background: #2d6a4f;
             transform: translateY(-2px);
         }
-
-        /* Botón secundario (Ver listado) */
         .btn-secondary {
             background: #6c757d;
             color: white;
@@ -211,7 +268,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
             max-width: 100%;
             box-sizing: border-box;
             text-align: center;
-            width: auto; /* para que no ocupe todo el ancho */
+            width: auto;
             border: none;
             cursor: pointer;
         }
@@ -220,8 +277,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
             text-decoration: none;
             color: white;
         }
-
-        /* Para que el enlace no se desborde en móvil */
         @media (max-width: 600px) {
             .btn-secondary {
                 width: 100%;
@@ -230,27 +285,107 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
         }
     </style>
     <script>
-        const allBreeds = <?php echo json_encode($breeds, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
-        function filterBreeds() {
-            const typeSelect = document.getElementById('type_id');
-            const breedSelect = document.getElementById('breed_id');
-            const selectedType = typeSelect.value;
-            breedSelect.innerHTML = '<option value="">-- Sin raza --</option>';
-            if (selectedType) {
-                const filtered = allBreeds.filter(b => b.type_id == selectedType);
-                filtered.forEach(b => {
-                    const opt = document.createElement('option');
-                    opt.value = b.id;
-                    opt.textContent = b.name;
-                    // Si hay POST, mantener selección
-                    if (b.id == <?php echo json_encode($_POST['breed_id'] ?? 0); ?>) opt.selected = true;
-                    breedSelect.appendChild(opt);
+        // Lista de groserías (para validación en cliente)
+        const profanityList = [
+            'puta', 'puto', 'pendejo', 'cabrón', 'cabron', 'coño', 'cojones', 'joder', 'mierda', 'imbécil', 'imbecil',
+            'gilipollas', 'zorra', 'bastardo', 'malparido', 'hijueputa', 'maricón', 'maricon',
+            'chucha', 'concha', 'culiao', 'weon', 'weón', 'weona', 'ctm', 'conchetumare',
+            'fuck', 'shit', 'bitch', 'asshole', 'bastard', 'cunt', 'dick', 'pussy', 'whore', 'slut', 'motherfucker'
+        ];
+
+        function containsProfanity(str) {
+            const lower = str.toLowerCase();
+            for (let word of profanityList) {
+                if (lower.includes(word)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function validatePetName() {
+            const nameInput = document.getElementById('name');
+            let name = nameInput.value;
+            // Eliminar números
+            name = name.replace(/[0-9]/g, '');
+            // Eliminar caracteres no permitidos (solo letras, espacios, guiones, apóstrofes, acentos)
+            name = name.replace(/[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s\-\']/g, '');
+            // Reducir espacios múltiples
+            name = name.replace(/\s+/g, ' ').trim();
+            nameInput.value = name;
+
+            // Validaciones
+            let isValid = true;
+            let errorMsg = '';
+
+            if (name.length < 2) {
+                errorMsg = 'El nombre debe tener al menos 2 caracteres válidos.';
+                isValid = false;
+            } else if (name.length > 50) {
+                errorMsg = 'El nombre no puede exceder los 50 caracteres.';
+                isValid = false;
+            } else if (containsProfanity(name)) {
+                errorMsg = 'El nombre contiene palabras inapropiadas. Por favor, elige otro nombre.';
+                isValid = false;
+            }
+
+            const errorSpan = document.getElementById('name-error');
+            if (!isValid) {
+                nameInput.classList.add('input-error');
+                errorSpan.textContent = errorMsg;
+            } else {
+                nameInput.classList.remove('input-error');
+                errorSpan.textContent = '';
+            }
+            return isValid;
+        }
+
+        // Eventos en tiempo real
+        document.addEventListener('DOMContentLoaded', function() {
+            const nameInput = document.getElementById('name');
+            if (nameInput) {
+                nameInput.addEventListener('input', function() {
+                    let val = this.value;
+                    val = val.replace(/[0-9]/g, '');
+                    val = val.replace(/[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s\-\']/g, '');
+                    this.value = val;
+                    validatePetName();
+                });
+                nameInput.addEventListener('blur', validatePetName);
+            }
+
+            // Validación antes de enviar el formulario
+            const form = document.querySelector('form');
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    if (!validatePetName()) {
+                        e.preventDefault();
+                        alert('Por favor corrige el nombre de la mascota.');
+                    }
                 });
             }
-        }
-        document.addEventListener('DOMContentLoaded', function() {
+
+            // Filtrar razas (ya existe)
+            const allBreeds = <?php echo json_encode($breeds, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+            function filterBreeds() {
+                const typeSelect = document.getElementById('type_id');
+                const breedSelect = document.getElementById('breed_id');
+                const selectedType = typeSelect.value;
+                breedSelect.innerHTML = '<option value="">-- Sin raza --</option>';
+                if (selectedType) {
+                    const filtered = allBreeds.filter(b => b.type_id == selectedType);
+                    filtered.forEach(b => {
+                        const opt = document.createElement('option');
+                        opt.value = b.id;
+                        opt.textContent = b.name;
+                        if (b.id == <?php echo json_encode($_POST['breed_id'] ?? 0); ?>) opt.selected = true;
+                        breedSelect.appendChild(opt);
+                    });
+                }
+            }
             filterBreeds();
-            document.getElementById('type_id').addEventListener('change', filterBreeds);
+            const typeSelect = document.getElementById('type_id');
+            if (typeSelect) typeSelect.addEventListener('change', filterBreeds);
         });
     </script>
 </head>
@@ -289,7 +424,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
             <?php endif; ?>
 
             <label for="name">Nombre de la mascota:</label>
-            <input type="text" name="name" id="name" value="<?php echo htmlspecialchars($_POST['name'] ?? ''); ?>" required>
+            <input type="text" name="name" id="name" value="<?php echo htmlspecialchars($_POST['name'] ?? ''); ?>" required maxlength="50">
+            <div id="name-error" class="error-message"></div>
 
             <label for="type_id">Especie:</label>
             <select name="type_id" id="type_id" required>
