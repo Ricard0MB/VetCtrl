@@ -28,6 +28,42 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
     $config[$row['config_key']] = $row['config_value'];
 }
 
+// Función para parsear días laborables en un array de números (1 = lunes, 7 = domingo)
+function parseWorkingDays($daysString) {
+    $daysMap = [
+        'Lunes' => 1, 'Martes' => 2, 'Miércoles' => 3, 'Miercoles' => 3,
+        'Jueves' => 4, 'Viernes' => 5, 'Sábado' => 6, 'Sabado' => 6,
+        'Domingo' => 7
+    ];
+    $daysString = trim($daysString);
+    // Si contiene "a", asumimos rango
+    if (preg_match('/([a-zA-ZáéíóúÁÉÍÓÚ]+)\s*a\s*([a-zA-ZáéíóúÁÉÍÓÚ]+)/i', $daysString, $matches)) {
+        $start = $matches[1];
+        $end = $matches[2];
+        if (isset($daysMap[$start]) && isset($daysMap[$end])) {
+            $startNum = $daysMap[$start];
+            $endNum = $daysMap[$end];
+            $result = [];
+            for ($i = $startNum; $i <= $endNum; $i++) {
+                $result[] = $i;
+            }
+            return $result;
+        }
+    }
+    // Si no es rango, tratar como lista separada por comas
+    $parts = preg_split('/[,\s]+/', $daysString);
+    $result = [];
+    foreach ($parts as $part) {
+        $part = trim($part);
+        if (isset($daysMap[$part])) {
+            $result[] = $daysMap[$part];
+        }
+    }
+    return $result;
+}
+
+$allowedDays = parseWorkingDays($config['dias_trabajo']);
+
 $pets = [];
 $vets = [];
 $error = '';
@@ -77,22 +113,16 @@ try {
 }
 
 // Función para validar fecha/hora según horario laboral
-function isWithinWorkingHours($datetime, $open, $close, $workingDays) {
+function isWithinWorkingHours($datetime, $open, $close, $allowedDays) {
     $timestamp = strtotime($datetime);
     if (!$timestamp) return false;
     
-    // Obtener hora de la fecha
-    $hour = date('H:i', $timestamp);
     $dayOfWeek = date('N', $timestamp); // 1=Monday, 7=Sunday
-    
-    // Verificar si es día laborable (simplificado: si $workingDays contiene el nombre del día)
-    $dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-    $dayName = $dayNames[$dayOfWeek - 1];
-    if (stripos($workingDays, $dayName) === false) {
+    if (!in_array($dayOfWeek, $allowedDays)) {
         return false;
     }
     
-    // Comparar hora
+    $hour = date('H:i', $timestamp);
     return ($hour >= $open && $hour <= $close);
 }
 
@@ -111,8 +141,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
             $error = "Fecha inválida.";
         } elseif ($timestamp <= time()) {
             $error = "La fecha y hora deben ser futuras.";
-        } elseif (!isWithinWorkingHours($appointment_date, $config['horario_apertura'], $config['horario_cierre'], $config['dias_trabajo'])) {
-            $error = "La cita debe estar dentro del horario laboral ({$config['horario_apertura']} a {$config['horario_cierre']}) y en días laborables.";
+        } elseif (!isWithinWorkingHours($appointment_date, $config['horario_apertura'], $config['horario_cierre'], $allowedDays)) {
+            $error = "La cita debe estar dentro del horario laboral ({$config['horario_apertura']} a {$config['horario_cierre']}) y en días laborables (" . implode(', ', array_map(function($d) {
+                $daysNames = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+                return $daysNames[$d];
+            }, $allowedDays)) . ").";
         } else {
             $formatted_date = date('Y-m-d H:i:s', $timestamp);
             
@@ -200,16 +233,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
         const openTime = "<?php echo $config['horario_apertura']; ?>";
         const closeTime = "<?php echo $config['horario_cierre']; ?>";
         const workingDaysText = "<?php echo $config['dias_trabajo']; ?>";
+        const allowedDaysNumbers = <?php echo json_encode($allowedDays); ?>;
 
         function parseTimeToMinutes(timeStr) {
             let parts = timeStr.split(':');
             return parseInt(parts[0]) * 60 + parseInt(parts[1]);
         }
 
+        // Devuelve el número de día (1=lunes, 7=domingo)
+        function getDayNumber(date) {
+            let day = date.getDay(); // 0=domingo, 1=lunes, ..., 6=sábado
+            return day === 0 ? 7 : day;
+        }
+
         function isWorkingDay(date) {
-            const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-            const dayName = days[date.getDay()];
-            return workingDaysText.toLowerCase().includes(dayName.toLowerCase());
+            let dayNum = getDayNumber(date);
+            return allowedDaysNumbers.includes(dayNum);
         }
 
         function isWithinWorkingHours(date) {
@@ -246,13 +285,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
         document.addEventListener('DOMContentLoaded', function() {
             const dateInput = document.getElementById('appointment_date');
             if (dateInput) {
-                // Establecer mínimo al día actual a las 00:00 (para que no permita fechas pasadas)
+                // Establecer mínimo: hoy a las 00:00
                 let now = new Date();
                 now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-                dateInput.min = now.toISOString().slice(0,16);
-                
+                let minDateTime = now.toISOString().slice(0,16);
+                // Si hoy es día laborable y la hora actual es menor que la hora de apertura, forzamos la hora mínima a apertura
+                if (isWorkingDay(now) && now.getHours() * 60 + now.getMinutes() < parseTimeToMinutes(openTime)) {
+                    let [openHour, openMin] = openTime.split(':');
+                    let newNow = new Date(now);
+                    newNow.setHours(parseInt(openHour), parseInt(openMin), 0);
+                    minDateTime = newNow.toISOString().slice(0,16);
+                }
+                dateInput.min = minDateTime;
                 dateInput.addEventListener('change', validateDateTime);
-                // También en blur para asegurar
                 dateInput.addEventListener('blur', validateDateTime);
             }
         });
