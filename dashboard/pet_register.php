@@ -235,6 +235,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
             color: #dc3545;
             font-size: 0.85rem;
             margin-top: 4px;
+            display: none; /* Oculto por defecto, se muestra con JS */
         }
         .btn {
             padding: 12px 25px;
@@ -333,15 +334,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
             if (!isValid) {
                 nameInput.classList.add('input-error');
                 errorSpan.textContent = errorMsg;
+                errorSpan.style.display = 'block';   // Mostrar error
             } else {
                 nameInput.classList.remove('input-error');
                 errorSpan.textContent = '';
+                errorSpan.style.display = 'none';    // Ocultar error
             }
             return isValid;
         }
 
         // Eventos en tiempo real
         document.addEventListener('DOMContentLoaded', function() {
+            // Asegurar que el mensaje de error esté oculto inicialmente
+            const errorSpan = document.getElementById('name-error');
+            if (errorSpan) errorSpan.style.display = 'none';
+
             const nameInput = document.getElementById('name');
             if (nameInput) {
                 nameInput.addEventListener('input', function() {
@@ -365,7 +372,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
                 });
             }
 
-            // Filtrar razas (ya existe)
+            // Filtrar razas
             const allBreeds = <?php echo json_encode($breeds, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
             function filterBreeds() {
                 const typeSelect = document.getElementById('type_id');
