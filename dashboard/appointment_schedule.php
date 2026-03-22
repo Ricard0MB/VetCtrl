@@ -19,22 +19,36 @@ if (!in_array($role_name, ['Propietario', 'Veterinario', 'admin'])) {
 }
 
 $pets = [];
-$vets = []; // Lista de veterinarios
+$vets = [];
 $error = '';
 $success = '';
 
 try {
-    // Obtener lista de veterinarios (usuarios con rol Veterinario)
-    $vet_role_id = 2; // Ajusta este valor según tu base de datos
-    $sql_vets = "SELECT id, username, CONCAT('Dr(a). ', username) AS display_name FROM users WHERE role_id = :role_id ORDER BY username ASC";
-    $stmt_vets = $conn->prepare($sql_vets);
-    $stmt_vets->bindValue(':role_id', $vet_role_id, PDO::PARAM_INT);
-    $stmt_vets->execute();
-    $vets = $stmt_vets->fetchAll(PDO::FETCH_ASSOC);
-
-    // Si no hay veterinarios, mostrar mensaje de error
-    if (empty($vets)) {
-        $error = "No hay veterinarios registrados en el sistema. Por favor, contacte al administrador.";
+    // Obtener el ID del rol "Veterinario" de la tabla roles
+    $stmt_role = $conn->prepare("SELECT id FROM roles WHERE name = :role_name");
+    $stmt_role->bindValue(':role_name', 'Veterinario');
+    $stmt_role->execute();
+    $vet_role = $stmt_role->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$vet_role) {
+        $error = "El rol 'Veterinario' no está configurado en el sistema.";
+    } else {
+        $vet_role_id = $vet_role['id'];
+        
+        // Obtener lista de veterinarios (usuarios con el rol "Veterinario")
+        // También puedes incluir a los administradores si lo deseas, pero aquí solo veterinarios
+        $sql_vets = "SELECT id, username, CONCAT('Dr(a). ', username) AS display_name 
+                     FROM users 
+                     WHERE role_id = :role_id 
+                     ORDER BY username ASC";
+        $stmt_vets = $conn->prepare($sql_vets);
+        $stmt_vets->bindValue(':role_id', $vet_role_id, PDO::PARAM_INT);
+        $stmt_vets->execute();
+        $vets = $stmt_vets->fetchAll(PDO::FETCH_ASSOC);
+        
+        if (empty($vets)) {
+            $error = "No hay veterinarios registrados en el sistema. Por favor, contacte al administrador.";
+        }
     }
 
     // Cargar mascotas según el rol
@@ -84,7 +98,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
                     }
                 }
                 
-                // Verificar que el veterinario seleccionado exista y sea veterinario
+                // Verificar que el veterinario seleccionado exista y tenga rol Veterinario
                 if (empty($error)) {
                     $check_vet_sql = "SELECT id FROM users WHERE id = :vet_id AND role_id = :role_id";
                     $check_vet_stmt = $conn->prepare($check_vet_sql);
@@ -97,8 +111,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
                 }
                 
                 if (empty($error)) {
-                    // Insertar cita. attendant_id será el veterinario seleccionado
-                    $insert_sql = "INSERT INTO appointments (pet_id, attendant_id, appointment_date, reason, status) VALUES (:pet_id, :vet_id, :date, :reason, 'PENDIENTE')";
+                    // Insertar cita
+                    $insert_sql = "INSERT INTO appointments (pet_id, attendant_id, appointment_date, reason, status) 
+                                   VALUES (:pet_id, :vet_id, :date, :reason, 'PENDIENTE')";
                     $insert_stmt = $conn->prepare($insert_sql);
                     $insert_stmt->bindValue(':pet_id', $pet_id, PDO::PARAM_INT);
                     $insert_stmt->bindValue(':vet_id', $vet_id, PDO::PARAM_INT);
@@ -123,8 +138,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
         }
     }
 }
-
-// No es necesario cerrar la conexión explícitamente
 ?>
 <!DOCTYPE html>
 <html lang="es">
