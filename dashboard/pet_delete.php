@@ -105,7 +105,7 @@ try {
     $conn->commit();
 
     // Redirigir con mensaje de éxito
-    header("Location: search_pet_owner.php?msg=" . urlencode("Mascota {$pet['name']} eliminada correctamente."));
+    header("Location: pet_list.php?msg=" . urlencode("Mascota {$pet['name']} eliminada correctamente."));
     exit;
 
 } catch (PDOException $e) {
