@@ -12,7 +12,7 @@ if (!in_array($role_name, ['Veterinario', 'admin'])) {
 }
 
 require_once '../includes/config.php';
-require_once '../includes/bitacora_function.php'; // si no existe, comenta esta línea
+require_once '../includes/bitacora_function.php'; // si existe, si no, comenta
 
 $pet_id = isset($_GET['id']) && is_numeric($_GET['id']) ? intval($_GET['id']) : 0;
 $confirm = isset($_GET['confirm']) && $_GET['confirm'] == 1;
@@ -38,27 +38,44 @@ try {
         exit;
     }
 
-    // ===== VERIFICAR REGISTROS DEPENDIENTES =====
-    // Ajusta las tablas según tu esquema real
+    // ===== VERIFICAR REGISTROS DEPENDIENTES EN TABLAS REALES =====
+    // Solo incluimos tablas que realmente existen en la BD
     $dependent_tables = [
         'consultations' => 'pet_id',
-        'vaccinations' => 'pet_id',
-        'appointments' => 'pet_id',
-        'treatment_records' => 'pet_id',
-        // Agrega aquí cualquier otra tabla que tenga pet_id como FK
+        'appointments'  => 'pet_id',
+        'vaccines'      => 'pet_id',
+        'treatments'    => 'pet_id',
+        // Agrega otras si las tuvieras, por ejemplo 'medical_records' etc.
     ];
 
     $has_dependencies = false;
     $dependencies_list = [];
 
     foreach ($dependent_tables as $table => $fk_column) {
-        $stmt = $conn->prepare("SELECT COUNT(*) as count FROM $table WHERE $fk_column = :id");
-        $stmt->bindValue(':id', $pet_id, PDO::PARAM_INT);
-        $stmt->execute();
-        $count = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
-        if ($count > 0) {
-            $has_dependencies = true;
-            $dependencies_list[] = "$count registro(s) en $table";
+        try {
+            // Primero verificamos si la tabla existe (para evitar error)
+            $check = $conn->query("SHOW TABLES LIKE '$table'");
+            if ($check->rowCount() == 0) {
+                continue; // Tabla no existe, la saltamos
+            }
+            // Verificar si la columna existe en la tabla (opcional pero recomendado)
+            $col_check = $conn->query("SHOW COLUMNS FROM $table LIKE '$fk_column'");
+            if ($col_check->rowCount() == 0) {
+                continue; // columna no existe, no hay dependencia
+            }
+            
+            $stmt = $conn->prepare("SELECT COUNT(*) as count FROM $table WHERE $fk_column = :id");
+            $stmt->bindValue(':id', $pet_id, PDO::PARAM_INT);
+            $stmt->execute();
+            $count = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+            if ($count > 0) {
+                $has_dependencies = true;
+                $dependencies_list[] = "$count registro(s) en $table";
+            }
+        } catch (PDOException $e) {
+            // Si hay algún error (por ejemplo columna no existe), lo registramos pero no detenemos el proceso
+            error_log("Error verificando dependencia en $table: " . $e->getMessage());
+            continue;
         }
     }
 
@@ -82,7 +99,6 @@ try {
     if (function_exists('log_to_bitacora')) {
         log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
     } else {
-        // Si no existe la función, al menos escribimos en log de errores
         error_log("Eliminación de mascota: $action por $username");
     }
 
@@ -96,12 +112,8 @@ try {
     if ($conn->inTransaction()) {
         $conn->rollBack();
     }
-    // Registrar el error completo en el log del servidor
     error_log("Error al eliminar mascota ID $pet_id: " . $e->getMessage());
-    error_log("Código SQL: " . $e->getCode());
-    
-    // Opcional: Mostrar el error real en la URL para depuración (solo temporal)
-    $error_detail = urlencode("Error: " . $e->getMessage());
+    $error_detail = urlencode("Error interno: " . $e->getMessage());
     header("Location: pet_profile.php?id=$pet_id&error=$error_detail");
     exit;
 }
