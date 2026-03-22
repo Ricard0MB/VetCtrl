@@ -12,8 +12,7 @@ $username = $_SESSION["username"] ?? 'Veterinario';
 $user_id = $_SESSION['user_id'] ?? 0;
 $role_name = $_SESSION['role_name'] ?? 'Propietario';
 
-// Solo roles permitidos (según matriz, admin y veterinario pueden ver listados; propietario también? En matriz, propietario ve sus propias citas)
-// Ajustamos: propietario solo sus citas, admin y veterinario todas.
+// Solo roles permitidos
 if (!in_array($role_name, ['Propietario', 'Veterinario', 'admin'])) {
     header("Location: welcome.php?error=access_denied");
     exit;
@@ -30,16 +29,18 @@ if (isset($_GET['msg']) && $_GET['msg'] === 'cancelled') {
 try {
     // Construir consulta según rol
     if ($role_name === 'Propietario') {
-        // Propietario: solo sus citas (attendant_id = user_id)
+        // Propietario: citas de sus mascotas (owner_id en pets)
         $sql = "SELECT 
                     a.id, 
                     a.appointment_date, 
                     a.reason, 
                     a.status,
-                    p.name AS pet_name 
+                    p.name AS pet_name,
+                    u.username AS vet_name
                 FROM appointments a 
                 JOIN pets p ON a.pet_id = p.id 
-                WHERE a.attendant_id = :user_id
+                JOIN users u ON a.attendant_id = u.id
+                WHERE p.owner_id = :user_id
                 ORDER BY a.appointment_date DESC";
         $stmt = $conn->prepare($sql);
         $stmt->bindValue(':user_id', $user_id, PDO::PARAM_INT);
@@ -51,10 +52,12 @@ try {
                     a.reason, 
                     a.status,
                     p.name AS pet_name,
-                    u.username AS owner_name
+                    u.username AS owner_name,
+                    u2.username AS vet_name
                 FROM appointments a 
                 JOIN pets p ON a.pet_id = p.id
                 LEFT JOIN users u ON p.owner_id = u.id
+                LEFT JOIN users u2 ON a.attendant_id = u2.id
                 ORDER BY a.appointment_date DESC";
         $stmt = $conn->prepare($sql);
     }
@@ -65,8 +68,6 @@ try {
 } catch (PDOException $e) {
     $error_message = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Error al obtener las citas: " . htmlspecialchars($e->getMessage()) . "</div>";
 }
-
-// No es necesario cerrar la conexión explícitamente; PDO la cierra al final del script.
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -99,7 +100,6 @@ try {
         .PENDIENTE { background: #ffc107; color: #333; }
         .COMPLETADA { background: #28a745; color: white; }
         .CANCELADA { background: #dc3545; color: white; }
-        /* Estilo de botón azul (mismo que en pet profile) */
         .btn-action {
             display: inline-block;
             background-color: #3498db;
@@ -154,6 +154,7 @@ try {
                         <?php if ($role_name !== 'Propietario'): ?>
                             <th>Dueño</th>
                         <?php endif; ?>
+                        <th>Veterinario</th>
                         <th>Motivo</th>
                         <th>Estado</th>
                         <th>Acciones</th>
@@ -161,24 +162,23 @@ try {
                 </thead>
                 <tbody>
                     <?php foreach ($appointments as $a): ?>
-                    <tr>
+                     <tr>
                         <td><?php echo $a['id']; ?></td>
                         <td><?php echo date('d/m/Y H:i', strtotime($a['appointment_date'])); ?></td>
                         <td><strong><?php echo htmlspecialchars($a['pet_name']); ?></strong></td>
                         <?php if ($role_name !== 'Propietario'): ?>
                             <td><?php echo htmlspecialchars($a['owner_name'] ?? 'N/A'); ?></td>
                         <?php endif; ?>
+                        <td><?php echo htmlspecialchars($a['vet_name'] ?? 'N/A'); ?></td>
                         <td><?php echo htmlspecialchars(substr($a['reason'], 0, 50)) . (strlen($a['reason']) > 50 ? '...' : ''); ?></td>
                         <td><span class="status-tag <?php echo $a['status']; ?>"><?php echo $a['status']; ?></span></td>
                         <td>
-                            <?php if ($a['status'] === 'PENDIENTE'): ?>
+                            <?php if ($a['status'] === 'PENDIENTE' && in_array($role_name, ['Veterinario', 'admin'])): ?>
                                 <a href="appointment_edit.php?id=<?php echo $a['id']; ?>" class="btn-action">Editar</a>
-                            <?php else: ?>
-                                <span>-</span>
                             <?php endif; ?>
                             <a href="appointment_receipt.php?id=<?php echo $a['id']; ?>" class="btn-action" target="_blank">Comprobante</a>
                         </td>
-                    </tr>
+                     </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
