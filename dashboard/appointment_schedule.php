@@ -6,16 +6,26 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     exit;
 }
 
-require_once '../includes/config.php'; // $conn debe ser un objeto PDO
+require_once '../includes/config.php';
 
 $username = $_SESSION["username"] ?? 'Usuario';
 $user_id = $_SESSION['user_id'] ?? 0;
 $role_name = $_SESSION['role_name'] ?? 'Propietario';
 
-// Admin y veterinario también pueden agendar citas (para cualquier mascota)
 if (!in_array($role_name, ['Propietario', 'Veterinario', 'admin'])) {
     header("Location: welcome.php?error=access_denied");
     exit;
+}
+
+// Cargar configuración del sistema
+$config = [
+    'horario_apertura' => '08:00',
+    'horario_cierre' => '18:00',
+    'dias_trabajo' => 'Lunes a Viernes'
+];
+$stmt = $conn->query("SELECT config_key, config_value FROM system_config WHERE config_key IN ('horario_apertura', 'horario_cierre', 'dias_trabajo')");
+while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+    $config[$row['config_key']] = $row['config_value'];
 }
 
 $pets = [];
@@ -24,7 +34,7 @@ $error = '';
 $success = '';
 
 try {
-    // Obtener el ID del rol "Veterinario" de la tabla roles
+    // Obtener el ID del rol "Veterinario"
     $stmt_role = $conn->prepare("SELECT id FROM roles WHERE name = :role_name");
     $stmt_role->bindValue(':role_name', 'Veterinario');
     $stmt_role->execute();
@@ -35,8 +45,7 @@ try {
     } else {
         $vet_role_id = $vet_role['id'];
         
-        // Obtener lista de veterinarios (usuarios con el rol "Veterinario")
-        // También puedes incluir a los administradores si lo deseas, pero aquí solo veterinarios
+        // Obtener lista de veterinarios
         $sql_vets = "SELECT id, username, CONCAT('Dr(a). ', username) AS display_name 
                      FROM users 
                      WHERE role_id = :role_id 
@@ -51,14 +60,12 @@ try {
         }
     }
 
-    // Cargar mascotas según el rol
+    // Cargar mascotas según rol
     if ($role_name === 'Propietario') {
-        // Propietario: solo sus mascotas
         $sql_pets = "SELECT id, name FROM pets WHERE owner_id = :owner_id ORDER BY name ASC";
         $stmt_pets = $conn->prepare($sql_pets);
         $stmt_pets->bindValue(':owner_id', $user_id, PDO::PARAM_INT);
     } else {
-        // Veterinario/admin: todas las mascotas
         $sql_pets = "SELECT id, name FROM pets ORDER BY name ASC";
         $stmt_pets = $conn->prepare($sql_pets);
     }
@@ -67,6 +74,26 @@ try {
 
 } catch (PDOException $e) {
     $error = "Error al cargar datos: " . $e->getMessage();
+}
+
+// Función para validar fecha/hora según horario laboral
+function isWithinWorkingHours($datetime, $open, $close, $workingDays) {
+    $timestamp = strtotime($datetime);
+    if (!$timestamp) return false;
+    
+    // Obtener hora de la fecha
+    $hour = date('H:i', $timestamp);
+    $dayOfWeek = date('N', $timestamp); // 1=Monday, 7=Sunday
+    
+    // Verificar si es día laborable (simplificado: si $workingDays contiene el nombre del día)
+    $dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+    $dayName = $dayNames[$dayOfWeek - 1];
+    if (stripos($workingDays, $dayName) === false) {
+        return false;
+    }
+    
+    // Comparar hora
+    return ($hour >= $open && $hour <= $close);
 }
 
 // Procesar formulario
@@ -80,13 +107,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
         $error = "Todos los campos son obligatorios.";
     } else {
         $timestamp = strtotime($appointment_date);
-        if (!$timestamp || $timestamp <= time()) {
+        if (!$timestamp) {
+            $error = "Fecha inválida.";
+        } elseif ($timestamp <= time()) {
             $error = "La fecha y hora deben ser futuras.";
+        } elseif (!isWithinWorkingHours($appointment_date, $config['horario_apertura'], $config['horario_cierre'], $config['dias_trabajo'])) {
+            $error = "La cita debe estar dentro del horario laboral ({$config['horario_apertura']} a {$config['horario_cierre']}) y en días laborables.";
         } else {
             $formatted_date = date('Y-m-d H:i:s', $timestamp);
             
             try {
-                // Si es propietario, verificar que la mascota le pertenezca
                 if ($role_name === 'Propietario') {
                     $check_sql = "SELECT id FROM pets WHERE id = :pet_id AND owner_id = :owner_id";
                     $check_stmt = $conn->prepare($check_sql);
@@ -98,7 +128,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
                     }
                 }
                 
-                // Verificar que el veterinario seleccionado exista y tenga rol Veterinario
                 if (empty($error)) {
                     $check_vet_sql = "SELECT id FROM users WHERE id = :vet_id AND role_id = :role_id";
                     $check_vet_stmt = $conn->prepare($check_vet_sql);
@@ -111,7 +140,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
                 }
                 
                 if (empty($error)) {
-                    // Insertar cita
                     $insert_sql = "INSERT INTO appointments (pet_id, attendant_id, appointment_date, reason, status) 
                                    VALUES (:pet_id, :vet_id, :date, :reason, 'PENDIENTE')";
                     $insert_stmt = $conn->prepare($insert_sql);
@@ -124,9 +152,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
                         require_once '../includes/bitacora_function.php';
                         $action = "Cita agendada para mascota ID $pet_id con veterinario ID $vet_id el $formatted_date";
                         log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
-                        
                         $success = "Cita agendada correctamente.";
-                        $_POST = []; // Limpiar formulario
+                        $_POST = [];
                     } else {
                         $errorInfo = $insert_stmt->errorInfo();
                         $error = "Error al agendar: " . ($errorInfo[2] ?? 'Error desconocido');
@@ -166,7 +193,70 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
         .btn-secondary { background: #6c757d; text-align: center; text-decoration: none; margin-top: 10px; }
         .btn-secondary:hover { background: #5a6268; }
         .no-pets { background: #fff3cd; color: #856404; padding: 20px; border-radius: 8px; text-align: center; }
+        .help-text { font-size: 0.85rem; color: #6c757d; margin-top: 5px; }
     </style>
+    <script>
+        // Configuración desde PHP
+        const openTime = "<?php echo $config['horario_apertura']; ?>";
+        const closeTime = "<?php echo $config['horario_cierre']; ?>";
+        const workingDaysText = "<?php echo $config['dias_trabajo']; ?>";
+
+        function parseTimeToMinutes(timeStr) {
+            let parts = timeStr.split(':');
+            return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+        }
+
+        function isWorkingDay(date) {
+            const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+            const dayName = days[date.getDay()];
+            return workingDaysText.toLowerCase().includes(dayName.toLowerCase());
+        }
+
+        function isWithinWorkingHours(date) {
+            const hours = date.getHours();
+            const minutes = date.getMinutes();
+            const totalMinutes = hours * 60 + minutes;
+            const openMinutes = parseTimeToMinutes(openTime);
+            const closeMinutes = parseTimeToMinutes(closeTime);
+            return (totalMinutes >= openMinutes && totalMinutes <= closeMinutes);
+        }
+
+        function validateDateTime() {
+            const input = document.getElementById('appointment_date');
+            if (!input.value) return true;
+            let selectedDate = new Date(input.value);
+            if (selectedDate <= new Date()) {
+                alert('La fecha y hora deben ser futuras.');
+                input.value = '';
+                return false;
+            }
+            if (!isWorkingDay(selectedDate)) {
+                alert('Las citas solo se pueden agendar en días laborables (' + workingDaysText + ').');
+                input.value = '';
+                return false;
+            }
+            if (!isWithinWorkingHours(selectedDate)) {
+                alert('La cita debe estar dentro del horario laboral (' + openTime + ' a ' + closeTime + ').');
+                input.value = '';
+                return false;
+            }
+            return true;
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const dateInput = document.getElementById('appointment_date');
+            if (dateInput) {
+                // Establecer mínimo al día actual a las 00:00 (para que no permita fechas pasadas)
+                let now = new Date();
+                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                dateInput.min = now.toISOString().slice(0,16);
+                
+                dateInput.addEventListener('change', validateDateTime);
+                // También en blur para asegurar
+                dateInput.addEventListener('blur', validateDateTime);
+            }
+        });
+    </script>
 </head>
 <body>
     <?php include '../includes/navbar.php'; ?>
@@ -219,8 +309,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
                     <?php endforeach; ?>
                 </select>
 
-                <label for="appointment_date">Fecha y hora:</label>
-                <input type="datetime-local" name="appointment_date" id="appointment_date" required min="<?php echo date('Y-m-d\TH:i'); ?>" value="<?php echo htmlspecialchars($_POST['appointment_date'] ?? ''); ?>">
+                <label for="appointment_date">Fecha y hora (Horario laboral: <?php echo $config['horario_apertura']; ?> - <?php echo $config['horario_cierre']; ?>):</label>
+                <input type="datetime-local" name="appointment_date" id="appointment_date" required value="<?php echo htmlspecialchars($_POST['appointment_date'] ?? ''); ?>">
+                <div class="help-text">Solo se permiten citas dentro del horario laboral y días hábiles (<?php echo $config['dias_trabajo']; ?>).</div>
 
                 <label for="reason">Motivo:</label>
                 <textarea name="reason" id="reason" rows="4" required><?php echo htmlspecialchars($_POST['reason'] ?? ''); ?></textarea>
