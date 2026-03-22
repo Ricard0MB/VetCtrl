@@ -6,16 +6,26 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     exit;
 }
 
-require_once '../includes/config.php'; // $conn debe ser un objeto PDO
+require_once '../includes/config.php';
 
 $username = $_SESSION["username"] ?? 'Veterinario';
 $user_id = $_SESSION['user_id'] ?? 0;
 $role_name = $_SESSION['role_name'] ?? 'Propietario';
 
-// Solo veterinario y admin pueden registrar consultas
 if (!in_array($role_name, ['Veterinario', 'admin'])) {
     header("Location: welcome.php?error=access_denied");
     exit;
+}
+
+// Cargar configuración de horario
+$config = [
+    'horario_apertura' => '08:00',
+    'horario_cierre' => '18:00',
+    'dias_trabajo' => 'Lunes a Viernes'
+];
+$stmt = $conn->query("SELECT config_key, config_value FROM system_config WHERE config_key IN ('horario_apertura', 'horario_cierre', 'dias_trabajo')");
+while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+    $config[$row['config_key']] = $row['config_value'];
 }
 
 $pets = [];
@@ -24,7 +34,6 @@ $success = '';
 $preselected_pet_id = isset($_GET['pet_id']) ? intval($_GET['pet_id']) : 0;
 
 try {
-    // Cargar todas las mascotas (con dueño para referencia)
     $sql_pets = "SELECT p.id, p.name, u.username as owner_name 
                  FROM pets p 
                  LEFT JOIN users u ON p.owner_id = u.id 
@@ -35,7 +44,17 @@ try {
     $error = "Error al cargar mascotas: " . $e->getMessage();
 }
 
-// Procesar formulario
+function isWithinWorkingHours($datetime, $open, $close, $workingDays) {
+    $timestamp = strtotime($datetime);
+    if (!$timestamp) return false;
+    $hour = date('H:i', $timestamp);
+    $dayOfWeek = date('N', $timestamp);
+    $dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+    $dayName = $dayNames[$dayOfWeek - 1];
+    if (stripos($workingDays, $dayName) === false) return false;
+    return ($hour >= $open && $hour <= $close);
+}
+
 if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
     $pet_id = intval($_POST['pet_id'] ?? 0);
     $consultation_date = $_POST['consultation_date'] ?? '';
@@ -50,6 +69,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
         $timestamp = strtotime($consultation_date);
         if (!$timestamp) {
             $error = "Fecha inválida.";
+        } elseif (!isWithinWorkingHours($consultation_date, $config['horario_apertura'], $config['horario_cierre'], $config['dias_trabajo'])) {
+            $error = "La consulta debe estar dentro del horario laboral ({$config['horario_apertura']} a {$config['horario_cierre']}) y en días laborables.";
         } else {
             $formatted_date = date('Y-m-d H:i:s', $timestamp);
             try {
@@ -66,13 +87,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
                 $stmtInsert->execute();
 
                 $new_id = $conn->lastInsertId();
-
                 require_once '../includes/bitacora_function.php';
                 $action = "Nueva consulta #$new_id registrada para mascota ID $pet_id";
                 log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
-
                 $success = "Consulta registrada correctamente.";
-                $_POST = []; // Limpiar POST
+                $_POST = [];
             } catch (PDOException $e) {
                 $error = "Error al registrar: " . $e->getMessage();
             }
@@ -100,40 +119,63 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
         .alert-success { background: #d4edda; color: #155724; border-left-color: #28a745; }
         .alert-danger { background: #f8d7da; color: #721c24; border-left-color: #dc3545; }
         label { display: block; margin: 15px 0 5px; font-weight: 600; color: #1b4332; }
-        /* Unificamos todos los campos del formulario */
-        select,
-        input[type="text"],
-        input[type="datetime-local"],
-        textarea {
-            width: 100%;
-            padding: 10px;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            box-sizing: border-box;
-            font-family: inherit;
-            font-size: inherit;
-        }
-        select:focus,
-        input:focus,
-        textarea:focus {
-            border-color: #40916c;
-            outline: none;
-        }
-        .btn {
-            padding: 12px 25px;
-            border: none;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            background: #40916c;
-            color: white;
-            width: 100%;
-            margin-top: 10px;
-        }
-        .btn:hover {
-            background: #2d6a4f;
-        }
+        select, input[type="datetime-local"], textarea { width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px; box-sizing: border-box; }
+        select:focus, input:focus, textarea:focus { border-color: #40916c; outline: none; }
+        .btn { padding: 12px 25px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; background: #40916c; color: white; width: 100%; margin-top: 10px; }
+        .btn:hover { background: #2d6a4f; }
+        .help-text { font-size: 0.85rem; color: #6c757d; margin-top: 5px; }
     </style>
+    <script>
+        const openTime = "<?php echo $config['horario_apertura']; ?>";
+        const closeTime = "<?php echo $config['horario_cierre']; ?>";
+        const workingDaysText = "<?php echo $config['dias_trabajo']; ?>";
+
+        function parseTimeToMinutes(timeStr) {
+            let parts = timeStr.split(':');
+            return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+        }
+
+        function isWorkingDay(date) {
+            const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+            const dayName = days[date.getDay()];
+            return workingDaysText.toLowerCase().includes(dayName.toLowerCase());
+        }
+
+        function isWithinWorkingHours(date) {
+            const totalMinutes = date.getHours() * 60 + date.getMinutes();
+            const openMinutes = parseTimeToMinutes(openTime);
+            const closeMinutes = parseTimeToMinutes(closeTime);
+            return (totalMinutes >= openMinutes && totalMinutes <= closeMinutes);
+        }
+
+        function validateDateTime() {
+            const input = document.getElementById('consultation_date');
+            if (!input.value) return true;
+            let selectedDate = new Date(input.value);
+            if (!isWorkingDay(selectedDate)) {
+                alert('Las consultas solo pueden registrarse en días laborables (' + workingDaysText + ').');
+                input.value = '';
+                return false;
+            }
+            if (!isWithinWorkingHours(selectedDate)) {
+                alert('La consulta debe estar dentro del horario laboral (' + openTime + ' a ' + closeTime + ').');
+                input.value = '';
+                return false;
+            }
+            return true;
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const dateInput = document.getElementById('consultation_date');
+            if (dateInput) {
+                let now = new Date();
+                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                dateInput.min = now.toISOString().slice(0,16);
+                dateInput.addEventListener('change', validateDateTime);
+                dateInput.addEventListener('blur', validateDateTime);
+            }
+        });
+    </script>
 </head>
 <body>
     <?php include '../includes/navbar.php'; ?>
@@ -165,8 +207,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
                 <?php endforeach; ?>
             </select>
 
-            <label for="consultation_date">Fecha y hora:</label>
+            <label for="consultation_date">Fecha y hora (Horario laboral: <?php echo $config['horario_apertura']; ?> - <?php echo $config['horario_cierre']; ?>):</label>
             <input type="datetime-local" name="consultation_date" id="consultation_date" required value="<?php echo htmlspecialchars($_POST['consultation_date'] ?? date('Y-m-d\TH:i')); ?>">
+            <div class="help-text">Solo se permiten registros dentro del horario laboral y días hábiles (<?php echo $config['dias_trabajo']; ?>).</div>
 
             <label for="reason">Motivo (opcional):</label>
             <input type="text" name="reason" id="reason" value="<?php echo htmlspecialchars($_POST['reason'] ?? ''); ?>">
