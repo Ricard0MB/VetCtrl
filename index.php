@@ -11,7 +11,62 @@
             opacity: 0;
             transition: opacity 0.25s ease;
         }
-        /* ========== ESTILOS DEL TUTORIAL ========== */
+
+        /* ========== CENTRADO GENERAL Y FOOTER ========== */
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .auth-wrapper {
+            width: 100%;
+            max-width: 1100px;
+            margin: 0 auto 20px auto; /* separación inferior */
+        }
+
+        footer {
+            margin-top: 20px;
+            width: 100%;
+            text-align: center;
+        }
+
+        /* ========== PATITAS DECORATIVAS ========== */
+        body::before {
+            content: "🐾";
+            font-size: 120px;
+            opacity: 0.05;
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            pointer-events: none;
+            transform: rotate(-15deg);
+            z-index: 0;
+        }
+        body::after {
+            content: "🐾";
+            font-size: 180px;
+            opacity: 0.05;
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            pointer-events: none;
+            transform: rotate(15deg);
+            z-index: 0;
+        }
+
+        /* Asegurar que el contenido quede sobre las patitas */
+        .auth-wrapper {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ========== ESTILOS DEL TUTORIAL (sin cambios) ========== */
         .tutorial-overlay {
             position: fixed;
             top: 0;
@@ -203,35 +258,6 @@
             background: #f8f9fa;
             border: 1px solid #dee2e6;
         }
-
-        /* ========== PATITAS DECORATIVAS (como en forgot_password) ========== */
-        body::before {
-            content: "🐾";
-            font-size: 120px;
-            opacity: 0.05;
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            pointer-events: none;
-            transform: rotate(-15deg);
-            z-index: 0;
-        }
-        body::after {
-            content: "🐾";
-            font-size: 180px;
-            opacity: 0.05;
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            pointer-events: none;
-            transform: rotate(15deg);
-            z-index: 0;
-        }
-        /* Ajuste para que el contenido esté por encima */
-        .auth-wrapper {
-            position: relative;
-            z-index: 1;
-        }
     </style>
 </head>
 <body>
@@ -306,7 +332,7 @@
     </div>
 
     <script>
-        // Definición de pasos del tutorial
+        // Definición de pasos del tutorial (sin cambios)
         const steps = [
             {
                 title: "📝 Registro de cuenta",
@@ -328,10 +354,9 @@
 
         let currentStep = 0;
         let tutorialActive = false;
-        let manualStart = false;   // indica si se abrió manualmente (desde enlace ayuda)
-        let skipFlag = localStorage.getItem('tutorial_seen'); // 'skipped', 'completed', o null
+        let manualStart = false;
+        let skipFlag = localStorage.getItem('tutorial_seen');
 
-        // Elementos del DOM
         const overlay = document.getElementById('tutorialOverlay');
         const tutorialContent = document.getElementById('tutorialContent');
         const prevBtn = document.getElementById('prevStepBtn');
@@ -343,7 +368,6 @@
         const promptNo = document.getElementById('promptNo');
         const helpLink = document.getElementById('helpLink');
 
-        // Función para renderizar el paso actual
         function renderStep() {
             const step = steps[currentStep];
             tutorialContent.innerHTML = `
@@ -354,7 +378,6 @@
                     ${getStepImageHint(currentStep)}
                 </div>
             `;
-            // Control de botones
             prevBtn.style.visibility = currentStep === 0 ? 'hidden' : 'visible';
             if (currentStep === steps.length - 1) {
                 nextBtn.textContent = 'Finalizar';
@@ -365,7 +388,6 @@
                 nextBtn.classList.remove('btn-skip');
                 nextBtn.classList.add('btn-next');
             }
-            // Actualizar indicadores
             const dots = document.querySelectorAll('.step-dot');
             dots.forEach((dot, i) => {
                 if (i === currentStep) dot.classList.add('active');
@@ -373,7 +395,6 @@
             });
         }
 
-        // Ayuda visual (iconos y texto de ejemplo)
         function getIconForStep(stepIndex) {
             const icons = ['user-plus', 'sign-in-alt', 'key', 'envelope'];
             return icons[stepIndex];
@@ -388,36 +409,30 @@
             return hints[stepIndex];
         }
 
-        // Abrir el tutorial (desde inicio automático o manual)
         function openTutorial(startFrom = 0, fromManual = false) {
             currentStep = startFrom;
             renderStep();
             overlay.classList.add('active');
             tutorialActive = true;
             manualStart = fromManual;
-            // Ocultar prompt inicial si está visible
             if (initialPrompt.classList.contains('show')) {
                 initialPrompt.classList.remove('show');
             }
         }
 
-        // Cerrar el tutorial
         function closeTutorial() {
             overlay.classList.remove('active');
             tutorialActive = false;
-            // Si el tutorial se completó (no se cerró con X) y no fue inicio manual, guardar como completado
             if (!manualStart && currentStep === steps.length - 1 && nextBtn.textContent === 'Finalizar') {
                 localStorage.setItem('tutorial_seen', 'completed');
             }
         }
 
-        // Navegación
         function nextStep() {
             if (currentStep < steps.length - 1) {
                 currentStep++;
                 renderStep();
             } else {
-                // Finalizar tutorial
                 if (!manualStart) {
                     localStorage.setItem('tutorial_seen', 'completed');
                 }
@@ -431,16 +446,13 @@
             }
         }
 
-        // Mostrar prompt inicial (solo si no se ha visto tutorial antes)
         function maybeShowInitialPrompt() {
             if (skipFlag === 'skipped' || skipFlag === 'completed') return;
-            // Si ya ha sido completado o saltado, no mostramos
             setTimeout(() => {
                 initialPrompt.classList.add('show');
             }, 1000);
         }
 
-        // Eventos
         promptYes.addEventListener('click', () => {
             initialPrompt.classList.remove('show');
             openTutorial(0, false);
@@ -459,27 +471,16 @@
             closeTutorial();
         });
 
-        // Inicialización
         document.addEventListener('DOMContentLoaded', () => {
-            // Generar indicadores de pasos
             for (let i = 0; i < steps.length; i++) {
                 const dot = document.createElement('div');
                 dot.classList.add('step-dot');
                 if (i === 0) dot.classList.add('active');
                 stepIndicators.appendChild(dot);
             }
-            // Verificar si debe mostrar el prompt
             maybeShowInitialPrompt();
-
-            // Cerrar prompt si se hace clic fuera (opcional)
-            document.addEventListener('click', (e) => {
-                if (initialPrompt.classList.contains('show') && !initialPrompt.contains(e.target)) {
-                    // No cerramos automáticamente para no molestar, pero se puede implementar si se desea
-                }
-            });
         });
 
-        // El resto del código original (fade-out y flash message) se mantiene
         document.addEventListener('DOMContentLoaded', function() {
             const el = document.getElementById('flash-msg');
             if (el) {
@@ -513,10 +514,8 @@
             });
         });
     </script>
-    <!-- Font Awesome (necesario para iconos) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <!-- Footer agregado -->
     <?php include 'includes/footer.php'; ?>
 </body>
 </html>
