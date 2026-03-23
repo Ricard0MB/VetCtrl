@@ -63,9 +63,10 @@ try {
 
     foreach ($requiredTypes as $typeName) {
         if (!in_array(strtolower($typeName), $existingNamesLower)) {
-            // Insertar la especie faltante
-            $stmtInsert = $conn->prepare("INSERT INTO pet_types (name) VALUES (:name)");
+            // Insertar la especie faltante, incluyendo attendant_id (usuario actual)
+            $stmtInsert = $conn->prepare("INSERT INTO pet_types (name, attendant_id) VALUES (:name, :attendant_id)");
             $stmtInsert->bindValue(':name', $typeName);
+            $stmtInsert->bindValue(':attendant_id', $user_id, PDO::PARAM_INT);
             $stmtInsert->execute();
         }
     }
