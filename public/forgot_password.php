@@ -106,7 +106,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        /* (Mantén todos los estilos iguales) */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -203,16 +202,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             transform: scale(0.98);
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
+        /* Estilo del enlace de retorno modificado (sin flecha, negrita, sin subrayado) */
         .back-link {
             display: inline-block;
             margin-top: 20px;
-            color: #2e7d32;
+            color: #2c6e49;
             text-decoration: none;
-            font-size: 0.9rem;
-            border-bottom: 1px dashed #2e7d32;
+            font-weight: 600;
             transition: all 0.2s;
         }
-        .back-link:hover { color: #1b5e20; border-bottom: 1px solid #1b5e20; }
+        .back-link:hover {
+            text-decoration: underline;
+        }
         footer {
             margin-top: 30px;
             text-align: center;
@@ -246,7 +247,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <input type="email" name="email" required placeholder="tuemail@ejemplo.com">
             <button type="submit">Enviar enlace de recuperación</button>
         </form>
-        <a href="../index.php" class="back-link">← Volver al inicio de sesión</a>
+        <a href="../index.php" class="back-link">Volver al Inicio de Sesión</a>
     </div>
     <?php include '../includes/footer.php'; ?>
 </body>
