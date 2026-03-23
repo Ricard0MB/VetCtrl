@@ -36,7 +36,7 @@ $lifespanMap = [
     'roedor' => 4,
     'caballo' => 30,
     'cerdo' => 15,
-    'otros' => 20  // valor por defecto
+    'otros' => 20
 ];
 
 /**
@@ -49,7 +49,48 @@ function getMaxAgeForType($typeName) {
     $key = strtolower(trim($typeName));
     return $lifespanMap[$key] ?? $lifespanMap['otros'];
 }
-// ==========================================
+
+// ========== ASEGURAR QUE EXISTAN TODAS LAS ESPECIES NECESARIAS ==========
+$requiredTypes = [
+    'Perro', 'Gato', 'Tortuga', 'Conejo', 'Hámster',
+    'Ave', 'Pez', 'Reptil', 'Roedor', 'Caballo', 'Cerdo', 'Otros'
+];
+try {
+    // Obtener los nombres de especies existentes
+    $stmtCheck = $conn->query("SELECT name FROM pet_types");
+    $existingNames = $stmtCheck->fetchAll(PDO::FETCH_COLUMN);
+    $existingNamesLower = array_map('strtolower', $existingNames);
+
+    foreach ($requiredTypes as $typeName) {
+        if (!in_array(strtolower($typeName), $existingNamesLower)) {
+            // Insertar la especie faltante
+            $stmtInsert = $conn->prepare("INSERT INTO pet_types (name) VALUES (:name)");
+            $stmtInsert->bindValue(':name', $typeName);
+            $stmtInsert->execute();
+        }
+    }
+} catch (PDOException $e) {
+    $error = "Error al verificar especies: " . $e->getMessage();
+}
+// ==============================================================
+
+try {
+    // Obtener tipos de mascota (ahora con todas las especies)
+    $stmtTypes = $conn->query("SELECT id, name FROM pet_types ORDER BY name");
+    $pet_types = $stmtTypes->fetchAll(PDO::FETCH_ASSOC);
+
+    // Obtener razas
+    $stmtBreeds = $conn->query("SELECT id, name, type_id FROM breeds ORDER BY name");
+    $breeds = $stmtBreeds->fetchAll(PDO::FETCH_ASSOC);
+
+    // Para veterinario/admin, permitir seleccionar dueño
+    if (in_array($role_name, ['Veterinario', 'admin'])) {
+        $stmtOwners = $conn->query("SELECT id, username, first_name, last_name FROM users WHERE role_id = 3 ORDER BY first_name");
+        $owners = $stmtOwners->fetchAll(PDO::FETCH_ASSOC);
+    }
+} catch (PDOException $e) {
+    $error = "Error al cargar datos: " . $e->getMessage();
+}
 
 // ========== FUNCIONES DE VALIDACIÓN DE NOMBRE ==========
 function sanitizePetName($name) {
@@ -81,24 +122,6 @@ function containsLetter($name) {
     return preg_match('/[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]/u', $name);
 }
 // ==================================================
-
-try {
-    // Obtener tipos de mascota
-    $stmtTypes = $conn->query("SELECT id, name FROM pet_types ORDER BY name");
-    $pet_types = $stmtTypes->fetchAll(PDO::FETCH_ASSOC);
-
-    // Obtener razas
-    $stmtBreeds = $conn->query("SELECT id, name, type_id FROM breeds ORDER BY name");
-    $breeds = $stmtBreeds->fetchAll(PDO::FETCH_ASSOC);
-
-    // Para veterinario/admin, permitir seleccionar dueño
-    if (in_array($role_name, ['Veterinario', 'admin'])) {
-        $stmtOwners = $conn->query("SELECT id, username, first_name, last_name FROM users WHERE role_id = 3 ORDER BY first_name");
-        $owners = $stmtOwners->fetchAll(PDO::FETCH_ASSOC);
-    }
-} catch (PDOException $e) {
-    $error = "Error al cargar datos: " . $e->getMessage();
-}
 
 if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
     $name = trim($_POST['name'] ?? '');
@@ -205,7 +228,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
     <link rel="stylesheet" href="../public/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* Estilos existentes... (igual que antes) */
+        /* ===== RESET LOCAL ===== */
         * {
             box-sizing: border-box;
         }
@@ -337,7 +360,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
         // Lista de tipos de mascotas con id y nombre (se genera desde PHP)
         const petTypes = <?php echo json_encode($pet_types, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         
-        // Lista de groserías (igual que antes)
+        // Lista de groserías
         const profanityList = [
             'puta', 'puto', 'pendejo', 'cabrón', 'cabron', 'coño', 'cojones', 'joder', 'mierda', 'imbécil', 'imbecil',
             'gilipollas', 'zorra', 'bastardo', 'malparido', 'hijueputa', 'maricón', 'maricon',
@@ -411,7 +434,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
             
             const errorSpan = document.getElementById('dob-error');
             if (!dob) {
-                // Fecha no obligatoria, pero si se ingresó se valida
                 errorSpan.style.display = 'none';
                 return true;
             }
@@ -420,9 +442,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
             let maxAge = lifespanMap['otros']; // default
             if (typeName && lifespanMap[typeName] !== undefined) {
                 maxAge = lifespanMap[typeName];
-            } else {
-                // Si no está en el mapa, usar el valor por defecto
-                maxAge = lifespanMap['otros'];
             }
 
             const today = new Date();
@@ -493,7 +512,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
                 });
             }
 
-            // Filtrar razas (igual que antes)
+            // Filtrar razas
             const allBreeds = <?php echo json_encode($breeds, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
             function filterBreeds() {
                 const typeSelect = document.getElementById('type_id');
