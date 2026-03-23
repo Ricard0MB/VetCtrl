@@ -203,6 +203,35 @@
             background: #f8f9fa;
             border: 1px solid #dee2e6;
         }
+
+        /* ========== PATITAS DECORATIVAS (como en forgot_password) ========== */
+        body::before {
+            content: "🐾";
+            font-size: 120px;
+            opacity: 0.05;
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            pointer-events: none;
+            transform: rotate(-15deg);
+            z-index: 0;
+        }
+        body::after {
+            content: "🐾";
+            font-size: 180px;
+            opacity: 0.05;
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            pointer-events: none;
+            transform: rotate(15deg);
+            z-index: 0;
+        }
+        /* Ajuste para que el contenido esté por encima */
+        .auth-wrapper {
+            position: relative;
+            z-index: 1;
+        }
     </style>
 </head>
 <body>
@@ -486,5 +515,8 @@
     </script>
     <!-- Font Awesome (necesario para iconos) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Footer agregado -->
+    <?php include 'includes/footer.php'; ?>
 </body>
 </html>
