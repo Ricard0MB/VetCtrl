@@ -258,6 +258,23 @@
             background: #f8f9fa;
             border: 1px solid #dee2e6;
         }
+        footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 0.8rem;
+            color: #2e7d32;
+            background: rgba(255, 255, 255, 0.7);
+            padding: 10px 20px;
+            border-radius: 40px;
+            backdrop-filter: blur(4px);
+            width: auto;
+            z-index: 2;
+        }
+        footer p { margin: 0; }
+        @media (max-width: 550px) {
+            .container { padding: 30px 20px; }
+            h1 { font-size: 1.6rem; }
+        }
     </style>
 </head>
 <body>
