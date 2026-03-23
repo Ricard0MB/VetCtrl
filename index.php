@@ -27,13 +27,7 @@
         .auth-wrapper {
             width: 100%;
             max-width: 1100px;
-            margin: 0 auto 20px auto; /* separación inferior */
-        }
-
-        footer {
-            margin-top: 20px;
-            width: 100%;
-            text-align: center;
+            margin: 0 auto 20px auto;
         }
 
         /* ========== PATITAS DECORATIVAS ========== */
@@ -60,7 +54,6 @@
             z-index: 0;
         }
 
-        /* Asegurar que el contenido quede sobre las patitas */
         .auth-wrapper {
             position: relative;
             z-index: 1;
@@ -275,6 +268,35 @@
             .container { padding: 30px 20px; }
             h1 { font-size: 1.6rem; }
         }
+
+        /* ========== ESTILOS PARA EL TOGGLE DE CONTRASEÑA ========== */
+        .password-wrapper {
+            position: relative;
+            width: 100%;
+        }
+        .password-wrapper input {
+            width: 100%;
+            padding-right: 45px; /* espacio para el botón */
+        }
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.4rem;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+        .toggle-password:hover {
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
@@ -304,7 +326,12 @@
                     <input type="text" id="user_input" name="user_input" placeholder="ejemplo@correo.com / usuario" required>
 
                     <label for="password">Contraseña</label>
-                    <input type="password" id="password" name="password" placeholder="••••••••" required>
+                    <div class="password-wrapper">
+                        <input type="password" id="password" name="password" placeholder="••••••••" required>
+                        <button type="button" id="togglePassword" class="toggle-password" aria-label="Mostrar contraseña">
+                            🐶🙈
+                        </button>
+                    </div>
 
                     <button type="submit" id="loginBtn" class="btn-submit">
                         <span class="btn-text">Ingresar</span>
@@ -498,6 +525,28 @@
             maybeShowInitialPrompt();
         });
 
+        // ========== TOGGLE CONTRASEÑA (perrito con orejas) ==========
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('password');
+
+        if (togglePassword && passwordInput) {
+            togglePassword.addEventListener('click', function() {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                // Cambiar el ícono del perrito
+                if (type === 'text') {
+                    // Contraseña visible: perrito con ojos abiertos
+                    togglePassword.textContent = '🐶👀';
+                    togglePassword.setAttribute('aria-label', 'Ocultar contraseña');
+                } else {
+                    // Contraseña oculta: perrito tapándose los ojos con las orejas
+                    togglePassword.textContent = '🐶🙈';
+                    togglePassword.setAttribute('aria-label', 'Mostrar contraseña');
+                }
+            });
+        }
+
+        // ========== FLASH MESSAGE Y FADE-OUT (sin cambios) ==========
         document.addEventListener('DOMContentLoaded', function() {
             const el = document.getElementById('flash-msg');
             if (el) {
