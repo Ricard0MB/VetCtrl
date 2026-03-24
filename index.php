@@ -28,6 +28,8 @@
             width: 100%;
             max-width: 1100px;
             margin: 0 auto 20px auto;
+            position: relative;
+            z-index: 1;
         }
 
         /* ========== PATITAS DECORATIVAS ========== */
@@ -54,12 +56,7 @@
             z-index: 0;
         }
 
-        .auth-wrapper {
-            position: relative;
-            z-index: 1;
-        }
-
-        /* ========== ESTILOS DEL TUTORIAL (sin cambios) ========== */
+        /* ========== ESTILOS DEL TUTORIAL ========== */
         .tutorial-overlay {
             position: fixed;
             top: 0;
@@ -117,9 +114,6 @@
             opacity: 0.8;
             transition: opacity 0.2s;
         }
-        .tutorial-header button:hover {
-            opacity: 1;
-        }
         .tutorial-content {
             padding: 25px;
             min-height: 300px;
@@ -144,9 +138,6 @@
             text-decoration: none;
             font-weight: bold;
         }
-        .step-desc a:hover {
-            text-decoration: underline;
-        }
         .step-image-placeholder {
             background: #f0f0f0;
             border-radius: 12px;
@@ -154,7 +145,6 @@
             text-align: center;
             margin: 15px 0;
             color: #6c757d;
-            font-size: 0.9rem;
         }
         .tutorial-footer {
             display: flex;
@@ -170,25 +160,9 @@
             cursor: pointer;
             transition: all 0.2s;
         }
-        .btn-prev {
-            background: #e9ecef;
-            color: #495057;
-        }
-        .btn-prev:hover {
-            background: #dee2e6;
-        }
-        .btn-next {
-            background: #40916c;
-            color: white;
-        }
-        .btn-next:hover {
-            background: #2d6a4f;
-        }
-        .btn-skip {
-            background: transparent;
-            color: #6c757d;
-            border: 1px solid #ced4da;
-        }
+        .btn-prev { background: #e9ecef; color: #495057; }
+        .btn-next { background: #40916c; color: white; }
+        .btn-skip { background: transparent; color: #6c757d; border: 1px solid #ced4da; }
         .step-indicators {
             display: flex;
             justify-content: center;
@@ -207,6 +181,8 @@
             width: 24px;
             border-radius: 12px;
         }
+
+        /* ========== PROMPT INICIAL ========== */
         .initial-prompt {
             position: fixed;
             bottom: 20px;
@@ -224,33 +200,12 @@
             transform: translateX(120%);
             transition: transform 0.4s ease;
         }
-        .initial-prompt.show {
-            transform: translateX(0);
-        }
-        .initial-prompt p {
-            margin: 0;
-            font-weight: 500;
-        }
-        .prompt-buttons {
-            display: flex;
-            gap: 10px;
-            justify-content: flex-end;
-        }
-        .prompt-buttons button {
-            padding: 6px 12px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 500;
-        }
-        .btn-yes {
-            background: #40916c;
-            color: white;
-        }
-        .btn-no {
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-        }
+        .initial-prompt.show { transform: translateX(0); }
+        .prompt-buttons { display: flex; gap: 10px; justify-content: flex-end; }
+        .prompt-buttons button { padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; }
+        .btn-yes { background: #40916c; color: white; }
+        .btn-no { background: #f8f9fa; border: 1px solid #dee2e6; }
+
         footer {
             margin-top: 30px;
             text-align: center;
@@ -260,16 +215,10 @@
             padding: 10px 20px;
             border-radius: 40px;
             backdrop-filter: blur(4px);
-            width: auto;
             z-index: 2;
         }
-        footer p { margin: 0; }
-        @media (max-width: 550px) {
-            .container { padding: 30px 20px; }
-            h1 { font-size: 1.6rem; }
-        }
 
-        /* ========== ESTILOS PARA EL TOGGLE DE CONTRASEÑA CON IMÁGENES ========== */
+        /* ========== ESTILOS PARA EL TOGGLE DE CONTRASEÑA (IMÁGENES) ========== */
         .password-wrapper {
             position: relative;
             width: 100%;
@@ -278,7 +227,7 @@
         }
         .password-wrapper input {
             width: 100%;
-            padding-right: 45px; /* espacio para que el texto no choque con la imagen */
+            padding-right: 45px;
         }
         .toggle-password {
             position: absolute;
@@ -294,17 +243,15 @@
             justify-content: center;
             opacity: 0.8;
             transition: opacity 0.2s;
-            height: 70%; /* Altura relativa al input */
-            width: 32px;  /* Ancho fijo para las imágenes */
+            height: 30px; /* Tamaño controlado */
+            width: 30px;
         }
-        .toggle-password:hover {
-            opacity: 1;
-        }
+        .toggle-password:hover { opacity: 1; }
         .toggle-password img {
             max-width: 100%;
             max-height: 100%;
             object-fit: contain;
-            pointer-events: none; /* evita que la imagen interfiera con el click del botón */
+            pointer-events: none;
         }
     </style>
 </head>
@@ -338,7 +285,7 @@
                     <div class="password-wrapper">
                         <input type="password" id="password" name="password" placeholder="••••••••" required>
                         <button type="button" id="togglePassword" class="toggle-password" aria-label="Mostrar contraseña">
-                            <img src="perro.png" id="toggleIcon" alt="Icono mostrar">
+                            <img src="public/images/perro.png" id="toggleIcon" alt="Icono mostrar">
                         </button>
                     </div>
 
@@ -363,8 +310,7 @@
                 <h3><i class="fas fa-graduation-cap"></i> Tutorial de VetCtrl</h3>
                 <button id="closeTutorialBtn">&times;</button>
             </div>
-            <div class="tutorial-content" id="tutorialContent">
-                </div>
+            <div class="tutorial-content" id="tutorialContent"></div>
             <div class="tutorial-footer">
                 <button id="prevStepBtn" class="btn-prev" style="visibility: hidden;">← Anterior</button>
                 <button id="nextStepBtn" class="btn-next">Siguiente →</button>
@@ -382,29 +328,20 @@
     </div>
 
     <script>
-        // Lógica del Tutorial y Flash Messages (Sin cambios)
         const steps = [
-            { title: "📝 Registro de cuenta", desc: `¿Eres nuevo? Haz clic en <a href="auth/register.php">Regístrate</a> para crear una cuenta.` },
-            { title: "🔑 Iniciar sesión", desc: "Ingresa tu usuario y contraseña en el formulario principal." },
-            { title: "🔄 Cambiar contraseña", desc: "Usa el enlace de recuperación si olvidaste tus datos." },
-            { title: "📧 Verificar tu correo", desc: "Revisa siempre tu bandeja de entrada o SPAM después de registrarte." }
+            { title: "📝 Registro", desc: `Crea una cuenta en <a href="auth/register.php">Regístrate</a>.` },
+            { title: "🔑 Iniciar sesión", desc: "Ingresa tus credenciales para acceder." },
+            { title: "🔄 Recuperación", desc: "Usa el enlace si olvidaste tu contraseña." },
+            { title: "📧 Verificación", desc: "Revisa tu bandeja de entrada o SPAM." }
         ];
 
         let currentStep = 0;
-        let tutorialActive = false;
-        let manualStart = false;
-        let skipFlag = localStorage.getItem('tutorial_seen');
-
         const overlay = document.getElementById('tutorialOverlay');
         const tutorialContent = document.getElementById('tutorialContent');
         const prevBtn = document.getElementById('prevStepBtn');
         const nextBtn = document.getElementById('nextStepBtn');
         const closeBtn = document.getElementById('closeTutorialBtn');
         const stepIndicators = document.getElementById('stepIndicators');
-        const initialPrompt = document.getElementById('initialPrompt');
-        const promptYes = document.getElementById('promptYes');
-        const promptNo = document.getElementById('promptNo');
-        const helpLink = document.getElementById('helpLink');
 
         function renderStep() {
             const step = steps[currentStep];
@@ -412,74 +349,75 @@
                 <div class="step-title">${step.title}</div>
                 <div class="step-desc">${step.desc}</div>
                 <div class="step-image-placeholder">
-                    <i class="fas fa-${getIconForStep(currentStep)}" style="font-size: 2.5rem; margin-bottom: 10px; display: block;"></i>
-                    ${getStepImageHint(currentStep)}
+                    <i class="fas fa-info-circle" style="font-size: 2.5rem; margin-bottom: 10px; display: block;"></i>
+                    Sigue las instrucciones para continuar.
                 </div>
             `;
             prevBtn.style.visibility = currentStep === 0 ? 'hidden' : 'visible';
             nextBtn.textContent = currentStep === steps.length - 1 ? 'Finalizar' : 'Siguiente →';
+            updateDots();
         }
 
-        function getIconForStep(stepIndex) { return ['user-plus', 'sign-in-alt', 'key', 'envelope'][stepIndex]; }
-        function getStepImageHint(stepIndex) { return ['📍 Botón "Regístrate"', '📍 Formulario de acceso', '📍 Enlace de olvido', '📍 Carpeta de SPAM'][stepIndex]; }
+        function updateDots() {
+            const dots = document.querySelectorAll('.step-dot');
+            dots.forEach((dot, i) => dot.classList.toggle('active', i === currentStep));
+        }
 
-        function openTutorial(startFrom = 0, fromManual = false) {
-            currentStep = startFrom;
+        function openTutorial() {
+            currentStep = 0;
             renderStep();
             overlay.classList.add('active');
-            tutorialActive = true;
-            manualStart = fromManual;
-            initialPrompt.classList.remove('show');
+            document.getElementById('initialPrompt').classList.remove('show');
         }
 
-        function closeTutorial() {
-            overlay.classList.remove('active');
-            tutorialActive = false;
-            if (!manualStart && currentStep === steps.length - 1) localStorage.setItem('tutorial_seen', 'completed');
-        }
+        nextBtn.addEventListener('click', () => {
+            if (currentStep < steps.length - 1) { currentStep++; renderStep(); }
+            else { overlay.classList.remove('active'); localStorage.setItem('tutorial_seen', 'completed'); }
+        });
 
-        promptYes.addEventListener('click', () => openTutorial(0, false));
-        promptNo.addEventListener('click', () => { initialPrompt.classList.remove('show'); localStorage.setItem('tutorial_seen', 'skipped'); });
-        helpLink.addEventListener('click', (e) => { e.preventDefault(); openTutorial(0, true); });
-        nextBtn.addEventListener('click', () => currentStep < steps.length - 1 ? (currentStep++, renderStep()) : closeTutorial());
         prevBtn.addEventListener('click', () => { if (currentStep > 0) { currentStep--; renderStep(); } });
-        closeBtn.addEventListener('click', closeTutorial);
+        closeBtn.addEventListener('click', () => overlay.classList.remove('active'));
+        document.getElementById('helpLink').addEventListener('click', (e) => { e.preventDefault(); openTutorial(); });
+        document.getElementById('promptYes').addEventListener('click', openTutorial);
+        document.getElementById('promptNo').addEventListener('click', () => {
+            document.getElementById('initialPrompt').classList.remove('show');
+            localStorage.setItem('tutorial_seen', 'skipped');
+        });
 
         document.addEventListener('DOMContentLoaded', () => {
-            for (let i = 0; i < steps.length; i++) {
+            steps.forEach((_, i) => {
                 const dot = document.createElement('div');
                 dot.classList.add('step-dot');
                 if (i === 0) dot.classList.add('active');
                 stepIndicators.appendChild(dot);
-            }
-            if (skipFlag !== 'skipped' && skipFlag !== 'completed') {
-                setTimeout(() => initialPrompt.classList.add('show'), 1000);
+            });
+            if (!localStorage.getItem('tutorial_seen')) {
+                setTimeout(() => document.getElementById('initialPrompt').classList.add('show'), 1000);
             }
         });
 
-        // ========== TOGGLE CONTRASEÑA (Lógica de imágenes corregida) ==========
+        // ========== TOGGLE CONTRASEÑA (Lógica con rutas relativas a public/images/) ==========
         const togglePassword = document.getElementById('togglePassword');
         const passwordInput = document.getElementById('password');
         const toggleIcon = document.getElementById('toggleIcon');
 
         if (togglePassword && passwordInput && toggleIcon) {
             togglePassword.addEventListener('click', function() {
-                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-                passwordInput.setAttribute('type', type);
+                const isPassword = passwordInput.getAttribute('type') === 'password';
+                passwordInput.setAttribute('type', isPassword ? 'text' : 'password');
                 
-                if (type === 'text') {
-                    // Contraseña visible: perrito en su cama (atento)
-                    toggleIcon.src = 'cama.png';
+                // Actualizamos la ruta de la imagen según el estado
+                if (isPassword) {
+                    toggleIcon.src = 'public/images/cama.png'; // Perro atento
                     togglePassword.setAttribute('aria-label', 'Ocultar contraseña');
                 } else {
-                    // Contraseña oculta: perrito durmiendo
-                    toggleIcon.src = 'perro.png';
+                    toggleIcon.src = 'public/images/perro.png'; // Perro durmiendo
                     togglePassword.setAttribute('aria-label', 'Mostrar contraseña');
                 }
             });
         }
 
-        // ========== MANEJO DE FORMULARIO ==========
+        // ========== ENVÍO DE FORMULARIO ==========
         document.getElementById('loginForm').addEventListener('submit', function(e) {
             e.preventDefault();
             const btn = document.getElementById('loginBtn');
