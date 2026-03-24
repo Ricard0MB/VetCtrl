@@ -111,7 +111,7 @@ $issue_date = date('d/m/Y H:i');
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://unpkg.com/jspdf-autotable@3.5.25/dist/jspdf.plugin.autotable.js"></script>
     <style>
-        /* (los mismos estilos que tenías) */
+        /* Estilos originales */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Roboto, Arial, sans-serif;
@@ -264,7 +264,8 @@ $issue_date = date('d/m/Y H:i');
             display: flex;
             gap: 15px;
             justify-content: flex-end;
-            margin-bottom: 15px;
+            margin-top: 15px;
+            margin-bottom: 20px;
         }
         .btn {
             padding: 12px 24px;
@@ -309,11 +310,7 @@ $issue_date = date('d/m/Y H:i');
     </style>
 </head>
 <body>
-     <?php include '../includes/navbar.php'; ?>
-    <div class="action-buttons no-print">
-        <button id="downloadPdfBtn" class="btn btn-pdf">📥 Descargar PDF</button>
-        <a href="pet_profile.php?id=<?php echo $pet_id; ?>" class="btn btn-outline">⬅️ Volver al Perfil</a>
-    </div>
+    <?php include '../includes/navbar.php'; ?>
 
     <div class="record-container" id="recordContent">
         <div class="record-header">
@@ -427,6 +424,14 @@ $issue_date = date('d/m/Y H:i');
             <div class="signature">VetCtrl</div>
         </div>
     </div>
+
+    <!-- Botones reubicados después del expediente -->
+    <div class="action-buttons no-print">
+        <button id="downloadPdfBtn" class="btn btn-pdf">📥 Descargar PDF</button>
+        <a href="pet_profile.php?id=<?php echo $pet_id; ?>" class="btn btn-outline">⬅️ Volver al Perfil</a>
+    </div>
+
+    <?php include_once '../includes/footer.php'; ?>
 
     <script>
         document.getElementById('downloadPdfBtn').addEventListener('click', function() {
@@ -582,6 +587,5 @@ $issue_date = date('d/m/Y H:i');
             doc.save(`Expediente_${(pet.name || 'mascota').replace(/[^a-z0-9]/gi,'_')}.pdf`);
         });
     </script>
-    <?php include_once '../includes/footer.php'; ?>
 </body>
 </html>
