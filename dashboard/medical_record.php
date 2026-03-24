@@ -309,6 +309,7 @@ $issue_date = date('d/m/Y H:i');
     </style>
 </head>
 <body>
+     <?php include '../includes/navbar.php'; ?>
     <div class="action-buttons no-print">
         <button id="downloadPdfBtn" class="btn btn-pdf">📥 Descargar PDF</button>
         <a href="pet_profile.php?id=<?php echo $pet_id; ?>" class="btn btn-outline">⬅️ Volver al Perfil</a>
