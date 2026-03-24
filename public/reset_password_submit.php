@@ -161,7 +161,7 @@ if (empty($token) || empty($email) || empty($password) || empty($password_confir
             <a href="reset_password.php?token=<?php echo urlencode($token); ?>&email=<?php echo urlencode($email); ?>" class="back-link">← Intentar de nuevo</a>
         <?php elseif ($success): ?>
             <div class="alert alert-success"><?php echo $success; ?></div>
-            <a href="index.php" class="back-link">← Ir al inicio de sesión</a>
+            <a href="../index.php" class="back-link">← Ir al inicio de sesión</a>
         <?php endif; ?>
     </div>
     <?php include '../includes/footer.php'; ?>
