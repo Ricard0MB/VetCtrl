@@ -581,5 +581,6 @@ $issue_date = date('d/m/Y H:i');
             doc.save(`Expediente_${(pet.name || 'mascota').replace(/[^a-z0-9]/gi,'_')}.pdf`);
         });
     </script>
+    <?php include_once '../includes/footer.php'; ?>
 </body>
 </html>
