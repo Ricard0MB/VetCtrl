@@ -64,6 +64,7 @@ try {
     <meta charset="UTF-8">
     <title>VetCtrl · Dashboard</title>
     <link rel="stylesheet" href="../public/css/style.css">
+    <link rel="stylesheet" href="../public/css/responsive.css">
     <style>
         /* ---------- ANIMACIÓN FADE-IN ---------- */
         .fade-in {
