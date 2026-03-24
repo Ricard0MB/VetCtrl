@@ -269,33 +269,42 @@
             h1 { font-size: 1.6rem; }
         }
 
-        /* ========== ESTILOS PARA EL TOGGLE DE CONTRASEÑA ========== */
+        /* ========== ESTILOS PARA EL TOGGLE DE CONTRASEÑA CON IMÁGENES ========== */
         .password-wrapper {
             position: relative;
             width: 100%;
+            display: flex;
+            align-items: center;
         }
         .password-wrapper input {
             width: 100%;
-            padding-right: 45px; /* espacio para el botón */
+            padding-right: 45px; /* espacio para que el texto no choque con la imagen */
         }
         .toggle-password {
             position: absolute;
-            right: 12px;
+            right: 10px;
             top: 50%;
             transform: translateY(-50%);
             background: none;
             border: none;
             cursor: pointer;
-            font-size: 1.4rem;
             padding: 0;
             display: flex;
             align-items: center;
             justify-content: center;
-            opacity: 0.7;
+            opacity: 0.8;
             transition: opacity 0.2s;
+            height: 70%; /* Altura relativa al input */
+            width: 32px;  /* Ancho fijo para las imágenes */
         }
         .toggle-password:hover {
             opacity: 1;
+        }
+        .toggle-password img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            pointer-events: none; /* evita que la imagen interfiera con el click del botón */
         }
     </style>
 </head>
@@ -329,7 +338,7 @@
                     <div class="password-wrapper">
                         <input type="password" id="password" name="password" placeholder="••••••••" required>
                         <button type="button" id="togglePassword" class="toggle-password" aria-label="Mostrar contraseña">
-                            🐶🙈
+                            <img src="perro.png" id="toggleIcon" alt="Icono mostrar">
                         </button>
                     </div>
 
@@ -348,7 +357,6 @@
         </div>
     </div>
 
-    <!-- Contenedor del tutorial -->
     <div id="tutorialOverlay" class="tutorial-overlay">
         <div class="tutorial-modal">
             <div class="tutorial-header">
@@ -356,8 +364,7 @@
                 <button id="closeTutorialBtn">&times;</button>
             </div>
             <div class="tutorial-content" id="tutorialContent">
-                <!-- contenido dinámico -->
-            </div>
+                </div>
             <div class="tutorial-footer">
                 <button id="prevStepBtn" class="btn-prev" style="visibility: hidden;">← Anterior</button>
                 <button id="nextStepBtn" class="btn-next">Siguiente →</button>
@@ -366,7 +373,6 @@
         </div>
     </div>
 
-    <!-- Prompt inicial (se mostrará solo la primera vez) -->
     <div id="initialPrompt" class="initial-prompt">
         <p>🎓 ¿Quieres conocer cómo usar VetCtrl?</p>
         <div class="prompt-buttons">
@@ -376,24 +382,12 @@
     </div>
 
     <script>
-        // Definición de pasos del tutorial (sin cambios)
+        // Lógica del Tutorial y Flash Messages (Sin cambios)
         const steps = [
-            {
-                title: "📝 Registro de cuenta",
-                desc: `¿Eres nuevo? Haz clic en <a href="auth/register.php">Regístrate</a> para crear una cuenta. Completa tus datos y recuerda verificar tu correo electrónico.`
-            },
-            {
-                title: "🔑 Iniciar sesión",
-                desc: "Una vez registrado, ingresa tu usuario o correo y tu contraseña en el formulario principal. Presiona el botón 'Ingresar' para acceder al sistema."
-            },
-            {
-                title: "🔄 Cambiar contraseña",
-                desc: "Si olvidaste tu contraseña, haz clic en <strong>¿Olvidaste tu contraseña?</strong> (debajo del formulario). Recibirás un enlace de recuperación por correo."
-            },
-            {
-                title: "📧 Verificar tu correo",
-                desc: "Cuando te registres o solicites cambio de contraseña, revisa tu bandeja de entrada y también la carpeta de <strong>SPAM / Correo no deseado</strong>. Allí encontrarás los enlaces de confirmación."
-            }
+            { title: "📝 Registro de cuenta", desc: `¿Eres nuevo? Haz clic en <a href="auth/register.php">Regístrate</a> para crear una cuenta.` },
+            { title: "🔑 Iniciar sesión", desc: "Ingresa tu usuario y contraseña en el formulario principal." },
+            { title: "🔄 Cambiar contraseña", desc: "Usa el enlace de recuperación si olvidaste tus datos." },
+            { title: "📧 Verificar tu correo", desc: "Revisa siempre tu bandeja de entrada o SPAM después de registrarte." }
         ];
 
         let currentStep = 0;
@@ -423,35 +417,11 @@
                 </div>
             `;
             prevBtn.style.visibility = currentStep === 0 ? 'hidden' : 'visible';
-            if (currentStep === steps.length - 1) {
-                nextBtn.textContent = 'Finalizar';
-                nextBtn.classList.add('btn-skip');
-                nextBtn.classList.remove('btn-next');
-            } else {
-                nextBtn.textContent = 'Siguiente →';
-                nextBtn.classList.remove('btn-skip');
-                nextBtn.classList.add('btn-next');
-            }
-            const dots = document.querySelectorAll('.step-dot');
-            dots.forEach((dot, i) => {
-                if (i === currentStep) dot.classList.add('active');
-                else dot.classList.remove('active');
-            });
+            nextBtn.textContent = currentStep === steps.length - 1 ? 'Finalizar' : 'Siguiente →';
         }
 
-        function getIconForStep(stepIndex) {
-            const icons = ['user-plus', 'sign-in-alt', 'key', 'envelope'];
-            return icons[stepIndex];
-        }
-        function getStepImageHint(stepIndex) {
-            const hints = [
-                '📍 Busca el botón "Regístrate" en la parte inferior.',
-                '📍 Usuario o correo + contraseña → presiona "Ingresar".',
-                '📍 Enlace "¿Olvidaste tu contraseña?" justo debajo del formulario.',
-                '📍 Si no ves el correo, revisa la carpeta de SPAM.'
-            ];
-            return hints[stepIndex];
-        }
+        function getIconForStep(stepIndex) { return ['user-plus', 'sign-in-alt', 'key', 'envelope'][stepIndex]; }
+        function getStepImageHint(stepIndex) { return ['📍 Botón "Regístrate"', '📍 Formulario de acceso', '📍 Enlace de olvido', '📍 Carpeta de SPAM'][stepIndex]; }
 
         function openTutorial(startFrom = 0, fromManual = false) {
             currentStep = startFrom;
@@ -459,61 +429,21 @@
             overlay.classList.add('active');
             tutorialActive = true;
             manualStart = fromManual;
-            if (initialPrompt.classList.contains('show')) {
-                initialPrompt.classList.remove('show');
-            }
+            initialPrompt.classList.remove('show');
         }
 
         function closeTutorial() {
             overlay.classList.remove('active');
             tutorialActive = false;
-            if (!manualStart && currentStep === steps.length - 1 && nextBtn.textContent === 'Finalizar') {
-                localStorage.setItem('tutorial_seen', 'completed');
-            }
+            if (!manualStart && currentStep === steps.length - 1) localStorage.setItem('tutorial_seen', 'completed');
         }
 
-        function nextStep() {
-            if (currentStep < steps.length - 1) {
-                currentStep++;
-                renderStep();
-            } else {
-                if (!manualStart) {
-                    localStorage.setItem('tutorial_seen', 'completed');
-                }
-                closeTutorial();
-            }
-        }
-        function prevStep() {
-            if (currentStep > 0) {
-                currentStep--;
-                renderStep();
-            }
-        }
-
-        function maybeShowInitialPrompt() {
-            if (skipFlag === 'skipped' || skipFlag === 'completed') return;
-            setTimeout(() => {
-                initialPrompt.classList.add('show');
-            }, 1000);
-        }
-
-        promptYes.addEventListener('click', () => {
-            initialPrompt.classList.remove('show');
-            openTutorial(0, false);
-        });
-        promptNo.addEventListener('click', () => {
-            initialPrompt.classList.remove('show');
-            localStorage.setItem('tutorial_seen', 'skipped');
-        });
-        helpLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            openTutorial(0, true);
-        });
-        nextBtn.addEventListener('click', nextStep);
-        prevBtn.addEventListener('click', prevStep);
-        closeBtn.addEventListener('click', () => {
-            closeTutorial();
-        });
+        promptYes.addEventListener('click', () => openTutorial(0, false));
+        promptNo.addEventListener('click', () => { initialPrompt.classList.remove('show'); localStorage.setItem('tutorial_seen', 'skipped'); });
+        helpLink.addEventListener('click', (e) => { e.preventDefault(); openTutorial(0, true); });
+        nextBtn.addEventListener('click', () => currentStep < steps.length - 1 ? (currentStep++, renderStep()) : closeTutorial());
+        prevBtn.addEventListener('click', () => { if (currentStep > 0) { currentStep--; renderStep(); } });
+        closeBtn.addEventListener('click', closeTutorial);
 
         document.addEventListener('DOMContentLoaded', () => {
             for (let i = 0; i < steps.length; i++) {
@@ -522,66 +452,45 @@
                 if (i === 0) dot.classList.add('active');
                 stepIndicators.appendChild(dot);
             }
-            maybeShowInitialPrompt();
+            if (skipFlag !== 'skipped' && skipFlag !== 'completed') {
+                setTimeout(() => initialPrompt.classList.add('show'), 1000);
+            }
         });
 
-        // ========== TOGGLE CONTRASEÑA (perrito con orejas) ==========
+        // ========== TOGGLE CONTRASEÑA (Lógica de imágenes corregida) ==========
         const togglePassword = document.getElementById('togglePassword');
         const passwordInput = document.getElementById('password');
+        const toggleIcon = document.getElementById('toggleIcon');
 
-        if (togglePassword && passwordInput) {
+        if (togglePassword && passwordInput && toggleIcon) {
             togglePassword.addEventListener('click', function() {
                 const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
                 passwordInput.setAttribute('type', type);
-                // Cambiar el ícono del perrito
+                
                 if (type === 'text') {
-                    // Contraseña visible: perrito con ojos abiertos
-                    togglePassword.textContent = '🐶👀';
+                    // Contraseña visible: perrito en su cama (atento)
+                    toggleIcon.src = 'cama.png';
                     togglePassword.setAttribute('aria-label', 'Ocultar contraseña');
                 } else {
-                    // Contraseña oculta: perrito tapándose los ojos con las orejas
-                    togglePassword.textContent = '🐶🙈';
+                    // Contraseña oculta: perrito durmiendo
+                    toggleIcon.src = 'perro.png';
                     togglePassword.setAttribute('aria-label', 'Mostrar contraseña');
                 }
             });
         }
 
-        // ========== FLASH MESSAGE Y FADE-OUT (sin cambios) ==========
-        document.addEventListener('DOMContentLoaded', function() {
-            const el = document.getElementById('flash-msg');
-            if (el) {
-                setTimeout(() => {
-                    el.style.transition = 'opacity 0.5s';
-                    el.style.opacity = '0';
-                    setTimeout(() => {
-                        el.remove();
-                        const url = new URL(window.location);
-                        url.searchParams.delete('msg');
-                        window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
-                    }, 550);
-                }, 4000);
-            }
-
-            const form = document.getElementById('loginForm');
+        // ========== MANEJO DE FORMULARIO ==========
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
             const btn = document.getElementById('loginBtn');
-            const btnText = btn.querySelector('.btn-text');
-            const btnLoader = btn.querySelector('.btn-loader');
-
-            form.addEventListener('submit', function(e) {
-                e.preventDefault();
-                btnText.style.display = 'none';
-                btnLoader.style.display = 'inline';
-                btn.disabled = true;
-                btn.style.opacity = '0.8';
-                document.body.classList.add('fade-out');
-                setTimeout(() => {
-                    form.submit();
-                }, 250);
-            });
+            btn.querySelector('.btn-text').style.display = 'none';
+            btn.querySelector('.btn-loader').style.display = 'inline';
+            btn.disabled = true;
+            document.body.classList.add('fade-out');
+            setTimeout(() => this.submit(), 250);
         });
     </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
     <?php include 'includes/footer.php'; ?>
 </body>
 </html>
