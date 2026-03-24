@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VetCtrl · Iniciar Sesión</title>
     <link rel="stylesheet" href="public/css/style_auth.css">
+    <link rel="stylesheet" href="../public/css/responsive.css">
     <style>
         body.fade-out {
             opacity: 0;
