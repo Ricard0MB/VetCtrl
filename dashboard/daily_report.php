@@ -44,7 +44,8 @@ function getAppointments($conn, $start, $end) {
 }
 
 function getVaccines($conn, $start, $end) {
-    $sql = "SELECT COUNT(*) FROM vaccines WHERE vaccine_date BETWEEN :start AND :end";
+    // Cambiado: vaccine_date -> application_date
+    $sql = "SELECT COUNT(*) FROM vaccines WHERE application_date BETWEEN :start AND :end";
     $stmt = $conn->prepare($sql);
     $stmt->bindValue(':start', $start);
     $stmt->bindValue(':end', $end);
@@ -53,7 +54,8 @@ function getVaccines($conn, $start, $end) {
 }
 
 function getTreatments($conn, $start, $end) {
-    $sql = "SELECT COUNT(*) FROM treatments WHERE treatment_date BETWEEN :start AND :end";
+    // Cambiado: treatment_date -> created_at (fecha de registro)
+    $sql = "SELECT COUNT(*) FROM treatments WHERE created_at BETWEEN :start AND :end";
     $stmt = $conn->prepare($sql);
     $stmt->bindValue(':start', $start);
     $stmt->bindValue(':end', $end);
@@ -88,8 +90,6 @@ $daily_stats = [
     'new_pets'      => getNewPets($conn, $start_datetime, $end_datetime),
     'new_users'     => getNewUsers($conn, $start_datetime, $end_datetime)
 ];
-
-// No es necesario cerrar la conexión explícitamente
 ?>
 <!DOCTYPE html>
 <html lang="es">
