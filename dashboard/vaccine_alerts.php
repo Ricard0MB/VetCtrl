@@ -204,7 +204,7 @@ try {
             font-size: 0.9rem;
         }
         .alert-table th {
-            background: #e74c3c; /* Rojo para encabezado de alertas */
+            background: #40916c; /* Verde institucional (igual que pet_list) */
             color: white;
             padding: 12px 15px;
             text-align: left;
@@ -238,10 +238,10 @@ try {
             min-width: 120px;
         }
         .days-remaining.expired {
-            background-color: #dc3545;
+            background-color: #dc3545; /* Rojo para vencidas */
         }
         .days-remaining.due-soon {
-            background-color: #ffc107;
+            background-color: #ffc107; /* Naranja para próximas */
             color: #333;
         }
 
@@ -359,7 +359,7 @@ try {
                                 }
                             ?>
                                 <tr class="<?php echo $row_class; ?>">
-                                    <td>
+                                     <td>
                                         <a href="pet_profile.php?id=<?php echo $record['pet_id']; ?>" style="color: #1b4332; font-weight: 600; text-decoration: none;">
                                             <?php echo htmlspecialchars($record['pet_name']); ?>
                                         </a>
