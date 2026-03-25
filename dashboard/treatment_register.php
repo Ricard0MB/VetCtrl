@@ -33,7 +33,6 @@ try {
     $stmt->execute();
     $pet = $stmt->fetch(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    // Manejar error (opcional)
     die("Error al cargar mascota: " . $e->getMessage());
 }
 
@@ -56,12 +55,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $error = "Título, fecha de inicio y detalles de medicación son obligatorios.";
     } else {
         try {
-            $sql = "INSERT INTO treatments (pet_id, attendant_id, title, start_date, end_date, diagnosis, medication_details, notes) 
-                    VALUES (:pet_id, :attendant_id, :title, :start_date, :end_date, :diagnosis, :medication_details, :notes)";
+            // Incluimos también el campo treatment_name con el mismo valor que title
+            $sql = "INSERT INTO treatments (pet_id, attendant_id, title, treatment_name, start_date, end_date, diagnosis, medication_details, notes) 
+                    VALUES (:pet_id, :attendant_id, :title, :treatment_name, :start_date, :end_date, :diagnosis, :medication_details, :notes)";
             $stmt = $conn->prepare($sql);
             $stmt->bindValue(':pet_id', $pet_id, PDO::PARAM_INT);
             $stmt->bindValue(':attendant_id', $user_id, PDO::PARAM_INT);
             $stmt->bindValue(':title', $title);
+            $stmt->bindValue(':treatment_name', $title); // Usamos el título como treatment_name
             $stmt->bindValue(':start_date', $start_date);
             $stmt->bindValue(':end_date', $end_date);
             $stmt->bindValue(':diagnosis', $diagnosis);
