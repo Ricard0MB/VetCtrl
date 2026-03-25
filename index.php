@@ -35,6 +35,13 @@
         .step-dot { width: 8px; height: 8px; background: #cbd5e0; border-radius: 50%; transition: background 0.2s; }
         .step-dot.active { background: #40916c; width: 24px; border-radius: 12px; }
         
+        /* Mejoras visuales para el contenido del tutorial */
+        .tip-box { background: #e9f5ef; border-left: 4px solid #40916c; padding: 12px; border-radius: 10px; margin: 15px 0; font-size: 0.9rem; display: flex; gap: 10px; align-items: flex-start; }
+        .tip-box i { color: #40916c; font-size: 1.2rem; margin-top: 2px; }
+        .step-list { margin: 10px 0 10px 20px; padding-left: 0; list-style-type: none; }
+        .step-list li { margin-bottom: 8px; position: relative; padding-left: 22px; }
+        .step-list li:before { content: "✓"; color: #40916c; position: absolute; left: 0; font-weight: bold; }
+        
         /* Prompts e inputs */
         .initial-prompt { position: fixed; bottom: 20px; right: 20px; background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); padding: 15px 20px; max-width: 300px; z-index: 1001; display: flex; flex-direction: column; gap: 10px; border-left: 4px solid #40916c; transform: translateX(120%); transition: transform 0.4s ease; }
         .initial-prompt.show { transform: translateX(0); }
@@ -130,12 +137,71 @@
     </div>
 
     <script>
-        // --- Configuración del Tutorial ---
+        // --- Configuración del Tutorial MEJORADA con contenido detallado ---
         const steps = [
-            { title: "📝 Registro", desc: `Crea una cuenta en <a href="auth/register.php">Regístrate</a>.` },
-            { title: "🔑 Iniciar sesión", desc: "Ingresa tus credenciales para acceder." },
-            { title: "🔄 Recuperación", desc: "Usa el enlace si olvidaste tu contraseña." },
-            { title: "📧 Verificación", desc: "Revisa tu bandeja de entrada o SPAM." }
+            { 
+                title: "📝 Crear tu cuenta", 
+                desc: `
+                    <p>Para empezar a usar VetCtrl, necesitas registrarte. Sigue estos pasos:</p>
+                    <ul class="step-list">
+                        <li>Haz clic en <a href="auth/register.php">Regístrate</a> (justo debajo del formulario).</li>
+                        <li>Completa tus datos: nombre, correo electrónico, usuario y contraseña.</li>
+                        <li>Acepta los términos y presiona "Crear cuenta".</li>
+                        <li><strong>Importante:</strong> Te enviaremos un correo de verificación. Debes confirmar tu cuenta para acceder a todas las funciones.</li>
+                    </ul>
+                    <div class="tip-box">
+                        <i class="fas fa-envelope"></i>
+                        <span>¿No ves el correo? Revisa tu bandeja de spam o correos no deseados.</span>
+                    </div>
+                `
+            },
+            { 
+                title: "🔑 Iniciar sesión", 
+                desc: `
+                    <p>Una vez registrado, vuelve a esta página para acceder:</p>
+                    <ul class="step-list">
+                        <li>Introduce tu <strong>usuario</strong> o <strong>correo electrónico</strong>.</li>
+                        <li>Escribe tu contraseña. Puedes hacer clic en el <img src="public/images/perro.png" style="height:18px; vertical-align:middle;"> para verla mientras la escribes.</li>
+                        <li>Presiona "Ingresar". Serás redirigido automáticamente al panel principal.</li>
+                    </ul>
+                    <div class="tip-box">
+                        <i class="fas fa-lightbulb"></i>
+                        <span>Consejo: Si usas un dispositivo público, recuerda cerrar sesión al terminar.</span>
+                    </div>
+                `
+            },
+            { 
+                title: "🔄 Recuperar contraseña", 
+                desc: `
+                    <p>Si olvidaste tu contraseña, puedes restablecerla fácilmente:</p>
+                    <ul class="step-list">
+                        <li>Haz clic en el enlace <a href="public/forgot_password.php">¿Olvidaste tu contraseña?</a></li>
+                        <li>Ingresa el correo electrónico con el que te registraste.</li>
+                        <li>Recibirás un mensaje con instrucciones para crear una nueva contraseña.</li>
+                        <li>Sigue el enlace del correo y elige una clave segura.</li>
+                    </ul>
+                    <div class="tip-box">
+                        <i class="fas fa-shield-alt"></i>
+                        <span>Tu nueva contraseña debe tener al menos 8 caracteres, incluyendo letras y números.</span>
+                    </div>
+                `
+            },
+            { 
+                title: "📧 Verificación de correo", 
+                desc: `
+                    <p>Para garantizar la seguridad de tu cuenta, debes verificar tu dirección de correo:</p>
+                    <ul class="step-list">
+                        <li>Después de registrarte, revisa tu bandeja de entrada.</li>
+                        <li>Abre el correo de "VetCtrl" y haz clic en el botón de verificación.</li>
+                        <li>Si no lo encuentras, busca en la carpeta de SPAM o correo no deseado.</li>
+                        <li>¿Aún no llega? Puedes solicitar un nuevo correo desde el área de inicio de sesión.</li>
+                    </ul>
+                    <div class="tip-box">
+                        <i class="fas fa-check-circle"></i>
+                        <span>Una vez verificado, tendrás acceso completo a todas las funciones de la plataforma.</span>
+                    </div>
+                `
+            }
         ];
 
         let currentStep = 0;
@@ -152,7 +218,7 @@
                 <div class="step-desc">${step.desc}</div>
                 <div class="step-image-placeholder">
                     <i class="fas fa-info-circle" style="font-size: 2.5rem; margin-bottom: 10px; display: block;"></i>
-                    Sigue las instrucciones para continuar.
+                    Sigue estos consejos para aprovechar al máximo VetCtrl.
                 </div>
             `;
             prevBtn.style.visibility = currentStep === 0 ? 'hidden' : 'visible';
@@ -211,7 +277,6 @@
 
         if (togglePassword && passwordInput && toggleIcon) {
             togglePassword.addEventListener('click', function() {
-                // Habilitar el campo si está bloqueado
                 if (passwordInput.hasAttribute('readonly')) {
                     passwordInput.removeAttribute('readonly');
                 }
@@ -219,12 +284,11 @@
                 const isPassword = passwordInput.getAttribute('type') === 'password';
                 passwordInput.setAttribute('type', isPassword ? 'text' : 'password');
                 
-                // Cambio de iconos dinámico
                 if (isPassword) {
-                    toggleIcon.src = 'public/images/cama.png'; // Perro en la cama
+                    toggleIcon.src = 'public/images/cama.png';
                     togglePassword.setAttribute('aria-label', 'Ocultar contraseña');
                 } else {
-                    toggleIcon.src = 'public/images/perro.png'; // Perro durmiendo
+                    toggleIcon.src = 'public/images/perro.png';
                     togglePassword.setAttribute('aria-label', 'Mostrar contraseña');
                 }
             });
@@ -234,7 +298,7 @@
         document.getElementById('loginForm').addEventListener('submit', function(e) {
             e.preventDefault();
             const pwd = document.getElementById('password');
-            pwd.removeAttribute('readonly'); // Asegurar envío
+            pwd.removeAttribute('readonly');
             
             const btn = document.getElementById('loginBtn');
             btn.querySelector('.btn-text').style.display = 'none';
