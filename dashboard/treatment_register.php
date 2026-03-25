@@ -54,30 +54,45 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (empty($title) || empty($start_date) || empty($medication_details)) {
         $error = "Título, fecha de inicio y detalles de medicación son obligatorios.";
     } else {
-        try {
-            // Incluimos también el campo treatment_name con el mismo valor que title
-            $sql = "INSERT INTO treatments (pet_id, attendant_id, title, treatment_name, start_date, end_date, diagnosis, medication_details, notes) 
-                    VALUES (:pet_id, :attendant_id, :title, :treatment_name, :start_date, :end_date, :diagnosis, :medication_details, :notes)";
-            $stmt = $conn->prepare($sql);
-            $stmt->bindValue(':pet_id', $pet_id, PDO::PARAM_INT);
-            $stmt->bindValue(':attendant_id', $user_id, PDO::PARAM_INT);
-            $stmt->bindValue(':title', $title);
-            $stmt->bindValue(':treatment_name', $title); // Usamos el título como treatment_name
-            $stmt->bindValue(':start_date', $start_date);
-            $stmt->bindValue(':end_date', $end_date);
-            $stmt->bindValue(':diagnosis', $diagnosis);
-            $stmt->bindValue(':medication_details', $medication_details);
-            $stmt->bindValue(':notes', $notes);
-            $stmt->execute();
+        // Validar fechas
+        $start_timestamp = strtotime($start_date);
+        if ($start_timestamp === false) {
+            $error = "La fecha de inicio no es válida.";
+        } elseif ($end_date !== null) {
+            $end_timestamp = strtotime($end_date);
+            if ($end_timestamp === false) {
+                $error = "La fecha de fin no es válida.";
+            } elseif ($end_timestamp < $start_timestamp) {
+                $error = "La fecha de fin no puede ser anterior a la fecha de inicio.";
+            }
+        }
+        
+        if (empty($error)) {
+            try {
+                // Incluimos también el campo treatment_name con el mismo valor que title
+                $sql = "INSERT INTO treatments (pet_id, attendant_id, title, treatment_name, start_date, end_date, diagnosis, medication_details, notes) 
+                        VALUES (:pet_id, :attendant_id, :title, :treatment_name, :start_date, :end_date, :diagnosis, :medication_details, :notes)";
+                $stmt = $conn->prepare($sql);
+                $stmt->bindValue(':pet_id', $pet_id, PDO::PARAM_INT);
+                $stmt->bindValue(':attendant_id', $user_id, PDO::PARAM_INT);
+                $stmt->bindValue(':title', $title);
+                $stmt->bindValue(':treatment_name', $title); // Usamos el título como treatment_name
+                $stmt->bindValue(':start_date', $start_date);
+                $stmt->bindValue(':end_date', $end_date);
+                $stmt->bindValue(':diagnosis', $diagnosis);
+                $stmt->bindValue(':medication_details', $medication_details);
+                $stmt->bindValue(':notes', $notes);
+                $stmt->execute();
 
-            require_once '../includes/bitacora_function.php';
-            $action = "Tratamiento registrado para mascota $pet_id: $title";
-            log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
+                require_once '../includes/bitacora_function.php';
+                $action = "Tratamiento registrado para mascota $pet_id: $title";
+                log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
 
-            header("Location: pet_profile.php?id=$pet_id&success=treatment_added");
-            exit;
-        } catch (PDOException $e) {
-            $error = "Error al registrar: " . $e->getMessage();
+                header("Location: pet_profile.php?id=$pet_id&success=treatment_added");
+                exit;
+            } catch (PDOException $e) {
+                $error = "Error al registrar: " . $e->getMessage();
+            }
         }
     }
 }
