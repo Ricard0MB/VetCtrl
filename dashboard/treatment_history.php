@@ -159,11 +159,52 @@ function truncateText($text, $length = 100) {
         .status-ACTIVO { background: #ffe599; color: #856404; }
         .status-COMPLETADO { background: #d4edda; color: #155724; }
         .status-PAUSADO { background: #f8d7da; color: #721c24; }
-        .navigation-links a {
-            color: #40916c;
-            text-decoration: none;
+        /* Estilos para botones */
+        .btn {
+            display: inline-block;
             font-weight: 600;
-            margin: 0 5px;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: middle;
+            border: 1px solid transparent;
+            padding: 6px 12px;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            border-radius: 4px;
+            transition: all 0.15s ease-in-out;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            border-radius: 3px;
+        }
+        .btn-primary {
+            background-color: #40916c;
+            border-color: #40916c;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #2d6a4f;
+            border-color: #2d6a4f;
+        }
+        .btn-outline-primary {
+            background-color: transparent;
+            border-color: #40916c;
+            color: #40916c;
+        }
+        .btn-outline-primary:hover {
+            background-color: #40916c;
+            color: white;
+        }
+        .navigation-links {
+            margin-top: 30px;
+            text-align: center;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
         }
         .no-data {
             text-align: center;
@@ -171,6 +212,10 @@ function truncateText($text, $length = 100) {
             background: #f8f9fa;
             border-radius: 8px;
             color: #6c757d;
+        }
+        .no-data .btn-primary {
+            display: inline-block;
+            margin-top: 15px;
         }
     </style>
 </head>
@@ -192,7 +237,7 @@ function truncateText($text, $length = 100) {
                 <div class="no-data">
                     <i class="fas fa-prescription" style="font-size: 3rem; margin-bottom: 15px;"></i>
                     <p>No hay tratamientos registrados.</p>
-                    <a href="treatment_select_pet.php" class="btn-primary" style="padding: 8px 16px;">Registrar nuevo tratamiento</a>
+                    <a href="treatment_select_pet.php" class="btn btn-primary"><i class="fas fa-plus"></i> Registrar nuevo tratamiento</a>
                 </div>
             <?php else: ?>
                 <button id="btnExportPdf" class="btn-pdf"><i class="fas fa-file-pdf"></i> Exportar PDF</button>
@@ -213,7 +258,7 @@ function truncateText($text, $length = 100) {
                         <?php foreach ($treatments as $t): ?>
                         <tr>
                             <td>
-                                <strong><a href="pet_profile.php?id=<?php echo $t['pet_id']; ?>"><?php echo htmlspecialchars($t['pet_name']); ?></a></strong>
+                                <strong><a href="pet_profile.php?id=<?php echo $t['pet_id']; ?>" class="btn btn-sm btn-outline-primary"><?php echo htmlspecialchars($t['pet_name']); ?></a></strong>
                                 <br><small><?php echo htmlspecialchars($t['species_name'] ?? 'Desconocida'); ?> <?php echo !empty($t['breed_name']) ? '(' . htmlspecialchars($t['breed_name']) . ')' : ''; ?></small>
                             </td>
                             <td>
@@ -235,7 +280,7 @@ function truncateText($text, $length = 100) {
                                 <strong>Notas:</strong> <?php echo truncateText($t['notes'], 70); ?>
                             </td>
                             <td>
-                                <a href="pet_profile.php?id=<?php echo $t['pet_id']; ?>">Ver historial</a>
+                                <a href="pet_profile.php?id=<?php echo $t['pet_id']; ?>" class="btn btn-sm btn-primary"><i class="fas fa-eye"></i> Ver historial</a>
                             </td>
                         </tr>
                         <?php endforeach; ?>
@@ -243,10 +288,10 @@ function truncateText($text, $length = 100) {
                 </table>
             <?php endif; ?>
 
-            <p class="navigation-links" style="margin-top: 30px; text-align: center;">
-                <a href="welcome.php"><i class="fas fa-home"></i> Dashboard</a> |
-                <a href="treatment_followup.php">Seguimiento de Tratamientos</a>
-            </p>
+            <div class="navigation-links">
+                <a href="welcome.php" class="btn btn-outline-primary"><i class="fas fa-home"></i> Dashboard</a>
+                <a href="treatment_followup.php" class="btn btn-primary"><i class="fas fa-chart-line"></i> Seguimiento de Tratamientos</a>
+            </div>
         </div>
     </div>
 
