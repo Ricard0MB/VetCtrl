@@ -94,6 +94,7 @@ function truncateText($text, $length = 100) {
             padding: 30px;
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            overflow-x: auto;
         }
         h1 {
             color: #1b4332;
@@ -134,6 +135,7 @@ function truncateText($text, $length = 100) {
             width: 100%;
             border-collapse: collapse;
             font-size: 0.9rem;
+            min-width: 800px; /* Asegura un ancho mínimo para la tabla, pero el contenedor tiene overflow-x auto */
         }
         .treatment-table th {
             background: #40916c;
@@ -145,6 +147,7 @@ function truncateText($text, $length = 100) {
             padding: 10px 12px;
             border-bottom: 1px solid #ddd;
             vertical-align: top;
+            word-break: break-word;
         }
         .treatment-table tr:hover {
             background: #f5f5f5;
@@ -159,6 +162,7 @@ function truncateText($text, $length = 100) {
         .status-ACTIVO { background: #ffe599; color: #856404; }
         .status-COMPLETADO { background: #d4edda; color: #155724; }
         .status-PAUSADO { background: #f8d7da; color: #721c24; }
+        
         /* Estilos para botones */
         .btn {
             display: inline-block;
@@ -198,6 +202,29 @@ function truncateText($text, $length = 100) {
             background-color: #40916c;
             color: white;
         }
+        .btn-warning {
+            background-color: #ffc107;
+            border-color: #ffc107;
+            color: #212529;
+        }
+        .btn-warning:hover {
+            background-color: #e0a800;
+            border-color: #d39e00;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+            border-color: #dc3545;
+            color: white;
+        }
+        .btn-danger:hover {
+            background-color: #c82333;
+            border-color: #bd2130;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
         .navigation-links {
             margin-top: 30px;
             text-align: center;
@@ -216,6 +243,15 @@ function truncateText($text, $length = 100) {
         .no-data .btn-primary {
             display: inline-block;
             margin-top: 15px;
+        }
+        @media (max-width: 768px) {
+            .action-buttons {
+                flex-direction: column;
+                gap: 3px;
+            }
+            .btn-sm {
+                padding: 3px 6px;
+            }
         }
     </style>
 </head>
@@ -242,50 +278,58 @@ function truncateText($text, $length = 100) {
             <?php else: ?>
                 <button id="btnExportPdf" class="btn-pdf"><i class="fas fa-file-pdf"></i> Exportar PDF</button>
 
-                <table class="treatment-table" id="treatmentsTable">
-                    <thead>
-                        <tr>
-                            <th>Paciente</th>
-                            <th>Tratamiento</th>
-                            <th>Diagnóstico</th>
-                            <th>Fechas (Inicio/Fin)</th>
-                            <th>Estado</th>
-                            <th>Medicación/Notas</th>
-                            <th>Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($treatments as $t): ?>
-                        <tr>
-                            <td>
-                                <strong><a href="pet_profile.php?id=<?php echo $t['pet_id']; ?>" class="btn btn-sm btn-outline-primary"><?php echo htmlspecialchars($t['pet_name']); ?></a></strong>
-                                <br><small><?php echo htmlspecialchars($t['species_name'] ?? 'Desconocida'); ?> <?php echo !empty($t['breed_name']) ? '(' . htmlspecialchars($t['breed_name']) . ')' : ''; ?></small>
-                            </td>
-                            <td>
-                                <strong><?php echo htmlspecialchars($t['title']); ?></strong>
-                                <br><small>Reg: <?php echo date('d/m/Y', strtotime($t['created_at'])); ?></small>
-                            </td>
-                            <td><?php echo truncateText($t['diagnosis'], 150); ?></td>
-                            <td>
-                                <strong>Inicio:</strong> <?php echo date('d/m/Y', strtotime($t['start_date'])); ?>
-                                <br><strong>Fin:</strong> <?php echo $t['end_date'] ? date('d/m/Y', strtotime($t['end_date'])) : 'N/D'; ?>
-                            </td>
-                            <td>
-                                <span class="status-tag status-<?php echo $t['status']; ?>">
-                                    <?php echo $t['status']; ?>
-                                </span>
-                            </td>
-                            <td>
-                                <strong>Medicación:</strong> <?php echo truncateText($t['medication_details'], 70); ?><br>
-                                <strong>Notas:</strong> <?php echo truncateText($t['notes'], 70); ?>
-                            </td>
-                            <td>
-                                <a href="pet_profile.php?id=<?php echo $t['pet_id']; ?>" class="btn btn-sm btn-primary"><i class="fas fa-eye"></i> Ver historial</a>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+                <div style="overflow-x: auto;">
+                    <table class="treatment-table" id="treatmentsTable">
+                        <thead>
+                            <tr>
+                                <th>Paciente</th>
+                                <th>Tratamiento</th>
+                                <th>Diagnóstico</th>
+                                <th>Fechas (Inicio/Fin)</th>
+                                <th>Estado</th>
+                                <th>Medicación/Notas</th>
+                                <th>Acciones</th>
+                            </thead>
+                        <tbody>
+                            <?php foreach ($treatments as $t): ?>
+                            <tr>
+                                <td>
+                                    <strong><a href="pet_profile.php?id=<?php echo $t['pet_id']; ?>" class="btn btn-sm btn-outline-primary"><?php echo htmlspecialchars($t['pet_name']); ?></a></strong>
+                                    <br><small><?php echo htmlspecialchars($t['species_name'] ?? 'Desconocida'); ?> <?php echo !empty($t['breed_name']) ? '(' . htmlspecialchars($t['breed_name']) . ')' : ''; ?></small>
+                                </td>
+                                <td>
+                                    <strong><?php echo htmlspecialchars($t['title']); ?></strong>
+                                    <br><small>Reg: <?php echo date('d/m/Y', strtotime($t['created_at'])); ?></small>
+                                </td>
+                                <td><?php echo truncateText($t['diagnosis'], 150); ?></td>
+                                <td>
+                                    <strong>Inicio:</strong> <?php echo date('d/m/Y', strtotime($t['start_date'])); ?>
+                                    <br><strong>Fin:</strong> <?php echo $t['end_date'] ? date('d/m/Y', strtotime($t['end_date'])) : 'N/D'; ?>
+                                </td>
+                                <td>
+                                    <span class="status-tag status-<?php echo $t['status']; ?>">
+                                        <?php echo $t['status']; ?>
+                                    </span>
+                                </td>
+                                <td>
+                                    <strong>Medicación:</strong> <?php echo truncateText($t['medication_details'], 70); ?><br>
+                                    <strong>Notas:</strong> <?php echo truncateText($t['notes'], 70); ?>
+                                </td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <a href="treatment_edit.php?id=<?php echo $t['id']; ?>" class="btn btn-sm btn-warning" title="Editar tratamiento">
+                                            <i class="fas fa-edit"></i> Editar
+                                        </a>
+                                        <a href="treatment_delete.php?id=<?php echo $t['id']; ?>" class="btn btn-sm btn-danger" title="Eliminar tratamiento" onclick="return confirm('¿Estás seguro de eliminar este tratamiento? Esta acción no se puede deshacer.');">
+                                            <i class="fas fa-trash"></i> Eliminar
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
             <?php endif; ?>
 
             <div class="navigation-links">
