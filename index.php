@@ -75,6 +75,7 @@
 
                     <label for="password">Contraseña</label>
                     <div class="password-wrapper">
+                        <input type="password" id="password" name="password" placeholder="••••••••" required autocomplete="new-password">
                         <button type="button" id="togglePassword" class="toggle-password" aria-label="Mostrar contraseña">
                             <img src="public/images/perro.png" id="toggleIcon" alt="Icono mostrar">
                         </button>
