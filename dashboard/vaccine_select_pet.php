@@ -1,34 +1,57 @@
 <?php
 session_start();
 
-if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
+if (!isset($_SESSION['loggedin') || $_SESSION['loggedin'] !== true) {
     header("Location: ../index.php");
     exit;
 }
 
 require_once '../includes/config.php'; // $conn es un objeto PDO
 
-// Variables necesarias para la navbar
-$username = $_SESSION["username"] ?? 'Veterinario'; 
-$owner_id = $_SESSION['user_id'];
+// Variables de sesión
+$username = $_SESSION["username"] ?? 'Usuario';
+$user_id = $_SESSION['user_id'] ?? 0;
+$role_name = $_SESSION['role_name'] ?? 'Propietario';
+
+// Solo veterinarios y administradores pueden registrar vacunas
+if (!in_array($role_name, ['Veterinario', 'admin'])) {
+    header("Location: welcome.php?error=access_denied");
+    exit;
+}
+
 $pets = [];
 $message = '';
 
 try {
-    // Consulta para obtener las mascotas del usuario (Owner/Veterinario)
-    $sql = "SELECT p.id, p.name, pt.name AS species_name, b.name AS breed_name 
-            FROM pets p
-            LEFT JOIN pet_types pt ON p.type_id = pt.id
-            LEFT JOIN breeds b ON p.breed_id = b.id
-            WHERE p.owner_id = :owner_id 
-            ORDER BY p.name ASC";
+    // Construir consulta según rol
+    if ($role_name === 'Propietario') {
+        // Propietarios ven solo sus mascotas
+        $sql = "SELECT p.id, p.name, pt.name AS species_name, b.name AS breed_name 
+                FROM pets p
+                LEFT JOIN pet_types pt ON p.type_id = pt.id
+                LEFT JOIN breeds b ON p.breed_id = b.id
+                WHERE p.owner_id = :user_id 
+                ORDER BY p.name ASC";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindValue(':user_id', $user_id, PDO::PARAM_INT);
+    } else {
+        // Veterinarios y administradores ven todas las mascotas
+        $sql = "SELECT p.id, p.name, pt.name AS species_name, b.name AS breed_name 
+                FROM pets p
+                LEFT JOIN pet_types pt ON p.type_id = pt.id
+                LEFT JOIN breeds b ON p.breed_id = b.id
+                ORDER BY p.name ASC";
+        $stmt = $conn->prepare($sql);
+    }
 
-    $stmt = $conn->prepare($sql);
-    $stmt->bindValue(':owner_id', $owner_id, PDO::PARAM_INT);
     $stmt->execute();
     $pets = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (empty($pets)) {
+        $message = "<p class='error-message'>No hay mascotas registradas en el sistema. <a href='pet_register.php'>Registrar primera mascota</a></p>";
+    }
 } catch (PDOException $e) {
-    $message = "Error al cargar pacientes: " . $e->getMessage();
+    $message = "<p class='error-message'>Error al cargar pacientes: " . htmlspecialchars($e->getMessage()) . "</p>";
 }
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -134,9 +157,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             <?php echo $message; ?>
 
-            <?php if (empty($pets)): ?>
-                <p class='error-message'>Aún no tienes pacientes registrados. Por favor, <a href="pet_register.php">registra un paciente</a> primero.</p>
-            <?php else: ?>
+            <?php if (empty($pets) && empty($message)): ?>
+                <p class='error-message'>Aún no hay pacientes registrados. <a href="pet_register.php">Registra un paciente</a> primero.</p>
+            <?php elseif (!empty($pets)): ?>
                 <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
                     <label for="pet_id" style="font-weight: 600; display: block; text-align: left; margin-top: 10px;">Seleccionar Paciente:</label>
                     <select id="pet_id" name="pet_id" required>
