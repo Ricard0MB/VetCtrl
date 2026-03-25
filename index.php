@@ -244,7 +244,7 @@
             justify-content: center;
             opacity: 0.8;
             transition: opacity 0.2s;
-            height: 30px; /* Tamaño controlado */
+            height: 30px;
             width: 30px;
         }
         .toggle-password:hover { opacity: 1; }
@@ -284,7 +284,7 @@
 
                     <label for="password">Contraseña</label>
                     <div class="password-wrapper">
-                        <input type="password" id="password" name="password" placeholder="••••••••" required>
+                        <input type="password" id="password" name="password" placeholder="••••••••" required autocomplete="new-password">
                         <button type="button" id="togglePassword" class="toggle-password" aria-label="Mostrar contraseña">
                             <img src="public/images/perro.png" id="toggleIcon" alt="Icono mostrar">
                         </button>
@@ -407,7 +407,6 @@
                 const isPassword = passwordInput.getAttribute('type') === 'password';
                 passwordInput.setAttribute('type', isPassword ? 'text' : 'password');
                 
-                // Actualizamos la ruta de la imagen según el estado
                 if (isPassword) {
                     toggleIcon.src = 'public/images/cama.png'; // Perro atento
                     togglePassword.setAttribute('aria-label', 'Ocultar contraseña');
