@@ -25,10 +25,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($accion === 'optimizar_bd') {
         $mensaje = "Base de datos optimizada (simulado).";
         $tipo_mensaje = 'success';
-    } elseif ($accion === 'respaldar_bd') {
-        $mensaje = "Backup creado correctamente (simulado).";
-        $tipo_mensaje = 'success';
     }
+    // Ya no manejamos 'respaldar_bd' aquí, porque ahora es un enlace directo
 }
 
 // Obtener información básica del sistema usando PDO
@@ -57,7 +55,6 @@ try {
 }
 
 // No es necesario cerrar la conexión explícitamente; PDO la cierra al final del script.
-// $conn = null;
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -155,10 +152,7 @@ try {
                 <div class="tool">
                     <i class="fas fa-hdd fa-2x" style="color:#40916c;"></i>
                     <h4>Respaldar BD</h4>
-                    <form method="post">
-                        <input type="hidden" name="accion" value="respaldar_bd">
-                        <button type="submit" class="btn btn-primary">Ejecutar</button>
-                    </form>
+                    <a href="backup_system.php" class="btn btn-primary">Ir a Backup</a>
                 </div>
             </div>
 
