@@ -38,77 +38,73 @@ try {
         exit;
     }
 
-    // ===== VERIFICAR REGISTROS DEPENDIENTES EN TABLAS REALES =====
-    // Solo incluimos tablas que realmente existen en la BD
+    // ===== INICIAR TRANSACCIÓN =====
+    $conn->beginTransaction();
+
+    // Eliminar registros dependientes en orden (para respetar claves foráneas)
+    // Primero las tablas que tienen FK hacia pets
     $dependent_tables = [
         'consultations' => 'pet_id',
         'appointments'  => 'pet_id',
         'vaccines'      => 'pet_id',
         'treatments'    => 'pet_id',
-        // Agrega otras si las tuvieras, por ejemplo 'medical_records' etc.
+        // Si tienes otras tablas con FK a pets, agrégalas aquí
     ];
 
-    $has_dependencies = false;
-    $dependencies_list = [];
+    $deleted_counts = [];
 
     foreach ($dependent_tables as $table => $fk_column) {
         try {
-            // Primero verificamos si la tabla existe (para evitar error)
+            // Verificar si la tabla existe
             $check = $conn->query("SHOW TABLES LIKE '$table'");
-            if ($check->rowCount() == 0) {
-                continue; // Tabla no existe, la saltamos
-            }
-            // Verificar si la columna existe en la tabla (opcional pero recomendado)
+            if ($check->rowCount() == 0) continue;
+
+            // Verificar si la columna existe (opcional)
             $col_check = $conn->query("SHOW COLUMNS FROM $table LIKE '$fk_column'");
-            if ($col_check->rowCount() == 0) {
-                continue; // columna no existe, no hay dependencia
-            }
-            
-            $stmt = $conn->prepare("SELECT COUNT(*) as count FROM $table WHERE $fk_column = :id");
+            if ($col_check->rowCount() == 0) continue;
+
+            $stmt = $conn->prepare("DELETE FROM $table WHERE $fk_column = :id");
             $stmt->bindValue(':id', $pet_id, PDO::PARAM_INT);
             $stmt->execute();
-            $count = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
-            if ($count > 0) {
-                $has_dependencies = true;
-                $dependencies_list[] = "$count registro(s) en $table";
-            }
+            $deleted_counts[$table] = $stmt->rowCount();
         } catch (PDOException $e) {
-            // Si hay algún error (por ejemplo columna no existe), lo registramos pero no detenemos el proceso
-            error_log("Error verificando dependencia en $table: " . $e->getMessage());
-            continue;
+            // Si hay error, hacemos rollback y lanzamos excepción
+            $conn->rollBack();
+            throw new PDOException("Error eliminando registros de $table: " . $e->getMessage());
         }
     }
 
-    if ($has_dependencies) {
-        $msg = "No se puede eliminar la mascota porque tiene registros asociados: " . implode(', ', $dependencies_list);
-        header("Location: pet_profile.php?id=$pet_id&error=" . urlencode($msg));
-        exit;
-    }
-
-    // Iniciar transacción
-    $conn->beginTransaction();
-
-    // Eliminar mascota
+    // Finalmente eliminar la mascota
     $stmt = $conn->prepare("DELETE FROM pets WHERE id = :id");
     $stmt->bindValue(':id', $pet_id, PDO::PARAM_INT);
     $stmt->execute();
 
-    // Registrar en bitácora
+    // Commit de la transacción
+    $conn->commit();
+
+    // Registrar en bitácora con detalle de cuántos registros se eliminaron
     $username = $_SESSION['username'] ?? 'Usuario';
-    $action = "Mascota eliminada: {$pet['name']} (ID $pet_id)";
+    $details = [];
+    foreach ($deleted_counts as $table => $count) {
+        if ($count > 0) {
+            $details[] = "$count en $table";
+        }
+    }
+    $detail_str = empty($details) ? "ningún registro dependiente" : implode(', ', $details);
+    $action = "Mascota eliminada: {$pet['name']} (ID $pet_id) - Registros eliminados: $detail_str";
     if (function_exists('log_to_bitacora')) {
         log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
     } else {
         error_log("Eliminación de mascota: $action por $username");
     }
 
-    $conn->commit();
-
     // Redirigir con mensaje de éxito
-    header("Location: pet_list.php?msg=" . urlencode("Mascota {$pet['name']} eliminada correctamente."));
+    $msg = urlencode("Mascota {$pet['name']} eliminada correctamente junto con todos sus registros asociados.");
+    header("Location: pet_list.php?msg=" . $msg);
     exit;
 
 } catch (PDOException $e) {
+    // Asegurar rollback si la transacción sigue activa
     if ($conn->inTransaction()) {
         $conn->rollBack();
     }
