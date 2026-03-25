@@ -26,9 +26,9 @@ try {
     $message = "<p class='error-message'>Error al ejecutar la consulta: " . htmlspecialchars($e->getMessage()) . "</p>";
 }
 
-// 3. Función para obtener el nombre del asistente/veterinario por ID (ahora con PDO)
+// 3. Función para obtener el nombre del asistente/veterinario por ID (con manejo de null)
 function getAttendantUsername($conn, $attendant_id) {
-    if ($attendant_id === 0) return 'Sistema/Desconocido';
+    if (empty($attendant_id)) return 'Sistema/Desconocido';
 
     $sql_user = "SELECT username FROM users WHERE id = :id";
     $stmt = $conn->prepare($sql_user);
@@ -39,7 +39,6 @@ function getAttendantUsername($conn, $attendant_id) {
 }
 
 // No es necesario cerrar la conexión explícitamente con PDO
-// Si se desea, se puede hacer $conn = null al final, pero es opcional.
 ?>
 
 <!DOCTYPE html>
@@ -148,6 +147,10 @@ function getAttendantUsername($conn, $attendant_id) {
             background-color: #e0f2f1;
             color: #004d40;
         }
+        .description-cell {
+            max-width: 300px;
+            word-break: break-word;
+        }
     </style>
 </head>
 <body>
@@ -183,16 +186,26 @@ function getAttendantUsername($conn, $attendant_id) {
                         <tbody>
                             <?php foreach ($vaccine_types as $type): ?>
                                 <tr>
-                                    <td class="center-text"><?php echo htmlspecialchars($type['id']); ?></td>
-                                    <td><strong><?php echo htmlspecialchars($type['name']); ?></strong></td>
-                                    <td><span class="species-tag"><?php echo htmlspecialchars($type['species_target']); ?></span></td>
-                                    <td><?php 
-                                        // Mostrar una versión corta de la descripción
-                                        $desc = htmlspecialchars($type['description']);
-                                        echo strlen($desc) > 50 ? substr($desc, 0, 50) . '...' : $desc;
-                                    ?></td>
-                                    <td><?php echo getAttendantUsername($conn, $type['attendant_id']); ?></td>
-                                    <td><?php echo date("d/m/Y H:i", strtotime($type['created_at'])); ?></td>
+                                    <td class="center-text"><?php echo htmlspecialchars($type['id'] ?? ''); ?></td>
+                                    <td><strong><?php echo htmlspecialchars($type['name'] ?? ''); ?></strong></td>
+                                    <td>
+                                        <?php 
+                                            $species = $type['species_target'] ?? '';
+                                            if (!empty($species)) {
+                                                echo '<span class="species-tag">' . htmlspecialchars($species) . '</span>';
+                                            } else {
+                                                echo '<span style="color:#999;">No especificada</span>';
+                                            }
+                                        ?>
+                                    </td>
+                                    <td class="description-cell">
+                                        <?php 
+                                            $desc = htmlspecialchars($type['description'] ?? '');
+                                            echo strlen($desc) > 50 ? substr($desc, 0, 50) . '...' : ($desc ?: '—');
+                                        ?>
+                                    </td>
+                                    <td><?php echo getAttendantUsername($conn, $type['attendant_id'] ?? 0); ?></td>
+                                    <td><?php echo date("d/m/Y H:i", strtotime($type['created_at'] ?? 'now')); ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
