@@ -55,9 +55,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $error = "Título, fecha de inicio y detalles de medicación son obligatorios.";
     } else {
         // Validar fechas
+        $today = date('Y-m-d');
         $start_timestamp = strtotime($start_date);
         if ($start_timestamp === false) {
             $error = "La fecha de inicio no es válida.";
+        } elseif ($start_date < $today) {
+            $error = "La fecha de inicio no puede ser anterior a la fecha actual.";
         } elseif ($end_date !== null) {
             $end_timestamp = strtotime($end_date);
             if ($end_timestamp === false) {
