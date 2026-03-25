@@ -164,8 +164,9 @@ try {
             text-decoration: none;
             cursor: pointer;
             box-sizing: border-box;
-            /* Ancho mínimo para que tengan tamaño similar en escritorio */
-            min-width: 180px;
+            /* Ancho fijo para que todos los botones tengan el mismo tamaño */
+            width: 180px;
+            text-align: center;
         }
         .btn-primary {
             background: #40916c;
@@ -257,6 +258,8 @@ try {
             justify-content: center;
             gap: 5px;
             transition: background 0.2s;
+            width: auto; /* se ajusta al contenido */
+            min-width: 120px; /* opcional, para dar un ancho mínimo */
         }
         .btn-action:hover {
             background-color: #2d6a4f;
@@ -289,9 +292,7 @@ try {
                 align-items: stretch;
             }
             .btn-primary, .btn-outline {
-                justify-content: center;
-                min-width: unset; /* quitar ancho fijo en móvil */
-                width: 100%;
+                width: 100%;  /* en móvil ocupan todo el ancho */
             }
             .alert-table th, .alert-table td {
                 padding: 8px 10px;
@@ -373,23 +374,23 @@ try {
                                                 }
                                             ?>
                                         </div>
-                                     </td>
-                                     <td><strong><?php echo htmlspecialchars($record['vaccine_name']); ?></strong></td>
-                                     <td><strong><?php echo date('d/m/Y', strtotime($next_due_date)); ?></strong></td>
-                                     <td><span class="days-remaining <?php echo $status_class; ?>"><?php echo $status_text; ?></span></td>
-                                     <td>
+                                      </td>
+                                      <td><strong><?php echo htmlspecialchars($record['vaccine_name']); ?></strong></td>
+                                      <td><strong><?php echo date('d/m/Y', strtotime($next_due_date)); ?></strong></td>
+                                      <td><span class="days-remaining <?php echo $status_class; ?>"><?php echo $status_text; ?></span></td>
+                                      <td>
                                         <div>
                                             <strong><?php echo htmlspecialchars($record['owner_name'] ?? 'N/D'); ?></strong>
                                             <?php if (!empty($record['owner_phone'])): ?>
                                                 <br><small><a href="tel:<?php echo htmlspecialchars($record['owner_phone']); ?>" style="color: #40916c;">📞 <?php echo htmlspecialchars($record['owner_phone']); ?></a></small>
                                             <?php endif; ?>
                                         </div>
-                                     </td>
-                                     <td>
+                                      </td>
+                                      <td>
                                         <a href="vaccine_register.php?pet_id=<?php echo $record['pet_id']; ?>" class="btn-action">
                                             <i class="fas fa-syringe"></i> Aplicar Dosis
                                         </a>
-                                     </td>
+                                      </td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
