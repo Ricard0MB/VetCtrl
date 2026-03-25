@@ -70,12 +70,16 @@
                 ?>
 
                 <form id="loginForm" action="auth/login.php" method="POST" autocomplete="off">
+                    <!-- Campo dummy oculto para evitar que el navegador muestre sugerencias de contraseña -->
+                    <input type="password" style="display: none" autocomplete="off">
+                    
                     <label for="user_input">Usuario o Correo</label>
                     <input type="text" id="user_input" name="user_input" placeholder="ejemplo@correo.com / usuario" required autocomplete="on">
 
                     <label for="password">Contraseña</label>
                     <div class="password-wrapper">
-                        <input type="password" id="password" name="password" placeholder="••••••••" required autocomplete="new-password">
+                        <input type="password" id="password" name="password" placeholder="••••••••" required 
+                               autocomplete="off" data-lpignore="true">
                         <button type="button" id="togglePassword" class="toggle-password" aria-label="Mostrar contraseña">
                             <img src="public/images/perro.png" id="toggleIcon" alt="Icono mostrar">
                         </button>
