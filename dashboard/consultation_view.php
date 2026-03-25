@@ -23,7 +23,7 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
         $error_message = "ID de consulta inválido.";
     } else {
         try {
-            // Construir consulta base
+            // Consulta corregida: columnas inexistentes se reemplazan por NULL
             $sql = "SELECT 
                         c.*, 
                         p.name AS pet_name,
@@ -31,8 +31,8 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
                         b.name AS breed_name,
                         p.date_of_birth,
                         p.gender,
-                        NULL AS weight,  -- La columna weight no existe en pets, se usa NULL
-                        p.color
+                        NULL AS weight,   -- La columna weight no existe, se usa NULL
+                        NULL AS color     -- La columna color no existe, se usa NULL
                     FROM consultations c
                     JOIN pets p ON c.pet_id = p.id
                     LEFT JOIN pet_types pt ON p.type_id = pt.id
@@ -77,8 +77,8 @@ $consultation_safe = $consultation ? [
     'breed_name' => $consultation['breed_name'] ?? 'Sin raza',
     'date_of_birth' => $consultation['date_of_birth'] ?? '',
     'gender' => $consultation['gender'] ?? '',
-    'weight' => $consultation['weight'] ?? '',   // Ahora weight existe en el array (NULL o vacío)
-    'color' => $consultation['color'] ?? ''
+    'weight' => $consultation['weight'] ?? '',   // Aseguramos que exista
+    'color' => $consultation['color'] ?? ''      // Aseguramos que exista
 ] : null;
 
 $consultation_json = json_encode($consultation_safe, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
@@ -315,7 +315,7 @@ $consultation_json = json_encode($consultation_safe, JSON_HEX_TAG | JSON_HEX_APO
                         </div>
                         <div class="detail-item">
                             <strong>Fecha Nacimiento:</strong>
-                            <span class="detail-value"><?php echo htmlspecialchars($consultation['date_of_birth']); ?></span>
+                            <span class="detail-value"><?php echo htmlspecialchars($consultation['date_of_birth'] ?? ''); ?></span>
                         </div>
                         <div class="detail-item">
                             <strong>Peso:</strong>
