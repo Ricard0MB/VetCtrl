@@ -65,10 +65,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
     $notes = trim($_POST['notes'] ?? '');
     $status = $_POST['status'] ?? 'ACTIVO';
 
-    // Validación
+    // Validación de campos obligatorios
     if (empty($title) || empty($start_date) || empty($medication_details)) {
         $error = "Título, fecha de inicio y detalles de medicación son obligatorios.";
     } else {
+        // Validación de fechas
         $start_timestamp = strtotime($start_date);
         if ($start_timestamp === false) {
             $error = "La fecha de inicio no es válida.";
@@ -84,7 +85,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
 
     if (empty($error)) {
         try {
-            // Actualizar tratamiento, incluido el campo treatment_name (usamos title)
+            // Actualizar tratamiento
             $sql = "UPDATE treatments 
                     SET title = :title, 
                         treatment_name = :treatment_name,
