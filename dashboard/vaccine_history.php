@@ -130,6 +130,7 @@ try {
         .vaccine-table td {
             padding: 10px 12px;
             border-bottom: 1px solid #ddd;
+            vertical-align: middle;
         }
         .vaccine-table tr:hover {
             background: #f5f5f5;
@@ -145,21 +146,75 @@ try {
         .due-soon { background: #ffc107; color: #333; }
         .ok { background: #28a745; color: white; }
         .na { background: #6c757d; color: white; }
-        .btn-action {
-            padding: 4px 8px;
-            border-radius: 4px;
-            text-decoration: none;
-            font-size: 0.8rem;
-            color: white;
-            margin: 2px;
-        }
-        .btn-view { background: #17a2b8; }
-        .btn-apply { background: #40916c; }
-        .navigation-links a {
-            color: #40916c;
-            text-decoration: none;
+        
+        /* Estilos para botones */
+        .btn {
+            display: inline-block;
             font-weight: 600;
-            margin: 0 5px;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: middle;
+            border: 1px solid transparent;
+            padding: 6px 12px;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            border-radius: 4px;
+            transition: all 0.15s ease-in-out;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            border-radius: 3px;
+        }
+        .btn-primary {
+            background-color: #40916c;
+            border-color: #40916c;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #2d6a4f;
+            border-color: #2d6a4f;
+        }
+        .btn-outline-primary {
+            background-color: transparent;
+            border-color: #40916c;
+            color: #40916c;
+        }
+        .btn-outline-primary:hover {
+            background-color: #40916c;
+            color: white;
+        }
+        .btn-info {
+            background-color: #17a2b8;
+            border-color: #17a2b8;
+            color: white;
+        }
+        .btn-info:hover {
+            background-color: #138496;
+            border-color: #117a8b;
+        }
+        .btn-success {
+            background-color: #40916c;
+            border-color: #40916c;
+            color: white;
+        }
+        .btn-success:hover {
+            background-color: #2d6a4f;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+        .navigation-links {
+            margin: 20px 0;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
         }
         .no-data {
             text-align: center;
@@ -167,6 +222,24 @@ try {
             background: #f8f9fa;
             border-radius: 8px;
             color: #6c757d;
+        }
+        .no-data .btn-primary {
+            display: inline-block;
+            margin-top: 15px;
+        }
+        /* Ajustes responsivos */
+        @media (max-width: 768px) {
+            .vaccine-table th, .vaccine-table td {
+                padding: 8px;
+            }
+            .btn-sm {
+                padding: 3px 6px;
+                font-size: 0.7rem;
+            }
+            .action-buttons {
+                flex-direction: column;
+                gap: 3px;
+            }
         }
     </style>
 </head>
@@ -186,11 +259,11 @@ try {
                 <strong>Vacunas aplicadas por <?php echo htmlspecialchars($username); ?></strong>
             </div>
 
-            <p style="text-align: center; margin-bottom: 20px;">
-                <a href="welcome.php"><i class="fas fa-home"></i> Dashboard</a> |
-                <a href="vaccine_select_pet.php">Registrar Vacuna</a> |
-                <a href="vaccine_alerts.php">Alertas</a>
-            </p>
+            <div class="navigation-links">
+                <a href="welcome.php" class="btn btn-outline-primary"><i class="fas fa-home"></i> Dashboard</a>
+                <a href="vaccine_select_pet.php" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Registrar Vacuna</a>
+                <a href="vaccine_alerts.php" class="btn btn-outline-primary"><i class="fas fa-bell"></i> Alertas</a>
+            </div>
 
             <?php echo $message; ?>
 
@@ -198,7 +271,7 @@ try {
                 <div class="no-data">
                     <i class="fas fa-syringe" style="font-size: 3rem; margin-bottom: 15px;"></i>
                     <p>No hay vacunas registradas.</p>
-                    <a href="vaccine_select_pet.php" class="btn-primary" style="padding: 8px 16px;">Registrar primera vacuna</a>
+                    <a href="vaccine_select_pet.php" class="btn btn-primary">Registrar primera vacuna</a>
                 </div>
             <?php else: ?>
                 <table class="vaccine-table">
@@ -237,7 +310,7 @@ try {
                             }
                         ?>
                         <tr>
-                            <td><strong><a href="pet_profile.php?id=<?php echo $v['pet_id']; ?>"><?php echo htmlspecialchars($v['pet_name']); ?></a></strong></td>
+                            <td><strong><?php echo htmlspecialchars($v['pet_name']); ?></strong></td>
                             <td>
                                 <small><?php echo htmlspecialchars($v['species_name'] ?? 'Desconocida'); ?>
                                 <?php echo !empty($v['breed_name']) ? ' / ' . htmlspecialchars($v['breed_name']) : ''; ?></small>
@@ -248,8 +321,10 @@ try {
                             <td><?php echo htmlspecialchars($v['lote_number'] ?? 'N/A'); ?></td>
                             <td><span class="date-tag <?php echo $status_class; ?>"><?php echo $status_text; ?></span></td>
                             <td>
-                                <a href="pet_profile.php?id=<?php echo $v['pet_id']; ?>" class="btn-action btn-view">Perfil</a>
-                                <a href="vaccine_register.php?pet_id=<?php echo $v['pet_id']; ?>" class="btn-action btn-apply">Nueva</a>
+                                <div class="action-buttons">
+                                    <a href="pet_profile.php?id=<?php echo $v['pet_id']; ?>" class="btn btn-sm btn-info"><i class="fas fa-eye"></i> Perfil</a>
+                                    <a href="vaccine_register.php?pet_id=<?php echo $v['pet_id']; ?>" class="btn btn-sm btn-success"><i class="fas fa-syringe"></i> Nueva</a>
+                                </div>
                             </td>
                         </tr>
                         <?php endforeach; ?>
