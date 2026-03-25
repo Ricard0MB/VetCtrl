@@ -152,23 +152,26 @@ try {
             margin-bottom: 30px;
             flex-wrap: wrap;
         }
-        .btn-primary {
-            background: #40916c;
-            color: white;
-            padding: 12px 25px;
+        .btn-primary, .btn-outline {
+            padding: 10px 20px;
             border-radius: 6px;
-            text-decoration: none;
             font-weight: 600;
             display: inline-flex;
             align-items: center;
+            justify-content: center;
             gap: 8px;
-            transition: background 0.3s, transform 0.2s;
-            border: none;
+            transition: all 0.3s;
+            text-decoration: none;
             cursor: pointer;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            max-width: 100%;
             box-sizing: border-box;
-            text-align: center;
+            /* Ancho mínimo para que tengan tamaño similar en escritorio */
+            min-width: 180px;
+        }
+        .btn-primary {
+            background: #40916c;
+            border: none;
+            color: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         .btn-primary:hover {
             background: #2d6a4f;
@@ -179,11 +182,6 @@ try {
             background: transparent;
             border: 2px solid #40916c;
             color: #40916c;
-            padding: 10px 20px;
-            border-radius: 6px;
-            text-decoration: none;
-            font-weight: 600;
-            transition: all 0.3s;
         }
         .btn-outline:hover {
             background: #40916c;
@@ -204,7 +202,7 @@ try {
             font-size: 0.9rem;
         }
         .alert-table th {
-            background: #40916c; /* Verde institucional (igual que pet_list) */
+            background: #40916c;
             color: white;
             padding: 12px 15px;
             text-align: left;
@@ -238,23 +236,26 @@ try {
             min-width: 120px;
         }
         .days-remaining.expired {
-            background-color: #dc3545; /* Rojo para vencidas */
+            background-color: #dc3545;
         }
         .days-remaining.due-soon {
-            background-color: #ffc107; /* Naranja para próximas */
+            background-color: #ffc107;
             color: #333;
         }
 
-        /* Botón de acción */
+        /* Botón de acción (dentro de tabla) */
         .btn-action {
             background-color: #40916c;
             color: white;
             padding: 8px 16px;
-            border-radius: 4px;
+            border-radius: 6px;
             text-decoration: none;
             font-weight: 600;
             font-size: 0.85rem;
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
             transition: background 0.2s;
         }
         .btn-action:hover {
@@ -289,6 +290,8 @@ try {
             }
             .btn-primary, .btn-outline {
                 justify-content: center;
+                min-width: unset; /* quitar ancho fijo en móvil */
+                width: 100%;
             }
             .alert-table th, .alert-table td {
                 padding: 8px 10px;
@@ -340,8 +343,7 @@ try {
                                 <th>Estado</th>
                                 <th>Dueño</th>
                                 <th>Acción</th>
-                            </tr>
-                        </thead>
+                            </thead>
                         <tbody>
                             <?php foreach ($alert_records as $record): 
                                 $next_due_date = $record['next_due_date'];
@@ -371,23 +373,23 @@ try {
                                                 }
                                             ?>
                                         </div>
-                                    </td>
-                                    <td><strong><?php echo htmlspecialchars($record['vaccine_name']); ?></strong></td>
-                                    <td><strong><?php echo date('d/m/Y', strtotime($next_due_date)); ?></strong></td>
-                                    <td><span class="days-remaining <?php echo $status_class; ?>"><?php echo $status_text; ?></span></td>
-                                    <td>
+                                     </td>
+                                     <td><strong><?php echo htmlspecialchars($record['vaccine_name']); ?></strong></td>
+                                     <td><strong><?php echo date('d/m/Y', strtotime($next_due_date)); ?></strong></td>
+                                     <td><span class="days-remaining <?php echo $status_class; ?>"><?php echo $status_text; ?></span></td>
+                                     <td>
                                         <div>
                                             <strong><?php echo htmlspecialchars($record['owner_name'] ?? 'N/D'); ?></strong>
                                             <?php if (!empty($record['owner_phone'])): ?>
                                                 <br><small><a href="tel:<?php echo htmlspecialchars($record['owner_phone']); ?>" style="color: #40916c;">📞 <?php echo htmlspecialchars($record['owner_phone']); ?></a></small>
                                             <?php endif; ?>
                                         </div>
-                                    </td>
-                                    <td>
+                                     </td>
+                                     <td>
                                         <a href="vaccine_register.php?pet_id=<?php echo $record['pet_id']; ?>" class="btn-action">
                                             <i class="fas fa-syringe"></i> Aplicar Dosis
                                         </a>
-                                    </td>
+                                     </td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
