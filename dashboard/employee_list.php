@@ -311,7 +311,7 @@ try {
             <form method="GET" action="" class="filter-form">
                 <div class="filter-group">
                     <label for="search">Buscar:</label>
-                    <input type="text" id="search" name="search" value="<?php echo htmlspecialchars($search); ?>" placeholder="Nombre, CI, email...">
+                    <input type="text" id="search" name="search" value="<?php echo htmlspecialchars($search ?? ''); ?>" placeholder="Nombre, CI, email...">
                 </div>
                 <div class="filter-group">
                     <label for="status">Estado:</label>
@@ -328,7 +328,7 @@ try {
                         <option value="all">Todos</option>
                         <?php foreach ($roles_list as $role): ?>
                             <option value="<?php echo $role['id']; ?>" <?php echo $role_filter == $role['id'] ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($role['name']); ?>
+                                <?php echo htmlspecialchars($role['name'] ?? ''); ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
@@ -370,15 +370,15 @@ try {
                                 <td><?php echo $emp['id']; ?></td>
                                 <td><strong><?php echo htmlspecialchars($emp['ci'] ?? 'N/A'); ?></strong></td>
                                 <td>
-                                    <strong><?php echo htmlspecialchars($emp['first_name'] . ' ' . $emp['last_name']); ?></strong><br>
-                                    <small>Usuario: <?php echo htmlspecialchars($emp['username']); ?></small>
+                                    <strong><?php echo htmlspecialchars(($emp['first_name'] ?? '') . ' ' . ($emp['last_name'] ?? '')); ?></strong><br>
+                                    <small>Usuario: <?php echo htmlspecialchars($emp['username'] ?? ''); ?></small>
                                 </td>
-                                <td><?php echo htmlspecialchars($emp['email']); ?></td>
-                                <td><?php echo htmlspecialchars($emp['position']); ?></td>
-                                <td><span style="color: #40916c;"><?php echo htmlspecialchars($emp['role_name']); ?></span></td>
+                                <td><?php echo htmlspecialchars($emp['email'] ?? ''); ?></td>
+                                <td><?php echo htmlspecialchars($emp['position'] ?? ''); ?></td>
+                                <td><span style="color: #40916c;"><?php echo htmlspecialchars($emp['role_name'] ?? ''); ?></span></td>
                                 <td>
                                     <span class="status-badge status-<?php echo $emp['status']; ?>">
-                                        <?php echo ucfirst($emp['status']); ?>
+                                        <?php echo ucfirst($emp['status'] ?? ''); ?>
                                     </span>
                                 </td>
                                 <td><?php echo date('d/m/Y', strtotime($emp['created_at'])); ?></td>
