@@ -22,13 +22,26 @@ $owners = [];
 $error_message = '';
 
 try {
-    $sql = "SELECT id, username, email, first_name, last_name, phone, ci 
-            FROM users 
-            WHERE role_id = 3
-            ORDER BY first_name, last_name ASC";
-    $stmt = $conn->prepare($sql);
-    $stmt->execute();
-    $owners = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    // Obtener el ID del rol "Propietario" dinámicamente
+    $stmt_role = $conn->prepare("SELECT id FROM roles WHERE name = :role_name");
+    $stmt_role->bindValue(':role_name', 'Propietario');
+    $stmt_role->execute();
+    $role_propietario = $stmt_role->fetch(PDO::FETCH_ASSOC);
+
+    if (!$role_propietario) {
+        $error_message = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Error: No se encontró el rol 'Propietario' en el sistema.</div>";
+    } else {
+        $role_id = $role_propietario['id'];
+
+        $sql = "SELECT id, username, email, first_name, last_name, phone, ci 
+                FROM users 
+                WHERE role_id = :role_id
+                ORDER BY first_name, last_name ASC";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindValue(':role_id', $role_id, PDO::PARAM_INT);
+        $stmt->execute();
+        $owners = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 } catch (PDOException $e) {
     $error_message = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Error: " . htmlspecialchars($e->getMessage()) . "</div>";
 }
@@ -160,9 +173,9 @@ try {
 
         <?php if ($error_message) echo $error_message; ?>
 
-        <?php if (empty($owners)): ?>
+        <?php if (empty($owners) && !$error_message): ?>
             <p>No hay dueños registrados.</p>
-        <?php else: ?>
+        <?php elseif (!empty($owners)): ?>
             <table class="table" id="ownerTable">
                 <thead>
                     <tr>
@@ -172,8 +185,7 @@ try {
                         <th>Teléfono</th>
                         <th>Cédula</th>
                         <th>Acciones</th>
-                    </tr>
-                </thead>
+                    </thead>
                 <tbody>
                     <?php foreach ($owners as $owner): 
                         $full_name = trim(($owner['first_name'] ?? '') . ' ' . ($owner['last_name'] ?? ''));
