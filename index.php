@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="public/css/style_auth.css">
     <link rel="stylesheet" href="../public/css/responsive.css">
     <style>
-        /* Los estilos se mantienen igual */
+        /* (Los estilos se mantienen igual) */
         body.fade-out { opacity: 0; transition: opacity 0.25s ease; }
         body { display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
         .auth-wrapper { width: 100%; max-width: 1100px; margin: 0 auto 20px auto; position: relative; z-index: 1; }
@@ -70,8 +70,9 @@
                 ?>
 
                 <form id="loginForm" action="auth/login.php" method="POST" autocomplete="off">
-                    <!-- Campo dummy oculto para evitar sugerencias de contraseña -->
-                    <input type="password" style="display: none" autocomplete="off">
+                    <!-- Campo dummy oculto para engañar a los gestores de contraseñas -->
+                    <input type="text" style="display: none">
+                    <input type="password" style="display: none" autocomplete="new-password">
                     
                     <label for="user_input">Usuario o Correo</label>
                     <input type="text" id="user_input" name="user_input" placeholder="ejemplo@correo.com / usuario" required autocomplete="on">
@@ -79,7 +80,8 @@
                     <label for="password">Contraseña</label>
                     <div class="password-wrapper">
                         <input type="password" id="password" name="password" placeholder="••••••••" required 
-                               autocomplete="off" data-lpignore="true" value="">
+                               autocomplete="new-password" data-lpignore="true" value=""
+                               readonly onfocus="this.removeAttribute('readonly'); this.value=''; this.focus();">
                         <button type="button" id="togglePassword" class="toggle-password" aria-label="Mostrar contraseña">
                             <img src="public/images/perro.png" id="toggleIcon" alt="Icono mostrar">
                         </button>
@@ -191,10 +193,11 @@
                 setTimeout(() => document.getElementById('initialPrompt').classList.add('show'), 1000);
             }
             
-            // Forzar campo de contraseña vacío al cargar (evita cualquier valor autocompletado)
+            // Forzar que el campo de contraseña esté vacío y en modo solo lectura
             const passwordField = document.getElementById('password');
             if (passwordField) {
                 passwordField.value = '';
+                passwordField.setAttribute('readonly', 'readonly');
             }
         });
 
@@ -205,6 +208,10 @@
 
         if (togglePassword && passwordInput && toggleIcon) {
             togglePassword.addEventListener('click', function() {
+                // Si el campo está en readonly, primero lo habilitamos
+                if (passwordInput.hasAttribute('readonly')) {
+                    passwordInput.removeAttribute('readonly');
+                }
                 const isPassword = passwordInput.getAttribute('type') === 'password';
                 passwordInput.setAttribute('type', isPassword ? 'text' : 'password');
                 if (isPassword) {
@@ -220,6 +227,11 @@
         // Form submission with loading effect
         document.getElementById('loginForm').addEventListener('submit', function(e) {
             e.preventDefault();
+            // Asegurar que el campo de contraseña no esté en readonly al enviar
+            const pwd = document.getElementById('password');
+            if (pwd.hasAttribute('readonly')) {
+                pwd.removeAttribute('readonly');
+            }
             const btn = document.getElementById('loginBtn');
             btn.querySelector('.btn-text').style.display = 'none';
             btn.querySelector('.btn-loader').style.display = 'inline';
