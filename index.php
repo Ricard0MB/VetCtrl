@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="public/css/style_auth.css">
     <link rel="stylesheet" href="../public/css/responsive.css">
     <style>
-        /* (Los estilos se mantienen igual, no se modifican) */
+        /* Los estilos se mantienen igual */
         body.fade-out { opacity: 0; transition: opacity 0.25s ease; }
         body { display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
         .auth-wrapper { width: 100%; max-width: 1100px; margin: 0 auto 20px auto; position: relative; z-index: 1; }
@@ -70,7 +70,7 @@
                 ?>
 
                 <form id="loginForm" action="auth/login.php" method="POST" autocomplete="off">
-                    <!-- Campo dummy oculto para evitar que el navegador muestre sugerencias de contraseña -->
+                    <!-- Campo dummy oculto para evitar sugerencias de contraseña -->
                     <input type="password" style="display: none" autocomplete="off">
                     
                     <label for="user_input">Usuario o Correo</label>
@@ -79,7 +79,7 @@
                     <label for="password">Contraseña</label>
                     <div class="password-wrapper">
                         <input type="password" id="password" name="password" placeholder="••••••••" required 
-                               autocomplete="off" data-lpignore="true">
+                               autocomplete="off" data-lpignore="true" value="">
                         <button type="button" id="togglePassword" class="toggle-password" aria-label="Mostrar contraseña">
                             <img src="public/images/perro.png" id="toggleIcon" alt="Icono mostrar">
                         </button>
@@ -189,6 +189,12 @@
             });
             if (!localStorage.getItem('tutorial_seen')) {
                 setTimeout(() => document.getElementById('initialPrompt').classList.add('show'), 1000);
+            }
+            
+            // Forzar campo de contraseña vacío al cargar (evita cualquier valor autocompletado)
+            const passwordField = document.getElementById('password');
+            if (passwordField) {
+                passwordField.value = '';
             }
         });
 
