@@ -38,7 +38,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
     $password = $_POST['password'] ?? '';
     $confirm = $_POST['confirm_password'] ?? '';
 
-    if (empty($first_name) || empty($email) || empty($username) || empty($password) || empty($position)) {
+    // Validaciones
+    if (empty($ci)) {
+        $error = "La cédula es obligatoria.";
+    } elseif (empty($first_name) || empty($email) || empty($username) || empty($password) || empty($position)) {
         $error = "Complete los campos obligatorios.";
     } elseif ($password !== $confirm) {
         $error = "Las contraseñas no coinciden.";
@@ -46,45 +49,53 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
         $error = "La contraseña debe tener al menos 8 caracteres.";
     } else {
         try {
-            // Verificar email único
-            $checkEmail = $conn->prepare("SELECT id FROM users WHERE email = :email");
-            $checkEmail->bindValue(':email', $email);
-            $checkEmail->execute();
-            if ($checkEmail->fetch()) {
-                $error = "El email ya está registrado.";
+            // Verificar cédula única
+            $checkCi = $conn->prepare("SELECT id FROM users WHERE ci = :ci");
+            $checkCi->bindValue(':ci', $ci);
+            $checkCi->execute();
+            if ($checkCi->fetch()) {
+                $error = "La cédula ya está registrada.";
             } else {
-                // Verificar username único
-                $checkUser = $conn->prepare("SELECT id FROM users WHERE username = :username");
-                $checkUser->bindValue(':username', $username);
-                $checkUser->execute();
-                if ($checkUser->fetch()) {
-                    $error = "El nombre de usuario ya existe.";
+                // Verificar email único
+                $checkEmail = $conn->prepare("SELECT id FROM users WHERE email = :email");
+                $checkEmail->bindValue(':email', $email);
+                $checkEmail->execute();
+                if ($checkEmail->fetch()) {
+                    $error = "El email ya está registrado.";
                 } else {
-                    $hashed = password_hash($password, PASSWORD_DEFAULT);
-                    $sql = "INSERT INTO users (ci, first_name, last_name, email, phone, address, position, role_id, username, password, status, created_at) 
-                            VALUES (:ci, :first_name, :last_name, :email, :phone, :address, :position, :role_id, :username, :password, 'active', NOW())";
-                    $stmt = $conn->prepare($sql);
-                    $stmt->bindValue(':ci', $ci);
-                    $stmt->bindValue(':first_name', $first_name);
-                    $stmt->bindValue(':last_name', $last_name);
-                    $stmt->bindValue(':email', $email);
-                    $stmt->bindValue(':phone', $phone);
-                    $stmt->bindValue(':address', $address);
-                    $stmt->bindValue(':position', $position);
-                    $stmt->bindValue(':role_id', $role_id, PDO::PARAM_INT);
-                    $stmt->bindValue(':username', $username);
-                    $stmt->bindValue(':password', $hashed);
-
-                    if ($stmt->execute()) {
-                        require_once '../includes/bitacora_function.php';
-                        $action = "Nuevo empleado registrado: $first_name $last_name";
-                        log_to_bitacora($conn, $action, $_SESSION['username'] ?? '', $_SESSION['role_id'] ?? 0);
-
-                        $success = "Empleado registrado exitosamente.";
-                        $_POST = []; // Limpiar formulario
+                    // Verificar username único
+                    $checkUser = $conn->prepare("SELECT id FROM users WHERE username = :username");
+                    $checkUser->bindValue(':username', $username);
+                    $checkUser->execute();
+                    if ($checkUser->fetch()) {
+                        $error = "El nombre de usuario ya existe.";
                     } else {
-                        $errorInfo = $stmt->errorInfo();
-                        $error = "Error al registrar: " . ($errorInfo[2] ?? 'Error desconocido');
+                        $hashed = password_hash($password, PASSWORD_DEFAULT);
+                        $sql = "INSERT INTO users (ci, first_name, last_name, email, phone, address, position, role_id, username, password, status, created_at) 
+                                VALUES (:ci, :first_name, :last_name, :email, :phone, :address, :position, :role_id, :username, :password, 'active', NOW())";
+                        $stmt = $conn->prepare($sql);
+                        $stmt->bindValue(':ci', $ci);
+                        $stmt->bindValue(':first_name', $first_name);
+                        $stmt->bindValue(':last_name', $last_name);
+                        $stmt->bindValue(':email', $email);
+                        $stmt->bindValue(':phone', $phone);
+                        $stmt->bindValue(':address', $address);
+                        $stmt->bindValue(':position', $position);
+                        $stmt->bindValue(':role_id', $role_id, PDO::PARAM_INT);
+                        $stmt->bindValue(':username', $username);
+                        $stmt->bindValue(':password', $hashed);
+
+                        if ($stmt->execute()) {
+                            require_once '../includes/bitacora_function.php';
+                            $action = "Nuevo empleado registrado: $first_name $last_name (CI: $ci)";
+                            log_to_bitacora($conn, $action, $_SESSION['username'] ?? '', $_SESSION['role_id'] ?? 0);
+
+                            $success = "Empleado registrado exitosamente.";
+                            $_POST = []; // Limpiar formulario
+                        } else {
+                            $errorInfo = $stmt->errorInfo();
+                            $error = "Error al registrar: " . ($errorInfo[2] ?? 'Error desconocido');
+                        }
                     }
                 }
             }
@@ -150,11 +161,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
             <form method="post">
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Cédula</label>
-                        <input type="text" name="ci" value="<?php echo htmlspecialchars($_POST['ci'] ?? ''); ?>">
+                        <label>Cédula *</label>
+                        <input type="text" name="ci" value="<?php echo htmlspecialchars($_POST['ci'] ?? ''); ?>" required>
                     </div>
                     <div class="form-group">
-                        <label>Rol</label>
+                        <label>Rol *</label>
                         <select name="role_id" required>
                             <option value="">Seleccione</option>
                             <?php foreach ($roles as $r): ?>
@@ -166,18 +177,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Nombres</label>
+                        <label>Nombres *</label>
                         <input type="text" name="first_name" value="<?php echo htmlspecialchars($_POST['first_name'] ?? ''); ?>" required>
                     </div>
                     <div class="form-group">
-                        <label>Apellidos</label>
+                        <label>Apellidos *</label>
                         <input type="text" name="last_name" value="<?php echo htmlspecialchars($_POST['last_name'] ?? ''); ?>" required>
                     </div>
                 </div>
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Email</label>
+                        <label>Email *</label>
                         <input type="email" name="email" value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>" required>
                     </div>
                     <div class="form-group">
@@ -188,23 +199,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Usuario</label>
+                        <label>Usuario *</label>
                         <input type="text" name="username" value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>" required>
                     </div>
                     <div class="form-group">
-                        <label>Cargo</label>
+                        <label>Cargo *</label>
                         <input type="text" name="position" value="<?php echo htmlspecialchars($_POST['position'] ?? ''); ?>" required>
                     </div>
                 </div>
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Contraseña</label>
+                        <label>Contraseña *</label>
                         <input type="password" name="password" required>
                         <div class="field-note">Mínimo 8 caracteres</div>
                     </div>
                     <div class="form-group">
-                        <label>Confirmar</label>
+                        <label>Confirmar *</label>
                         <input type="password" name="confirm_password" required>
                     </div>
                 </div>
