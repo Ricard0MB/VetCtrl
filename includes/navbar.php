@@ -14,6 +14,10 @@ $is_admin = ($role_name === 'admin');
 $is_vet = ($role_name === 'Veterinario');
 $is_owner = ($role_name === 'Propietario');
 
+// Obtener el nombre del script actual para decidir si mostrar "Volver"
+$current_page = basename($_SERVER['PHP_SELF']);
+$show_back_button = ($current_page !== 'welcome.php');
+
 // Común a todos: enlaces que todos pueden ver
 $common_links = [
     ['url' => 'welcome.php', 'label' => 'Inicio', 'icon' => '🏠'],
@@ -115,9 +119,10 @@ function render_link($link, $role) {
                     echo '<div class="divider"></div>';
 
                     echo '<span class="section-title">⚙️ ADMINISTRACIÓN</span>';
+                    echo '<a href="admin_tools.php"> Herramientas de Administrador</a>';
                     echo '<a href="employee_list.php"> Gestión de Empleados</a>';
                     echo '<a href="log_viewer.php"> Bitácora del Sistema</a>';
-                    echo '<a href="reports_dashboard.php"> Reportes</a>';
+                    echo '<a href="reports_dashboard.php"> Reportes</a>';                
                     echo '<a href="pet_type_register.php"> Administrar Especies</a>';
                     echo '<a href="breed_register.php"> Administrar Razas</a>';
                 }
@@ -127,7 +132,9 @@ function render_link($link, $role) {
     </div>
 
     <span class="user-info">
-        <button class="back-button" id="backButton" title="Volver a la página anterior">← Volver</button>
+        <?php if ($show_back_button): ?>
+            <button class="back-button" id="backButton" title="Volver a la página anterior">Volver</button>
+        <?php endif; ?>
         <span class="user-greeting">Bienvenido, <?php echo htmlspecialchars($username); ?></span>
         <a href="../public/logout.php" class="logout-link">Cerrar Sesión</a>
     </span>
