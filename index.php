@@ -278,13 +278,15 @@
                 }
                 ?>
 
-                <form id="loginForm" action="auth/login.php" method="POST">
+                <form id="loginForm" action="auth/login.php" method="POST" autocomplete="off">
                     <label for="user_input">Usuario o Correo</label>
                     <input type="text" id="user_input" name="user_input" placeholder="ejemplo@correo.com / usuario" required>
 
                     <label for="password">Contraseña</label>
                     <div class="password-wrapper">
-                        <input type="password" id="password" name="password" placeholder="••••••••" required autocomplete="new-password">
+                        <input type="password" id="password" name="password" placeholder="••••••••" required 
+                               autocomplete="new-password" readonly
+                               onfocus="this.removeAttribute('readonly'); this.focus();">
                         <button type="button" id="togglePassword" class="toggle-password" aria-label="Mostrar contraseña">
                             <img src="public/images/perro.png" id="toggleIcon" alt="Icono mostrar">
                         </button>
