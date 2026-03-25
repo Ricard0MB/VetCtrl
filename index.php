@@ -8,12 +8,13 @@
     <link rel="stylesheet" href="public/css/style_auth.css">
     <link rel="stylesheet" href="../public/css/responsive.css">
     <style>
-        /* (Los estilos se mantienen igual) */
         body.fade-out { opacity: 0; transition: opacity 0.25s ease; }
         body { display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
         .auth-wrapper { width: 100%; max-width: 1100px; margin: 0 auto 20px auto; position: relative; z-index: 1; }
         body::before { content: "🐾"; font-size: 120px; opacity: 0.05; position: absolute; bottom: 20px; left: 20px; pointer-events: none; transform: rotate(-15deg); z-index: 0; }
         body::after { content: "🐾"; font-size: 180px; opacity: 0.05; position: absolute; top: 20px; right: 20px; pointer-events: none; transform: rotate(15deg); z-index: 0; }
+        
+        /* Tutorial y Modales */
         .tutorial-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; display: flex; justify-content: center; align-items: center; opacity: 0; visibility: hidden; transition: all 0.3s ease; }
         .tutorial-overlay.active { opacity: 1; visibility: visible; }
         .tutorial-modal { background: white; max-width: 550px; width: 90%; border-radius: 20px; box-shadow: 0 20px 35px rgba(0,0,0,0.2); overflow: hidden; position: relative; transform: translateY(20px); transition: transform 0.3s ease; }
@@ -33,6 +34,8 @@
         .step-indicators { display: flex; justify-content: center; gap: 8px; margin-top: 10px; }
         .step-dot { width: 8px; height: 8px; background: #cbd5e0; border-radius: 50%; transition: background 0.2s; }
         .step-dot.active { background: #40916c; width: 24px; border-radius: 12px; }
+        
+        /* Prompts e inputs */
         .initial-prompt { position: fixed; bottom: 20px; right: 20px; background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); padding: 15px 20px; max-width: 300px; z-index: 1001; display: flex; flex-direction: column; gap: 10px; border-left: 4px solid #40916c; transform: translateX(120%); transition: transform 0.4s ease; }
         .initial-prompt.show { transform: translateX(0); }
         .prompt-buttons { display: flex; gap: 10px; justify-content: flex-end; }
@@ -40,9 +43,11 @@
         .btn-yes { background: #40916c; color: white; }
         .btn-no { background: #f8f9fa; border: 1px solid #dee2e6; }
         footer { margin-top: 30px; text-align: center; font-size: 0.8rem; color: #2e7d32; background: rgba(255, 255, 255, 0.7); padding: 10px 20px; border-radius: 40px; backdrop-filter: blur(4px); z-index: 2; }
+        
+        /* Contenedor del Icono del Perrito */
         .password-wrapper { position: relative; width: 100%; display: flex; align-items: center; }
         .password-wrapper input { width: 100%; padding-right: 45px; }
-        .toggle-password { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; opacity: 0.8; height: 30px; width: 30px; }
+        .toggle-password { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; opacity: 0.8; height: 30px; width: 30px; z-index: 10; }
         .toggle-password:hover { opacity: 1; }
         .toggle-password img { max-width: 100%; max-height: 100%; object-fit: contain; pointer-events: none; }
     </style>
@@ -70,7 +75,6 @@
                 ?>
 
                 <form id="loginForm" action="auth/login.php" method="POST" autocomplete="off">
-                    <!-- Campo dummy oculto para engañar a los gestores de contraseñas -->
                     <input type="text" style="display: none">
                     <input type="password" style="display: none" autocomplete="new-password">
                     
@@ -81,7 +85,7 @@
                     <div class="password-wrapper">
                         <input type="password" id="password" name="password" placeholder="••••••••" required 
                                autocomplete="new-password" data-lpignore="true" value=""
-                               readonly onfocus="this.removeAttribute('readonly'); this.value=''; this.focus();">
+                               readonly onfocus="this.removeAttribute('readonly');">
                         <button type="button" id="togglePassword" class="toggle-password" aria-label="Mostrar contraseña">
                             <img src="public/images/perro.png" id="toggleIcon" alt="Icono mostrar">
                         </button>
@@ -126,6 +130,7 @@
     </div>
 
     <script>
+        // --- Configuración del Tutorial ---
         const steps = [
             { title: "📝 Registro", desc: `Crea una cuenta en <a href="auth/register.php">Regístrate</a>.` },
             { title: "🔑 Iniciar sesión", desc: "Ingresa tus credenciales para acceder." },
@@ -138,7 +143,6 @@
         const tutorialContent = document.getElementById('tutorialContent');
         const prevBtn = document.getElementById('prevStepBtn');
         const nextBtn = document.getElementById('nextStepBtn');
-        const closeBtn = document.getElementById('closeTutorialBtn');
         const stepIndicators = document.getElementById('stepIndicators');
 
         function renderStep() {
@@ -174,7 +178,7 @@
         });
 
         prevBtn.addEventListener('click', () => { if (currentStep > 0) { currentStep--; renderStep(); } });
-        closeBtn.addEventListener('click', () => overlay.classList.remove('active'));
+        document.getElementById('closeTutorialBtn').addEventListener('click', () => overlay.classList.remove('active'));
         document.getElementById('helpLink').addEventListener('click', (e) => { e.preventDefault(); openTutorial(); });
         document.getElementById('promptYes').addEventListener('click', openTutorial);
         document.getElementById('promptNo').addEventListener('click', () => {
@@ -193,7 +197,6 @@
                 setTimeout(() => document.getElementById('initialPrompt').classList.add('show'), 1000);
             }
             
-            // Forzar que el campo de contraseña esté vacío y en modo solo lectura
             const passwordField = document.getElementById('password');
             if (passwordField) {
                 passwordField.value = '';
@@ -201,37 +204,38 @@
             }
         });
 
-        // Toggle password visibility
+        // --- LÓGICA DEL PERRITO (Toggle Password) ---
         const togglePassword = document.getElementById('togglePassword');
         const passwordInput = document.getElementById('password');
         const toggleIcon = document.getElementById('toggleIcon');
 
         if (togglePassword && passwordInput && toggleIcon) {
             togglePassword.addEventListener('click', function() {
-                // Si el campo está en readonly, primero lo habilitamos
+                // Habilitar el campo si está bloqueado
                 if (passwordInput.hasAttribute('readonly')) {
                     passwordInput.removeAttribute('readonly');
                 }
+                
                 const isPassword = passwordInput.getAttribute('type') === 'password';
                 passwordInput.setAttribute('type', isPassword ? 'text' : 'password');
+                
+                // Cambio de iconos dinámico
                 if (isPassword) {
-                    toggleIcon.src = 'public/images/cama.png';
+                    toggleIcon.src = 'public/images/cama.png'; // Perro en la cama
                     togglePassword.setAttribute('aria-label', 'Ocultar contraseña');
                 } else {
-                    toggleIcon.src = 'public/images/perro.png';
+                    toggleIcon.src = 'public/images/perro.png'; // Perro durmiendo
                     togglePassword.setAttribute('aria-label', 'Mostrar contraseña');
                 }
             });
         }
 
-        // Form submission with loading effect
+        // --- Envío del Formulario ---
         document.getElementById('loginForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            // Asegurar que el campo de contraseña no esté en readonly al enviar
             const pwd = document.getElementById('password');
-            if (pwd.hasAttribute('readonly')) {
-                pwd.removeAttribute('readonly');
-            }
+            pwd.removeAttribute('readonly'); // Asegurar envío
+            
             const btn = document.getElementById('loginBtn');
             btn.querySelector('.btn-text').style.display = 'none';
             btn.querySelector('.btn-loader').style.display = 'inline';
