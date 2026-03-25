@@ -67,8 +67,8 @@ function render_link($link, $role) {
     <div class="nav-left">
         <a href="welcome.php" class="logo-link">🐾 VetCtrl</a>
         <div class="dropdown">
-            <button class="dropbtn">Menú Principal ▼</button>
-            <div class="dropdown-content">
+            <button class="dropbtn" id="dropdownBtn">Menú Principal ▼</button>
+            <div class="dropdown-content" id="dropdownMenu">
                 <?php
                 // Mostrar enlaces comunes
                 foreach ($common_links as $link) {
@@ -85,7 +85,6 @@ function render_link($link, $role) {
                     foreach ($vet_links as $link) {
                         echo "<a href=\"{$link['url']}\">{$link['icon']} {$link['label']}</a>";
                     }
-                    // Los veterinarios también pueden ver algunas opciones de admin? No, según matriz solo admin.
                 } elseif ($is_admin) {
                     // Agrupar por secciones para mejor organización
                     echo '<span class="section-title">📋 CONSULTAS</span>';
@@ -128,6 +127,7 @@ function render_link($link, $role) {
     </div>
 
     <span class="user-info">
+        <button class="back-button" id="backButton" title="Volver a la página anterior">← Volver</button>
         <span class="user-greeting">Bienvenido, <?php echo htmlspecialchars($username); ?></span>
         <a href="../public/logout.php" class="logout-link">Cerrar Sesión</a>
     </span>
@@ -190,6 +190,25 @@ function render_link($link, $role) {
 
 .logout-link:hover {
     background: rgba(255,255,255,0.3);
+}
+
+/* Botón "Volver" */
+.back-button {
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 5px;
+    transition: background 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 500;
+}
+.back-button:hover {
+    background: rgba(255,255,255,0.2);
 }
 
 /* ========== MENÚ DESPLEGABLE ========== */
@@ -271,7 +290,34 @@ function render_link($link, $role) {
     margin: 5px 0;
 }
 
-.dropdown:hover .dropdown-content {
+/* Mostrar el menú solo cuando tiene la clase 'show' */
+.dropdown-content.show {
     display: block;
 }
 </style>
+
+<script>
+    // Toggle del menú con click
+    const dropdownBtn = document.getElementById('dropdownBtn');
+    const dropdownMenu = document.getElementById('dropdownMenu');
+
+    dropdownBtn.addEventListener('click', function(event) {
+        event.stopPropagation(); // Evita que el click se propague al documento
+        dropdownMenu.classList.toggle('show');
+    });
+
+    // Cerrar el menú si se hace clic fuera de él
+    document.addEventListener('click', function(event) {
+        if (!dropdownBtn.contains(event.target) && !dropdownMenu.contains(event.target)) {
+            dropdownMenu.classList.remove('show');
+        }
+    });
+
+    // Botón "Volver" que usa history.back()
+    const backButton = document.getElementById('backButton');
+    if (backButton) {
+        backButton.addEventListener('click', function() {
+            window.history.back();
+        });
+    }
+</script>
