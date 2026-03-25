@@ -18,6 +18,67 @@ if (!in_array($role_name, ['Veterinario', 'admin'])) {
     exit;
 }
 
+// Cargar configuración del sistema (horario laboral)
+$config = [
+    'horario_apertura' => '08:00',
+    'horario_cierre' => '18:00',
+    'dias_trabajo' => 'Lunes a Viernes'
+];
+$stmtConfig = $conn->query("SELECT config_key, config_value FROM system_config WHERE config_key IN ('horario_apertura', 'horario_cierre', 'dias_trabajo')");
+while ($row = $stmtConfig->fetch(PDO::FETCH_ASSOC)) {
+    $config[$row['config_key']] = $row['config_value'];
+}
+
+// Función para parsear días laborables en array de números (1=lunes, 7=domingo)
+function parseWorkingDays($daysString) {
+    $daysMap = [
+        'Lunes' => 1, 'Martes' => 2, 'Miércoles' => 3, 'Miercoles' => 3,
+        'Jueves' => 4, 'Viernes' => 5, 'Sábado' => 6, 'Sabado' => 6,
+        'Domingo' => 7
+    ];
+    $daysString = trim($daysString);
+    // Rango con "a"
+    if (preg_match('/([a-zA-ZáéíóúÁÉÍÓÚ]+)\s*a\s*([a-zA-ZáéíóúÁÉÍÓÚ]+)/i', $daysString, $matches)) {
+        $start = $matches[1];
+        $end = $matches[2];
+        if (isset($daysMap[$start]) && isset($daysMap[$end])) {
+            $startNum = $daysMap[$start];
+            $endNum = $daysMap[$end];
+            $result = [];
+            for ($i = $startNum; $i <= $endNum; $i++) {
+                $result[] = $i;
+            }
+            return $result;
+        }
+    }
+    // Lista separada por comas o espacios
+    $parts = preg_split('/[,\s]+/', $daysString);
+    $result = [];
+    foreach ($parts as $part) {
+        $part = trim($part);
+        if (isset($daysMap[$part])) {
+            $result[] = $daysMap[$part];
+        }
+    }
+    return $result;
+}
+
+$allowedDays = parseWorkingDays($config['dias_trabajo']);
+
+// Función para validar fecha/hora según horario laboral
+function isWithinWorkingHours($datetime, $open, $close, $allowedDays) {
+    $timestamp = strtotime($datetime);
+    if (!$timestamp) return false;
+    
+    $dayOfWeek = date('N', $timestamp); // 1=Monday, 7=Sunday
+    if (!in_array($dayOfWeek, $allowedDays)) {
+        return false;
+    }
+    
+    $hour = date('H:i', $timestamp);
+    return ($hour >= $open && $hour <= $close);
+}
+
 $consultation = null;
 $pets = [];
 $error = '';
@@ -71,6 +132,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !$error) {
             $error = "Fecha inválida.";
         } else {
             $formatted_date = date('Y-m-d H:i:s', $timestamp);
+            
+            // Validar horario laboral (aunque sea fecha pasada, se valida)
+            if (!isWithinWorkingHours($formatted_date, $config['horario_apertura'], $config['horario_cierre'], $allowedDays)) {
+                $error = "La fecha y hora deben estar dentro del horario laboral ({$config['horario_apertura']} a {$config['horario_cierre']}) y en días laborables (" . implode(', ', array_map(function($d) {
+                    $daysNames = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+                    return $daysNames[$d];
+                }, $allowedDays)) . ").";
+            }
+        }
+        
+        if (empty($error)) {
             try {
                 $sql_update = "UPDATE consultations SET pet_id = :pet_id, consultation_date = :date, diagnosis = :diagnosis, treatment = :treatment, notes = :notes WHERE id = :id";
                 $stmtUpdate = $conn->prepare($sql_update);
@@ -120,7 +192,65 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !$error) {
         .btn:hover { background: #2d6a4f; }
         .btn-secondary { background: #6c757d; text-decoration: none; display: inline-block; margin-top: 20px; }
         .btn-secondary:hover { background: #5a6268; }
+        .help-text { font-size: 0.85rem; color: #6c757d; margin-top: 5px; }
     </style>
+    <script>
+        // Configuración desde PHP
+        const openTime = "<?php echo $config['horario_apertura']; ?>";
+        const closeTime = "<?php echo $config['horario_cierre']; ?>";
+        const workingDaysText = "<?php echo $config['dias_trabajo']; ?>";
+        const allowedDaysNumbers = <?php echo json_encode($allowedDays); ?>;
+
+        function parseTimeToMinutes(timeStr) {
+            let parts = timeStr.split(':');
+            return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+        }
+
+        function getDayNumber(date) {
+            let day = date.getDay(); // 0=domingo, 1=lunes, ..., 6=sábado
+            return day === 0 ? 7 : day;
+        }
+
+        function isWorkingDay(date) {
+            let dayNum = getDayNumber(date);
+            return allowedDaysNumbers.includes(dayNum);
+        }
+
+        function isWithinWorkingHours(date) {
+            const hours = date.getHours();
+            const minutes = date.getMinutes();
+            const totalMinutes = hours * 60 + minutes;
+            const openMinutes = parseTimeToMinutes(openTime);
+            const closeMinutes = parseTimeToMinutes(closeTime);
+            return (totalMinutes >= openMinutes && totalMinutes <= closeMinutes);
+        }
+
+        function validateDateTime() {
+            const input = document.getElementById('consultation_date');
+            if (!input.value) return true;
+            let selectedDate = new Date(input.value);
+            // No se valida que sea futura, solo horario laboral
+            if (!isWorkingDay(selectedDate)) {
+                alert('La fecha debe ser un día laborable (' + workingDaysText + ').');
+                input.value = '';
+                return false;
+            }
+            if (!isWithinWorkingHours(selectedDate)) {
+                alert('La hora debe estar dentro del horario laboral (' + openTime + ' a ' + closeTime + ').');
+                input.value = '';
+                return false;
+            }
+            return true;
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const dateInput = document.getElementById('consultation_date');
+            if (dateInput) {
+                dateInput.addEventListener('change', validateDateTime);
+                dateInput.addEventListener('blur', validateDateTime);
+            }
+        });
+    </script>
 </head>
 <body>
     <?php include '../includes/navbar.php'; ?>
@@ -149,8 +279,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !$error) {
                 <?php endforeach; ?>
             </select>
 
-            <label for="consultation_date">Fecha y hora:</label>
+            <label for="consultation_date">Fecha y hora (Horario laboral: <?php echo $config['horario_apertura']; ?> - <?php echo $config['horario_cierre']; ?>):</label>
             <input type="datetime-local" name="consultation_date" id="consultation_date" value="<?php echo date('Y-m-d\TH:i', strtotime($consultation['consultation_date'])); ?>" required>
+            <div class="help-text">Solo se permiten fechas dentro del horario laboral y días hábiles (<?php echo $config['dias_trabajo']; ?>).</div>
 
             <label for="diagnosis">Diagnóstico:</label>
             <textarea name="diagnosis" id="diagnosis" rows="4" required><?php echo htmlspecialchars($consultation['diagnosis']); ?></textarea>
