@@ -1,197 +1,243 @@
 /* ================================================
    RESPONSIVE DESIGN - VetCtrl
-   Compatible con welcome.php y páginas similares
+   ENFOQUE: Mobile-first + mejoras táctiles
    ================================================ */
 
-/* ----- Pantallas medianas (tablets, hasta 1200px) ----- */
-@media (max-width: 1200px) {
-    .dashboard-main-container {
-        grid-template-columns: 1fr !important;
-        grid-template-rows: auto auto auto;
-        gap: 20px;
-    }
-
-    .dashboard-info-column,
-    .actions-column,
-    .patients-column {
-        max-height: none !important;
-        overflow-y: visible !important;
-    }
-}
-
-/* ----- Pantallas pequeñas (móviles, hasta 768px) ----- */
+/* ---------- BASE MÓVIL (para pantallas < 768px) ---------- */
 @media (max-width: 768px) {
+    /* 1. Ajustes generales para legibilidad táctil */
     body {
-        padding-top: 60px;
+        font-size: 16px !important;        /* Base legible sin zoom */
+        line-height: 1.5;
+        padding-top: 60px !important;
+        overflow-x: hidden;
     }
 
-    /* Breadcrumbs */
-    .breadcrumb {
-        padding: 10px 15px;
-        font-size: 0.85rem;
-        margin-top: 5px;
+    /* 2. Todos los enlaces y botones deben ser fáciles de tocar */
+    a, button, 
+    .action-card a, 
+    .table-action-link,
+    input[type="submit"],
+    input[type="button"],
+    .navbar a,
+    .navbar button {
+        min-height: 44px !important;        /* Estándar de accesibilidad táctil */
+        min-width: 44px !important;
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        touch-action: manipulation;
     }
 
-    /* Columnas internas */
+    /* 3. El contenedor principal en columna única */
+    .dashboard-main-container {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 20px;
+        padding: 16px !important;
+        margin: 0 auto;
+    }
+
+    /* 4. Columnas internas: sin scrolls forzados, padding cómodo */
     .dashboard-info-column,
     .actions-column,
     .patients-column {
-        padding: 15px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 20px !important;
+        margin: 0 !important;
+        overflow-y: visible !important;
+        max-height: none !important;
+        border-radius: 16px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
 
-    /* Títulos */
+    /* 5. Tarjetas de acciones: una por fila y botón a ancho completo */
+    .actions-grid {
+        display: flex !important;
+        flex-direction: column;
+        gap: 16px;
+    }
+    .action-card {
+        padding: 20px;
+        border-radius: 12px;
+    }
+    .action-card a {
+        width: 100% !important;
+        justify-content: center;
+        padding: 12px !important;
+        font-size: 1rem;
+        font-weight: 600;
+        border-radius: 8px;
+    }
+
+    /* 6. Tabla de pacientes → se convierte en TARJETAS (más legible) */
+    .patients-table-container {
+        overflow-x: visible;
+    }
+    .patients-table {
+        display: block;
+        width: 100%;
+    }
+    .patients-table thead {
+        display: none;  /* Ocultamos cabecera en móvil */
+    }
+    .patients-table tbody,
+    .patients-table tr,
+    .patients-table td {
+        display: block;
+        width: 100%;
+    }
+    .patients-table tr {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        margin-bottom: 16px;
+        padding: 12px;
+        border: 1px solid #e9ecef;
+    }
+    .patients-table td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px dashed #eee;
+        font-size: 0.95rem;
+    }
+    .patients-table td:last-child {
+        border-bottom: none;
+    }
+    /* Etiquetas para cada campo (simulamos cabecera) */
+    .patients-table td::before {
+        content: attr(data-label);
+        font-weight: bold;
+        color: #1b4332;
+        width: 40%;
+        display: inline-block;
+    }
+    /* Los botones de acción se alinean bien */
+    .patients-table td:last-child {
+        justify-content: flex-start;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    .table-action-link {
+        min-height: 40px;
+        min-width: 70px;
+        padding: 6px 12px;
+        font-size: 0.85rem;
+        background: #f0f0f0;
+        border-radius: 20px;
+        text-decoration: none;
+        color: #2d6a4f;
+    }
+    /* Aseguramos que los datos tengan su etiqueta */
+    .patients-table td:nth-child(1)::before { content: "Nombre:"; }
+    .patients-table td:nth-child(2)::before { content: "Dueño:"; }
+    .patients-table td:nth-child(3)::before { content: "Especie:"; }
+    .patients-table td:nth-child(4)::before { content: "Acciones:"; }
+
+    /* 7. Tarjeta de usuario e info */
+    .user-info-card {
+        padding: 16px;
+    }
+    .user-info-card p {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        margin: 8px 0;
+    }
+    .role-badge {
+        display: inline-block;
+        margin-top: 4px;
+    }
+
+    /* 8. Alertas y mensajes */
+    .alert {
+        padding: 12px;
+        font-size: 0.9rem;
+        border-radius: 10px;
+    }
+
+    /* 9. Ajuste de títulos */
+    h1, h2, h3 {
+        word-break: break-word;
+    }
     .dashboard-info-column h2,
     .actions-column h2,
     .patients-column h2 {
-        font-size: 1.2rem !important;
-        margin-bottom: 15px !important;
-        padding-bottom: 10px !important;
+        font-size: 1.4rem;
+        margin-bottom: 16px;
     }
 
-    /* Tarjetas de acciones */
-    .actions-grid {
-        grid-template-columns: 1fr !important;
-        gap: 15px;
-    }
-
-    .action-card {
-        padding: 20px;
-    }
-
-    .action-card h3 {
-        font-size: 1.1rem;
-    }
-
-    .action-card p {
-        font-size: 0.85rem;
-    }
-
-    .action-card a {
-        width: 100%;
-        justify-content: center;
-        text-align: center;
-        font-size: 0.9rem;
+    /* 10. Breadcrumbs mejorado */
+    .breadcrumb {
         padding: 8px 16px;
-    }
-
-    /* Tabla de pacientes */
-    .patients-table-container {
+        font-size: 0.85rem;
+        white-space: nowrap;
         overflow-x: auto;
     }
 
-    .patients-table {
-        min-width: 500px; /* Permite scroll horizontal si es necesario */
+    /* 11. Navbar (ajuste según tu navbar actual) */
+    .navbar {
+        flex-direction: column;
+        padding: 10px;
+    }
+    .navbar-brand {
+        margin-bottom: 8px;
+    }
+    .navbar-nav {
+        flex-direction: column;
+        gap: 8px;
+        width: 100%;
+    }
+    .navbar-nav a {
+        padding: 10px;
+        text-align: center;
     }
 
-    .patients-table th,
-    .patients-table td {
-        padding: 10px 8px;
-        font-size: 0.85rem;
-    }
-
-    .table-action-link {
-        padding: 4px 8px;
-        font-size: 0.8rem;
-        margin: 0 4px;
-    }
-
-    /* Tarjeta de información del usuario */
-    .user-info-card {
-        padding: 15px;
-    }
-
-    .user-info-card p {
-        font-size: 0.9rem;
-    }
-
-    .role-badge .badge {
+    /* 12. Footer */
+    footer {
+        text-align: center;
+        padding: 12px;
         font-size: 0.75rem;
-        padding: 3px 8px;
-    }
-
-    /* Alertas */
-    .alert {
-        padding: 10px 15px;
-        font-size: 0.85rem;
-    }
-
-    .alert i {
-        font-size: 1.2rem;
-    }
-
-    /* Estado vacío */
-    .empty-state {
-        padding: 30px 15px;
-    }
-
-    .empty-state i {
-        font-size: 2rem;
-    }
-
-    /* Total de pacientes */
-    .patients-column > div:last-child {
-        padding: 12px !important;
-        font-size: 0.85rem;
     }
 }
 
-/* ----- Pantallas muy pequeñas (≤ 480px) ----- */
+/* ---------- MEJORAS ADICIONALES PARA PANTALLAS MUY PEQUEÑAS (≤480px) ---------- */
 @media (max-width: 480px) {
-    .dashboard-main-container {
-        padding: 15px;
+    body {
+        font-size: 15px;
     }
-
-    .dashboard-info-column h2,
-    .actions-column h2,
-    .patients-column h2 {
-        font-size: 1.1rem !important;
+    .dashboard-info-column,
+    .actions-column,
+    .patients-column {
+        padding: 16px !important;
     }
-
-    .action-card h3 {
-        font-size: 1rem;
+    .action-card {
+        padding: 16px;
     }
-
-    .patients-table th,
     .patients-table td {
-        padding: 8px 6px;
-        font-size: 0.75rem;
-    }
-
-    .table-action-link {
-        font-size: 0.7rem;
-        padding: 3px 6px;
-        margin: 0 2px;
-    }
-
-    .user-info-card p {
-        font-size: 0.8rem;
+        font-size: 0.85rem;
         flex-wrap: wrap;
     }
-
-    .user-info-card strong {
-        min-width: 70px;
+    .patients-table td::before {
+        width: 100%;
+        margin-bottom: 4px;
+    }
+    .table-action-link {
+        min-width: 60px;
+        font-size: 0.75rem;
     }
 }
 
-/* ----- Ajustes generales para elementos comunes ----- */
-@media (max-width: 768px) {
-    /* Navbar - si es necesario, ajustar según tu navbar actual */
-    .navbar {
-        padding: 10px 15px;
+/* ---------- TABLETAS (entre 769px y 1024px) - opcional ---------- */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .dashboard-main-container {
+        grid-template-columns: 1fr 1.5fr;
+        gap: 20px;
     }
-
-    .navbar-brand {
-        font-size: 1.2rem;
-    }
-
-    .navbar-nav {
-        gap: 10px;
-    }
-
-    /* Footer */
-    footer {
-        margin-top: 20px;
-        padding: 8px 15px !important;
-        font-size: 0.7rem !important;
+    .dashboard-info-column {
+        grid-row: span 2;
     }
 }
