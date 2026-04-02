@@ -1,16 +1,18 @@
 /* ================================================
    RESPONSIVE DESIGN - VetCtrl
-   Móvil: todo grande, sin zoom, táctil
+   Móvil: tipografía estilizada, sin desbordes, táctil
    ================================================ */
 
 /* Pantallas de hasta 768px (móviles y tablets pequeñas) */
 @media (max-width: 768px) {
-    /* ---- Base: texto grande ---- */
+    /* ---- Base: texto legible y con buen espaciado ---- */
     body {
-        font-size: 18px !important;
-        line-height: 1.5;
+        font-size: 16px !important;
+        line-height: 1.5 !important;
         padding-top: 70px;
         background: #f5f7fa;
+        word-break: break-word;
+        overflow-wrap: break-word;
     }
 
     /* ---- Navbar más grande y vertical ---- */
@@ -26,38 +28,33 @@
         box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
     .navbar-brand {
-        font-size: 1.8rem !important;
+        font-size: 1.6rem !important;
         text-align: center;
         margin-bottom: 10px;
         color: white !important;
     }
     .navbar-nav {
         flex-direction: column !important;
-        gap: 12px;
+        gap: 10px;
         width: 100%;
     }
     .navbar-nav a,
     .navbar-nav .nav-link {
         display: block;
         text-align: center;
-        padding: 12px !important;
-        font-size: 1.1rem;
+        padding: 10px !important;
+        font-size: 1rem;
         background: rgba(255,255,255,0.1);
         border-radius: 10px;
-        min-height: 48px;
-    }
-    /* Si tienes dropdown, ajusta */
-    .dropdown-menu {
-        position: static;
-        width: 100%;
-        background: #2d6a4f;
-        margin-top: 8px;
+        min-height: 44px;
+        white-space: normal;
+        word-break: break-word;
     }
 
     /* ---- Breadcrumbs ---- */
     .breadcrumb {
-        font-size: 1rem;
-        padding: 12px 16px;
+        font-size: 0.9rem;
+        padding: 8px 16px;
         overflow-x: auto;
         white-space: nowrap;
     }
@@ -66,17 +63,17 @@
     .dashboard-main-container {
         display: flex !important;
         flex-direction: column !important;
-        gap: 24px;
-        padding: 16px;
+        gap: 20px;
+        padding: 12px;
     }
 
-    /* ---- Cada columna ocupa todo el ancho y sin scroll interno ---- */
+    /* ---- Cada columna ocupa todo el ancho, sin scroll interno ---- */
     .dashboard-info-column,
     .actions-column,
     .patients-column {
         width: 100% !important;
         max-width: 100% !important;
-        padding: 24px 20px !important;
+        padding: 20px 16px !important;
         margin: 0 !important;
         border-radius: 20px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.08);
@@ -84,60 +81,65 @@
         max-height: none !important;
     }
 
-    /* ---- Títulos más grandes ---- */
+    /* ---- Títulos más estilizados ---- */
     .dashboard-info-column h2,
     .actions-column h2,
     .patients-column h2 {
-        font-size: 1.8rem !important;
-        margin-bottom: 20px;
+        font-size: 1.6rem !important;
+        margin-bottom: 16px;
         border-bottom: 3px solid #40916c;
-        padding-bottom: 10px;
+        padding-bottom: 8px;
+        letter-spacing: -0.3px;
     }
 
     /* ---- Tarjeta de usuario ---- */
     .user-info-card {
-        padding: 20px;
+        padding: 16px;
     }
     .user-info-card p {
-        font-size: 1rem;
-        margin: 12px 0;
+        font-size: 0.95rem;
+        margin: 10px 0;
         flex-wrap: wrap;
+        gap: 6px;
     }
     .badge {
-        font-size: 0.9rem;
-        padding: 6px 12px;
+        font-size: 0.8rem;
+        padding: 4px 10px;
     }
 
-    /* ---- Acciones rápidas: una columna, tarjetas grandes ---- */
+    /* ---- Acciones rápidas: una columna, tarjetas cómodas ---- */
     .actions-grid {
         display: flex !important;
         flex-direction: column;
-        gap: 20px;
+        gap: 16px;
     }
     .action-card {
-        padding: 24px !important;
+        padding: 20px !important;
         border-radius: 20px;
     }
     .action-card h3 {
-        font-size: 1.4rem !important;
-        margin-bottom: 12px;
+        font-size: 1.3rem !important;
+        margin-bottom: 10px;
     }
     .action-card p {
-        font-size: 1rem !important;
-        margin-bottom: 20px;
+        font-size: 0.9rem !important;
+        margin-bottom: 16px;
+        line-height: 1.4;
     }
     .action-card a {
         display: block;
         width: 100%;
         text-align: center;
-        padding: 14px !important;
-        font-size: 1.1rem !important;
+        padding: 12px !important;
+        font-size: 1rem !important;
         border-radius: 12px;
         background-color: #40916c;
-        min-height: 52px;
+        min-height: 48px;
+        white-space: normal;
+        word-break: break-word;
     }
 
-    /* ---- Lista de pacientes: convertir a tarjetas verticales ---- */
+    /* ---- Lista de pacientes: tarjetas con buen espaciado ---- */
     .patients-table-container {
         overflow-x: visible;
     }
@@ -156,81 +158,110 @@
     .patients-table tr {
         background: white;
         border-radius: 20px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        margin-bottom: 24px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
         padding: 16px;
         border: 1px solid #e9ecef;
     }
     .patients-table td {
         display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 12px 0;
-        border-bottom: 1px solid #f0f0f0;
-        font-size: 1rem;
         flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 10px 0;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 0.95rem;
         gap: 8px;
     }
     .patients-table td:last-child {
         border-bottom: none;
     }
-    /* Etiquetas */
+    /* Etiquetas bonitas */
     .patients-table td::before {
         content: attr(data-label);
-        font-weight: bold;
+        font-weight: 600;
         background: #e9f5ef;
         padding: 4px 12px;
         border-radius: 20px;
-        font-size: 0.85rem;
+        font-size: 0.75rem;
         color: #1b4332;
-        min-width: 90px;
+        min-width: 80px;
         text-align: center;
+        display: inline-block;
+    }
+    /* Contenido de la celda (texto) */
+    .patients-table td > *:not(br) {
+        flex: 1;
+        word-break: break-word;
     }
     /* Botones de acción */
     .patients-table td:last-child {
         justify-content: flex-start;
-        gap: 12px;
+        gap: 10px;
         flex-wrap: wrap;
     }
     .table-action-link {
-        min-height: 44px;
-        padding: 8px 16px;
-        font-size: 0.9rem;
+        min-height: 40px;
+        padding: 6px 14px;
+        font-size: 0.85rem;
         background: #f0f7f3;
         border-radius: 30px;
         display: inline-flex;
         align-items: center;
-        gap: 6px;
+        gap: 5px;
+        white-space: nowrap;
+    }
+    /* Para evitar que el género o raza se desborde */
+    .patients-table td small {
+        display: inline-block;
+        word-break: break-word;
     }
 
     /* ---- Alertas y otros elementos ---- */
     .alert {
-        padding: 16px;
-        font-size: 1rem;
+        padding: 12px 16px;
+        font-size: 0.9rem;
+        line-height: 1.4;
     }
     .empty-state {
-        padding: 40px 20px;
+        padding: 30px 15px;
     }
     .empty-state p {
-        font-size: 1.1rem;
+        font-size: 1rem;
+    }
+
+    /* ---- Bloque "Hoy" ---- */
+    .dashboard-info-column > div:last-child {
+        padding: 12px !important;
+    }
+    .dashboard-info-column > div:last-child h3 {
+        font-size: 1rem !important;
+    }
+    .dashboard-info-column > div:last-child p {
+        font-size: 0.85rem !important;
     }
 }
 
 /* Pantallas muy pequeñas (≤480px) */
 @media (max-width: 480px) {
     body {
-        font-size: 16px;
+        font-size: 15px;
     }
     .dashboard-info-column,
     .actions-column,
     .patients-column {
-        padding: 20px 16px !important;
+        padding: 16px 12px !important;
     }
     .action-card h3 {
         font-size: 1.2rem;
     }
     .patients-table td::before {
         min-width: 70px;
+        font-size: 0.7rem;
+    }
+    .table-action-link {
+        padding: 5px 10px;
         font-size: 0.75rem;
+        white-space: normal;
     }
 }
