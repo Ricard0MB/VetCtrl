@@ -164,8 +164,7 @@ try {
             border-radius: 12px;
             padding: 25px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            overflow-y: auto;
-            max-height: calc(100vh - 120px);
+            /* Eliminado: overflow-y: auto; max-height: calc(100vh - 120px); */
             border-top: 5px solid #40916c;
         }
         .actions-column h2 {
@@ -244,8 +243,7 @@ try {
             border-radius: 12px;
             padding: 25px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            overflow-y: auto;
-            max-height: calc(100vh - 120px);
+            /* Eliminado: overflow-y: auto; max-height: calc(100vh - 120px); */
             border-top: 5px solid #2d6a4f;
         }
         .patients-column h2 {
@@ -264,7 +262,7 @@ try {
         .patients-table {
             width: 100%;
             border-collapse: collapse;
-            min-width: 300px;
+            /* Eliminado: min-width: 300px; */
         }
         .patients-table th {
             background: #f8f9fa;
@@ -352,24 +350,7 @@ try {
             background: #198754;
             color: white;
         }
-        .actions-column::-webkit-scrollbar,
-        .patients-column::-webkit-scrollbar {
-            width: 6px;
-        }
-        .actions-column::-webkit-scrollbar-track,
-        .patients-column::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 3px;
-        }
-        .actions-column::-webkit-scrollbar-thumb,
-        .patients-column::-webkit-scrollbar-thumb {
-            background: #c1c1c1;
-            border-radius: 3px;
-        }
-        .actions-column::-webkit-scrollbar-thumb:hover,
-        .patients-column::-webkit-scrollbar-thumb:hover {
-            background: #a1a1a1;
-        }
+        /* Eliminados los estilos de scrollbar personalizados que ya no aplican */
         .empty-state {
             text-align: center;
             padding: 40px 20px;
@@ -494,7 +475,7 @@ try {
                         <tbody>
                             <?php foreach ($pets as $pet): ?>
                                 <tr>
-                                    <td>
+                                    <td data-label="Nombre">
                                         <strong><?php echo htmlspecialchars($pet['name'], ENT_QUOTES, 'UTF-8'); ?></strong>
                                         <?php if (isset($pet['gender'])): ?>
                                             <br><small style="color: #666;"><?php echo htmlspecialchars($pet['gender'], ENT_QUOTES, 'UTF-8'); ?></small>
@@ -502,17 +483,17 @@ try {
                                     </td>
                                     
                                     <?php if ($role_name !== 'Propietario'): ?>
-                                        <td><?php echo htmlspecialchars($pet['owner_name'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?></td>
+                                        <td data-label="Dueño"><?php echo htmlspecialchars($pet['owner_name'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?></td>
                                     <?php endif; ?>
                                     
-                                    <td>
+                                    <td data-label="Especie">
                                         <?php echo htmlspecialchars($pet['species_name'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?>
                                         <?php if (isset($pet['breed_name']) && $pet['breed_name'] !== 'N/A'): ?>
                                             <br><small style="color: #666;"><?php echo htmlspecialchars($pet['breed_name'], ENT_QUOTES, 'UTF-8'); ?></small>
                                         <?php endif; ?>
                                     </td>
                                     
-                                    <td>
+                                    <td data-label="Acciones">
                                         <a href="pet_profile.php?id=<?php echo $pet['id']; ?>" class="table-action-link" title="Ver perfil">👁️ Perfil</a>
                                         <?php if ($role_name !== 'Propietario'): ?>
                                             <a href="vaccine_register.php?id=<?php echo $pet['id']; ?>" class="table-action-link" title="Registrar vacuna">💉 Vacunar</a>
