@@ -62,6 +62,7 @@ try {
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>VetCtrl · Dashboard</title>
     <link rel="stylesheet" href="../public/css/style.css">
     <link rel="stylesheet" href="../public/css/responsive.css">
@@ -164,7 +165,6 @@ try {
             border-radius: 12px;
             padding: 25px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            /* Eliminado: overflow-y: auto; max-height: calc(100vh - 120px); */
             border-top: 5px solid #40916c;
         }
         .actions-column h2 {
@@ -243,7 +243,6 @@ try {
             border-radius: 12px;
             padding: 25px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            /* Eliminado: overflow-y: auto; max-height: calc(100vh - 120px); */
             border-top: 5px solid #2d6a4f;
         }
         .patients-column h2 {
@@ -262,7 +261,6 @@ try {
         .patients-table {
             width: 100%;
             border-collapse: collapse;
-            /* Eliminado: min-width: 300px; */
         }
         .patients-table th {
             background: #f8f9fa;
@@ -350,7 +348,6 @@ try {
             background: #198754;
             color: white;
         }
-        /* Eliminados los estilos de scrollbar personalizados que ya no aplican */
         .empty-state {
             text-align: center;
             padding: 40px 20px;
