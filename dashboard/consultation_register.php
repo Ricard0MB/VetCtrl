@@ -28,7 +28,6 @@ while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
     $config[$row['config_key']] = $row['config_value'];
 }
 
-// Función para parsear días laborables en un array de números (1 = lunes, 7 = domingo)
 function parseWorkingDays($daysString) {
     $daysMap = [
         'Lunes' => 1, 'Martes' => 2, 'Miércoles' => 3, 'Miercoles' => 3,
@@ -36,7 +35,6 @@ function parseWorkingDays($daysString) {
         'Domingo' => 7
     ];
     $daysString = trim($daysString);
-    // Si contiene "a", asumimos rango
     if (preg_match('/([a-zA-ZáéíóúÁÉÍÓÚ]+)\s*a\s*([a-zA-ZáéíóúÁÉÍÓÚ]+)/i', $daysString, $matches)) {
         $start = $matches[1];
         $end = $matches[2];
@@ -50,7 +48,6 @@ function parseWorkingDays($daysString) {
             return $result;
         }
     }
-    // Si no es rango, tratar como lista separada por comas
     $parts = preg_split('/[,\s]+/', $daysString);
     $result = [];
     foreach ($parts as $part) {
@@ -83,10 +80,8 @@ try {
 function isWithinWorkingHours($datetime, $open, $close, $allowedDays) {
     $timestamp = strtotime($datetime);
     if (!$timestamp) return false;
-    $dayOfWeek = date('N', $timestamp); // 1=Monday, 7=Sunday
-    if (!in_array($dayOfWeek, $allowedDays)) {
-        return false;
-    }
+    $dayOfWeek = date('N', $timestamp);
+    if (!in_array($dayOfWeek, $allowedDays)) return false;
     $hour = date('H:i', $timestamp);
     return ($hour >= $open && $hour <= $close);
 }
@@ -106,10 +101,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
         if (!$timestamp) {
             $error = "Fecha inválida.";
         } elseif (!isWithinWorkingHours($consultation_date, $config['horario_apertura'], $config['horario_cierre'], $allowedDays)) {
-            $error = "La consulta debe estar dentro del horario laboral ({$config['horario_apertura']} a {$config['horario_cierre']}) y en días laborables (" . implode(', ', array_map(function($d) {
-                $daysNames = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-                return $daysNames[$d];
-            }, $allowedDays)) . ").";
+            $error = "La consulta debe estar dentro del horario laboral ({$config['horario_apertura']} a {$config['horario_cierre']}) y en días laborables.";
         } else {
             $formatted_date = date('Y-m-d H:i:s', $timestamp);
             try {
@@ -143,29 +135,40 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
 <head>
     <meta charset="UTF-8">
     <title>Registrar Consulta - VetCtrl</title>
-    <link rel="stylesheet" href="../public/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { background-color: #f4f4f4; padding-top: 70px; font-family: 'Segoe UI', sans-serif; }
-        .breadcrumb { max-width: 800px; margin: 10px auto 0; padding: 10px 20px; background: transparent; font-size: 0.95rem; }
-        .breadcrumb a { color: #40916c; text-decoration: none; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f4f7f9;
+            color: #1e2f2a;
+            padding-top: 72px;
+        }
+        :root {
+            --vet-dark: #1b4332;
+            --vet-primary: #40916c;
+            --shadow-md: 0 8px 20px rgba(0,0,0,0.05);
+            --radius-lg: 16px;
+        }
+        .breadcrumb { max-width: 800px; margin: 0 auto 1rem auto; padding: 0.5rem 1.5rem; font-size: 0.85rem; }
+        .breadcrumb a { color: var(--vet-primary); text-decoration: none; }
         .breadcrumb a:hover { text-decoration: underline; }
         .breadcrumb span { color: #6c757d; }
-        .container { max-width: 800px; margin: 20px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-        h1 { color: #1b4332; border-bottom: 2px solid #b68b40; padding-bottom: 10px; margin-bottom: 25px; display: flex; align-items: center; gap: 10px; }
-        .alert { padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid; display: flex; align-items: center; gap: 12px; }
-        .alert i { font-size: 1.4rem; }
-        .alert-success { background: #d4edda; color: #155724; border-left-color: #28a745; }
+        .container { max-width: 800px; margin: 1.5rem auto; background: white; border-radius: var(--radius-lg); padding: 2rem; box-shadow: var(--shadow-md); }
+        h1 { color: var(--vet-dark); border-bottom: 2px solid var(--vet-primary); padding-bottom: 0.75rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem; font-size: 1.6rem; }
+        .alert { display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; margin-bottom: 1.2rem; border-left: 4px solid; }
+        .alert-success { background: #e6f4ea; color: #155724; border-left-color: #28a745; }
         .alert-danger { background: #f8d7da; color: #721c24; border-left-color: #dc3545; }
-        label { display: block; margin: 15px 0 5px; font-weight: 600; color: #1b4332; }
-        select, input[type="datetime-local"], textarea { width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px; box-sizing: border-box; }
-        select:focus, input:focus, textarea:focus { border-color: #40916c; outline: none; }
-        .btn { padding: 12px 25px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; background: #40916c; color: white; width: 100%; margin-top: 10px; }
-        .btn:hover { background: #2d6a4f; }
-        .help-text { font-size: 0.85rem; color: #6c757d; margin-top: 5px; }
+        label { display: block; margin: 1rem 0 0.4rem; font-weight: 600; color: var(--vet-dark); }
+        select, input[type="datetime-local"], textarea { width: 100%; padding: 0.7rem; border: 1px solid #d0d8d0; border-radius: 10px; font-family: inherit; transition: 0.2s; }
+        select:focus, input:focus, textarea:focus { border-color: var(--vet-primary); outline: none; box-shadow: 0 0 0 2px rgba(64,145,108,0.2); }
+        .help-text { font-size: 0.75rem; color: #6c757d; margin-top: 0.3rem; }
+        .btn { background: var(--vet-primary); color: white; padding: 0.7rem 1.5rem; border: none; border-radius: 10px; font-weight: 600; width: 100%; cursor: pointer; transition: 0.2s; margin-top: 1.5rem; }
+        .btn:hover { background: var(--vet-dark); }
+        @media (max-width: 768px) { .container { margin: 1rem; padding: 1.2rem; } }
     </style>
     <script>
-        // Configuración desde PHP
         const openTime = "<?php echo $config['horario_apertura']; ?>";
         const closeTime = "<?php echo $config['horario_cierre']; ?>";
         const allowedDaysNumbers = <?php echo json_encode($allowedDays); ?>;
@@ -176,13 +179,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
         }
 
         function getDayNumber(date) {
-            let day = date.getDay(); // 0=domingo, 1=lunes, ..., 6=sábado
+            let day = date.getDay();
             return day === 0 ? 7 : day;
         }
 
         function isWorkingDay(date) {
-            let dayNum = getDayNumber(date);
-            return allowedDaysNumbers.includes(dayNum);
+            return allowedDaysNumbers.includes(getDayNumber(date));
         }
 
         function isWithinWorkingHours(date) {
@@ -215,7 +217,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
                 let now = new Date();
                 now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
                 let minDateTime = now.toISOString().slice(0,16);
-                // Si hoy es día laborable y la hora actual es menor que la hora de apertura, ajustar el mínimo a la hora de apertura de hoy
                 if (isWorkingDay(now) && now.getHours() * 60 + now.getMinutes() < parseTimeToMinutes(openTime)) {
                     let [openHour, openMin] = openTime.split(':');
                     let newNow = new Date(now);
@@ -233,8 +234,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
     <?php include '../includes/navbar.php'; ?>
 
     <div class="breadcrumb">
-        <a href="welcome.php">Inicio</a> <span>›</span>
-        <span>Registrar Consulta</span>
+        <a href="welcome.php">Inicio</a> <span>›</span> <span>Registrar Consulta</span>
     </div>
 
     <div class="container">
@@ -259,7 +259,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
                 <?php endforeach; ?>
             </select>
 
-            <label for="consultation_date">Fecha y hora (Horario laboral: <?php echo $config['horario_apertura']; ?> - <?php echo $config['horario_cierre']; ?>):</label>
+            <label for="consultation_date">Fecha y hora (Horario: <?php echo $config['horario_apertura']; ?> - <?php echo $config['horario_cierre']; ?>):</label>
             <input type="datetime-local" name="consultation_date" id="consultation_date" required value="<?php echo htmlspecialchars($_POST['consultation_date'] ?? date('Y-m-d\TH:i')); ?>">
             <div class="help-text">Solo se permiten registros dentro del horario laboral y días hábiles (<?php echo $config['dias_trabajo']; ?>).</div>
 
