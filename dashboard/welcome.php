@@ -18,7 +18,6 @@ $pets = [];
 $message = '';
 
 try {
-    // Consulta según el rol usando PDO
     if ($role_name === 'Propietario') {
         $sql = "SELECT p.id, p.name, p.date_of_birth, p.gender, 
                        pt.name AS species_name, 
@@ -54,8 +53,6 @@ try {
     $message = "Error de base de datos: " . $e->getMessage();
     error_log("Error en welcome.php: " . $e->getMessage());
 }
-
-// No es necesario cerrar la conexión explícitamente con PDO
 ?>
 
 <!DOCTYPE html>
@@ -64,306 +61,262 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>VetCtrl · Dashboard</title>
-    <link rel="stylesheet" href="../public/css/style.css">
-    <link rel="stylesheet" href="../public/css/responsive.css">
+    <!-- Google Fonts & Font Awesome -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* ---------- ANIMACIÓN FADE-IN ---------- */
-        .fade-in {
-            animation: fadeIn 0.6s ease-in-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
+
         body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            background-color: #f5f7fa;
-            color: #333;
-            padding-top: 70px;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: #f4f7f9;
+            color: #1e2f2a;
+            padding-top: 72px;
+            line-height: 1.5;
         }
-        /* Breadcrumbs */
+
+        /* Variables globales */
+        :root {
+            --vet-dark: #1b4332;
+            --vet-primary: #40916c;
+            --vet-light: #74c69d;
+            --vet-bg: #f4f7f9;
+            --vet-card: #ffffff;
+            --vet-text: #2d3e3a;
+            --vet-text-light: #52796f;
+            --shadow-sm: 0 2px 6px rgba(0,0,0,0.04);
+            --shadow-md: 0 8px 20px rgba(0,0,0,0.05);
+            --shadow-lg: 0 12px 28px rgba(0,0,0,0.08);
+            --radius-md: 14px;
+            --radius-lg: 18px;
+        }
+
+        /* Breadcrumb */
         .breadcrumb {
-            max-width: 1600px;
-            margin: 10px auto 0 auto;
-            padding: 10px 20px;
-            background: transparent;
-            font-size: 0.95rem;
+            max-width: 1440px;
+            margin: 0 auto 1rem auto;
+            padding: 0.5rem 1.8rem;
+            font-size: 0.85rem;
         }
         .breadcrumb a {
-            color: #40916c;
+            color: var(--vet-primary);
             text-decoration: none;
+            font-weight: 500;
         }
-        .breadcrumb a:hover {
-            text-decoration: underline;
-        }
-        .breadcrumb span {
-            color: #6c757d;
-        }
+        .breadcrumb a:hover { text-decoration: underline; }
+        .breadcrumb span { color: var(--vet-text-light); }
+
+        /* Layout principal */
         .dashboard-main-container {
             display: grid;
-            grid-template-columns: 280px 1fr 350px;
-            gap: 20px;
-            padding: 20px;
+            grid-template-columns: 300px 1fr 360px;
+            gap: 1.8rem;
+            padding: 1.8rem;
             max-width: 1600px;
             margin: 0 auto;
-            min-height: calc(100vh - 90px);
         }
         @media (max-width: 1200px) {
             .dashboard-main-container {
                 grid-template-columns: 1fr;
-                grid-template-rows: auto auto auto;
+                gap: 1.5rem;
             }
         }
-        .dashboard-info-column {
-            background: white;
-            border-radius: 12px;
-            padding: 25px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            height: fit-content;
-            border-top: 5px solid #1b4332;
+
+        /* Tarjetas comunes */
+        .dashboard-info-column, .actions-column, .patients-column {
+            background: var(--vet-card);
+            border-radius: var(--radius-lg);
+            padding: 1.6rem;
+            box-shadow: var(--shadow-md);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
+        .dashboard-info-column:hover, .actions-column:hover, .patients-column:hover {
+            box-shadow: var(--shadow-lg);
+        }
+        .dashboard-info-column { border-top: 5px solid var(--vet-dark); }
+        .actions-column { border-top: 5px solid var(--vet-primary); }
+        .patients-column { border-top: 5px solid var(--vet-light); }
+
         .dashboard-info-column h2 {
-            color: #1b4332;
             font-size: 1.5rem;
-            margin-bottom: 20px;
+            margin-bottom: 1.2rem;
+            color: var(--vet-dark);
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 0.5rem;
         }
+
+        /* Tarjeta de usuario */
         .user-info-card {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
+            background: linear-gradient(135deg, #f9fbf9 0%, #f0f5f0 100%);
+            border-radius: var(--radius-md);
+            padding: 1.4rem;
+            margin-bottom: 1.5rem;
         }
         .user-info-card p {
-            margin: 10px 0;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 0.75rem;
+            margin: 0.8rem 0;
         }
         .user-info-card strong {
-            color: #1b4332;
-            min-width: 80px;
-            display: inline-block;
-        }
-        .user-info-card .role-badge {
-            background: #40916c;
-            color: white;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.9rem;
+            min-width: 70px;
+            color: var(--vet-dark);
             font-weight: 600;
         }
-        .actions-column {
-            background: white;
-            border-radius: 12px;
-            padding: 25px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            border-top: 5px solid #40916c;
+        .role-badge {
+            background: var(--vet-primary);
+            color: white;
+            padding: 0.25rem 0.8rem;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-block;
         }
-        .actions-column h2 {
-            color: #1b4332;
-            font-size: 1.5rem;
-            margin-bottom: 25px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #e9ecef;
-        }
+
+        /* Grid de acciones */
         .actions-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        @media (max-width: 768px) {
-            .actions-grid {
-                grid-template-columns: 1fr;
-            }
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.2rem;
+            margin-top: 0.5rem;
         }
         .action-card {
-            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-            border-radius: 10px;
-            padding: 25px;
-            transition: all 0.3s ease;
-            border: 2px solid #e9ecef;
-            position: relative;
-            overflow: hidden;
+            background: #ffffff;
+            border: 1px solid #e2e8e4;
+            border-radius: var(--radius-md);
+            padding: 1.2rem;
+            transition: all 0.25s;
         }
         .action-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-            border-color: #40916c;
-        }
-        .action-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 4px;
-            background: linear-gradient(90deg, #40916c, #2d6a4f);
+            transform: translateY(-3px);
+            border-color: var(--vet-primary);
+            box-shadow: var(--shadow-md);
         }
         .action-card h3 {
-            color: #1b4332;
-            font-size: 1.2rem;
-            margin-bottom: 12px;
+            font-size: 1.1rem;
+            margin-bottom: 0.4rem;
+            color: var(--vet-dark);
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 0.5rem;
         }
         .action-card p {
-            color: #666;
-            margin-bottom: 20px;
-            line-height: 1.5;
-            font-size: 0.95rem;
+            color: var(--vet-text-light);
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+            line-height: 1.4;
         }
         .action-card a {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            background: #40916c;
+            gap: 0.5rem;
+            background: var(--vet-primary);
             color: white;
-            padding: 10px 20px;
-            border-radius: 6px;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
             text-decoration: none;
-            font-weight: 600;
-            transition: background 0.3s;
-            font-size: 0.95rem;
+            font-weight: 500;
+            font-size: 0.8rem;
+            transition: background 0.2s;
         }
-        .action-card a:hover {
-            background: #2d6a4f;
-        }
-        .patients-column {
-            background: white;
-            border-radius: 12px;
-            padding: 25px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            border-top: 5px solid #2d6a4f;
-        }
-        .patients-column h2 {
-            color: #1b4332;
-            font-size: 1.5rem;
-            margin-bottom: 25px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #e9ecef;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
+        .action-card a:hover { background: var(--vet-dark); }
+
+        /* Tabla de pacientes */
         .patients-table-container {
             overflow-x: auto;
+            margin: 0 -0.5rem;
+            padding: 0 0.5rem;
         }
         .patients-table {
             width: 100%;
             border-collapse: collapse;
+            font-size: 0.85rem;
         }
         .patients-table th {
-            background: #f8f9fa;
-            padding: 15px 12px;
             text-align: left;
-            color: #1b4332;
+            padding: 0.9rem 0.8rem;
+            background: #f8faf8;
+            color: var(--vet-dark);
             font-weight: 600;
-            border-bottom: 2px solid #dee2e6;
-            font-size: 0.95rem;
+            border-bottom: 2px solid #dee6de;
         }
         .patients-table td {
-            padding: 14px 12px;
-            border-bottom: 1px solid #eee;
-            font-size: 0.95rem;
+            padding: 0.9rem 0.8rem;
+            border-bottom: 1px solid #eef2ee;
+            vertical-align: middle;
         }
-        .patients-table tr:hover {
-            background: #f8f9fa;
+        .patients-table tr:hover td {
+            background-color: #fafdfa;
         }
         .table-action-link {
-            color: #40916c;
+            color: var(--vet-primary);
             text-decoration: none;
             font-weight: 500;
-            margin: 0 8px;
+            margin: 0 0.2rem;
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+            transition: background 0.2s;
             display: inline-flex;
             align-items: center;
-            gap: 5px;
-            padding: 5px 10px;
-            border-radius: 4px;
-            transition: background 0.3s;
+            gap: 0.3rem;
+            font-size: 0.75rem;
         }
         .table-action-link:hover {
-            background: rgba(64, 145, 108, 0.1);
-            text-decoration: none;
+            background: #e9f4e9;
         }
-        /* Mensajes de alerta unificados */
-        .alert {
-            padding: 15px 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border-left: 5px solid;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .alert i {
-            font-size: 1.4rem;
-        }
-        .alert-success {
-            background: #d4edda;
-            color: #155724;
-            border-left-color: #28a745;
-        }
-        .alert-info {
-            background: #d1ecf1;
-            color: #0c5460;
-            border-left-color: #17a2b8;
-        }
-        .alert-warning {
-            background: #fff3cd;
-            color: #856404;
-            border-left-color: #ffc107;
-        }
-        .alert-danger {
-            background: #f8d7da;
-            color: #721c24;
-            border-left-color: #dc3545;
-        }
+
+        /* Badges */
         .badge {
             display: inline-block;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 0.8rem;
+            padding: 0.2rem 0.7rem;
+            border-radius: 50px;
+            font-size: 0.7rem;
             font-weight: 600;
         }
-        .badge-admin {
-            background: #dc3545;
-            color: white;
+        .badge-admin { background: #dc3545; color: white; }
+        .badge-vet { background: #0d6efd; color: white; }
+        .badge-owner { background: #198754; color: white; }
+
+        /* Alertas */
+        .alert {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.8rem 1rem;
+            border-radius: var(--radius-md);
+            margin-bottom: 1rem;
+            border-left: 4px solid;
+            font-size: 0.85rem;
         }
-        .badge-vet {
-            background: #0d6efd;
-            color: white;
-        }
-        .badge-owner {
-            background: #198754;
-            color: white;
-        }
+        .alert-success { background: #e6f4ea; color: #155724; border-left-color: #28a745; }
+        .alert-info { background: #e1f0fa; color: #0c5460; border-left-color: #17a2b8; }
+        .alert-warning { background: #fff3cd; color: #856404; border-left-color: #ffc107; }
+        .alert-danger { background: #f8d7da; color: #721c24; border-left-color: #dc3545; }
+
+        /* Estado vacío */
         .empty-state {
             text-align: center;
-            padding: 40px 20px;
-            color: #6c757d;
+            padding: 2.5rem 1rem;
+            color: var(--vet-text-light);
         }
-        .empty-state i {
-            font-size: 3rem;
-            margin-bottom: 15px;
-            color: #dee2e6;
+        .empty-state i { font-size: 2.5rem; margin-bottom: 0.8rem; opacity: 0.5; }
+
+        /* Animación fade-in */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
         }
+        .fade-in { animation: fadeIn 0.4s ease-out; }
     </style>
 </head>
 <body class="fade-in">
     <?php include '../includes/navbar.php'; ?>
 
-    <!-- Breadcrumbs -->
     <div class="breadcrumb">
         <a href="welcome.php">Inicio</a> <span>›</span> <span>Dashboard</span>
     </div>
@@ -397,10 +350,10 @@ try {
                 </div>
             <?php endif; ?>
             
-            <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
-                <h3 style="font-size: 1.1rem; margin-bottom: 10px; color: #1b4332;">📅 Hoy</h3>
-                <p style="color: #666; font-size: 0.95rem;"><?php echo date('d/m/Y'); ?></p>
-                <p style="color: #666; font-size: 0.95rem; margin-top: 10px;">Accesos rápidos disponibles según tu rol</p>
+            <div style="margin-top: 1.2rem; padding: 1rem; background: #f8faf8; border-radius: 12px;">
+                <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--vet-dark);">📅 Hoy</h3>
+                <p style="color: var(--vet-text-light); font-size: 0.85rem;"><?php echo date('d/m/Y'); ?></p>
+                <p style="color: var(--vet-text-light); font-size: 0.8rem; margin-top: 0.5rem;">Accesos rápidos según tu rol</p>
             </div>
         </div>
         
@@ -451,9 +404,7 @@ try {
                     <i class="fas fa-dog"></i>
                     <p>No hay pacientes registrados.</p>
                     <?php if ($role_name === 'Propietario'): ?>
-                        <a href="pet_register.php" style="color: #40916c; text-decoration: none; font-weight: 600;">
-                            ¡Registra tu primera mascota!
-                        </a>
+                        <a href="pet_register.php" style="color: var(--vet-primary); text-decoration: none; font-weight: 600;">¡Registra tu primera mascota!</a>
                     <?php endif; ?>
                 </div>
             <?php else: ?>
@@ -475,28 +426,25 @@ try {
                                     <td data-label="Nombre">
                                         <strong><?php echo htmlspecialchars($pet['name'], ENT_QUOTES, 'UTF-8'); ?></strong>
                                         <?php if (isset($pet['gender'])): ?>
-                                            <br><small style="color: #666;"><?php echo htmlspecialchars($pet['gender'], ENT_QUOTES, 'UTF-8'); ?></small>
+                                            <br><small style="color: var(--vet-text-light);"><?php echo htmlspecialchars($pet['gender'], ENT_QUOTES, 'UTF-8'); ?></small>
                                         <?php endif; ?>
                                     </td>
-                                    
                                     <?php if ($role_name !== 'Propietario'): ?>
                                         <td data-label="Dueño"><?php echo htmlspecialchars($pet['owner_name'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?></td>
                                     <?php endif; ?>
-                                    
                                     <td data-label="Especie">
                                         <?php echo htmlspecialchars($pet['species_name'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?>
                                         <?php if (isset($pet['breed_name']) && $pet['breed_name'] !== 'N/A'): ?>
-                                            <br><small style="color: #666;"><?php echo htmlspecialchars($pet['breed_name'], ENT_QUOTES, 'UTF-8'); ?></small>
+                                            <br><small style="color: var(--vet-text-light);"><?php echo htmlspecialchars($pet['breed_name'], ENT_QUOTES, 'UTF-8'); ?></small>
                                         <?php endif; ?>
                                     </td>
-                                    
                                     <td data-label="Acciones">
-                                        <a href="pet_profile.php?id=<?php echo $pet['id']; ?>" class="table-action-link" title="Ver perfil">👁️ Perfil</a>
+                                        <a href="pet_profile.php?id=<?php echo $pet['id']; ?>" class="table-action-link" title="Ver perfil"><i class="fas fa-eye"></i> Perfil</a>
                                         <?php if ($role_name !== 'Propietario'): ?>
-                                            <a href="vaccine_register.php?id=<?php echo $pet['id']; ?>" class="table-action-link" title="Registrar vacuna">💉 Vacunar</a>
+                                            <a href="vaccine_register.php?id=<?php echo $pet['id']; ?>" class="table-action-link" title="Registrar vacuna"><i class="fas fa-syringe"></i> Vacunar</a>
                                         <?php endif; ?>
                                         <?php if ($role_name === 'admin' || $role_name === 'Veterinario'): ?>
-                                            <a href="edit_pet.php?id=<?php echo $pet['id']; ?>" class="table-action-link" title="Editar">✏️ Editar</a>
+                                            <a href="edit_pet.php?id=<?php echo $pet['id']; ?>" class="table-action-link" title="Editar"><i class="fas fa-edit"></i> Editar</a>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
@@ -504,7 +452,7 @@ try {
                         </tbody>
                     </table>
                 </div>
-                <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; font-size: 0.9rem; color: #666;">
+                <div style="margin-top: 1.2rem; padding: 0.8rem; background: #f8faf8; border-radius: 10px; font-size: 0.8rem; color: var(--vet-text-light); text-align: right;">
                     <strong>Total:</strong> <?php echo count($pets); ?> paciente<?php echo count($pets) !== 1 ? 's' : ''; ?>
                 </div>
             <?php endif; ?>
