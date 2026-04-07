@@ -6,13 +6,12 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     exit;
 }
 
-// Solo admin puede acceder
 if (($_SESSION['role_name'] ?? '') !== 'admin') {
     header("Location: welcome.php?error=access_denied");
     exit;
 }
 
-require_once '../includes/config.php'; // Ahora se espera que $conn sea un objeto PDO
+require_once '../includes/config.php';
 
 $mensaje = '';
 $tipo_mensaje = '';
@@ -26,10 +25,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $mensaje = "Base de datos optimizada (simulado).";
         $tipo_mensaje = 'success';
     }
-    // Ya no manejamos 'respaldar_bd' aquí, porque ahora es un enlace directo
 }
 
-// Obtener información básica del sistema usando PDO
 $stats = [
     'total_veterinarios' => 0,
     'total_propietarios' => 0,
@@ -43,62 +40,72 @@ try {
         (SELECT COUNT(*) FROM users WHERE role_id = 3) as total_propietarios,
         (SELECT COUNT(*) FROM pets) as total_pacientes,
         (SELECT COUNT(*) FROM appointments WHERE status = 'PENDIENTE' AND DATE(appointment_date) = CURDATE()) as citas_hoy";
-
-    $stmt = $conn->query($sql); // PDO::query devuelve un PDOStatement
+    $stmt = $conn->query($sql);
     if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $stats = $row;
     }
 } catch (PDOException $e) {
-    // En un entorno real podrías loguear el error y mostrar un mensaje genérico
     $mensaje = "Error al obtener estadísticas: " . $e->getMessage();
     $tipo_mensaje = 'danger';
 }
-
-// No es necesario cerrar la conexión explícitamente; PDO la cierra al final del script.
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <title>Herramientas de Administración - VetCtrl</title>
-    <link rel="stylesheet" href="../public/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { background-color: #f8f9fa; padding-top: 70px; font-family: 'Segoe UI', sans-serif; }
-        .breadcrumb { max-width: 1200px; margin: 10px auto 0; padding: 10px 20px; background: transparent; font-size: 0.95rem; }
-        .breadcrumb a { color: #40916c; text-decoration: none; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f4f7f9;
+            color: #1e2f2a;
+            padding-top: 72px;
+        }
+        :root {
+            --vet-dark: #1b4332;
+            --vet-primary: #40916c;
+            --vet-light: #74c69d;
+            --vet-bg: #f4f7f9;
+            --vet-card: #ffffff;
+            --shadow-md: 0 8px 20px rgba(0,0,0,0.05);
+            --radius-lg: 16px;
+        }
+        .breadcrumb { max-width: 1200px; margin: 0 auto 1rem auto; padding: 0.5rem 1.5rem; font-size: 0.85rem; }
+        .breadcrumb a { color: var(--vet-primary); text-decoration: none; }
         .breadcrumb a:hover { text-decoration: underline; }
         .breadcrumb span { color: #6c757d; }
-        .container { max-width: 1200px; margin: 20px auto; padding: 20px; }
-        .card { background: white; border-radius: 10px; padding: 25px; margin-bottom: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-        h1 { color: #1b4332; border-bottom: 2px solid #b68b40; padding-bottom: 10px; margin-bottom: 25px; display: flex; align-items: center; gap: 10px; }
-        .alert { padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid; display: flex; align-items: center; gap: 12px; }
-        .alert i { font-size: 1.4rem; }
-        .alert-success { background: #d4edda; color: #155724; border-left-color: #28a745; }
-        .alert-danger { background: #f8d7da; color: #721c24; border-left-color: #dc3545; }
-        .alert-info { background: #d1ecf1; color: #0c5460; border-left-color: #17a2b8; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 20px; margin-bottom: 30px; }
-        .stat-card { background: #f8f9fa; border-radius: 8px; padding: 20px; text-align: center; border-left: 4px solid #40916c; }
-        .stat-value { font-size: 2rem; font-weight: bold; color: #1b4332; }
-        .stat-label { color: #6c757d; margin-top: 5px; }
-        .tools-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px,1fr)); gap: 20px; }
-        .tool { background: #f8f9fa; border-radius: 8px; padding: 20px; text-align: center; }
-        .btn { padding: 10px 20px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block; }
-        .btn-primary { background: #40916c; color: white; }
-        .btn-primary:hover { background: #2d6a4f; }
+        .container { max-width: 1200px; margin: 1.5rem auto; padding: 0 1.5rem; }
+        .card { background: var(--vet-card); border-radius: var(--radius-lg); padding: 1.8rem; box-shadow: var(--shadow-md); margin-bottom: 2rem; }
+        h1 { color: var(--vet-dark); border-bottom: 2px solid var(--vet-light); padding-bottom: 0.75rem; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem; font-size: 1.6rem; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 1.2rem; margin-bottom: 2rem; }
+        .stat-card { background: #f8faf8; border-radius: 14px; padding: 1.2rem; text-align: center; border-left: 4px solid var(--vet-primary); }
+        .stat-value { font-size: 2rem; font-weight: 700; color: var(--vet-dark); }
+        .stat-label { color: var(--vet-text-light); margin-top: 0.3rem; font-size: 0.85rem; }
+        .tools-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px,1fr)); gap: 1.2rem; margin: 1.5rem 0; }
+        .tool { background: #f8faf8; border-radius: 14px; padding: 1.5rem; text-align: center; transition: transform 0.2s; }
+        .tool:hover { transform: translateY(-3px); background: #ffffff; box-shadow: var(--shadow-md); }
+        .btn { padding: 0.6rem 1.2rem; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block; font-size: 0.85rem; transition: 0.2s; }
+        .btn-primary { background: var(--vet-primary); color: white; }
+        .btn-primary:hover { background: var(--vet-dark); }
         .btn-secondary { background: #6c757d; color: white; }
         .btn-secondary:hover { background: #5a6268; }
-        .module-links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
-        .module-link { background: #e9ecef; padding: 10px 15px; border-radius: 6px; text-decoration: none; color: #1b4332; font-weight: 600; }
-        .module-link:hover { background: #dee2e6; }
+        .module-links { display: flex; flex-wrap: wrap; gap: 0.8rem; margin: 1.5rem 0 1rem; }
+        .module-link { background: #eef2ee; padding: 0.6rem 1rem; border-radius: 10px; text-decoration: none; color: var(--vet-dark); font-weight: 500; font-size: 0.85rem; transition: 0.2s; }
+        .module-link:hover { background: var(--vet-primary); color: white; }
+        .alert { display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-radius: 12px; margin-bottom: 1.2rem; border-left: 4px solid; }
+        .alert-success { background: #e6f4ea; color: #155724; border-left-color: #28a745; }
+        .alert-danger { background: #f8d7da; color: #721c24; border-left-color: #dc3545; }
+        @media (max-width: 768px) { .container { padding: 0 1rem; } .card { padding: 1.2rem; } }
     </style>
 </head>
 <body>
     <?php include '../includes/navbar.php'; ?>
 
     <div class="breadcrumb">
-        <a href="welcome.php">Inicio</a> <span>›</span>
-        <span>Herramientas Admin</span>
+        <a href="welcome.php">Inicio</a> <span>›</span> <span>Herramientas Admin</span>
     </div>
 
     <div class="container">
@@ -107,56 +114,44 @@ try {
 
             <?php if ($mensaje): ?>
                 <div class="alert alert-<?php echo $tipo_mensaje; ?>">
-                    <i class="fas fa-<?php echo $tipo_mensaje === 'success' ? 'check-circle' : ($tipo_mensaje === 'danger' ? 'exclamation-triangle' : 'info-circle'); ?>"></i>
+                    <i class="fas fa-<?php echo $tipo_mensaje === 'success' ? 'check-circle' : 'exclamation-triangle'; ?>"></i>
                     <?php echo htmlspecialchars($mensaje); ?>
                 </div>
             <?php endif; ?>
 
             <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-value"><?php echo $stats['total_veterinarios']; ?></div>
-                    <div class="stat-label">Veterinarios</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value"><?php echo $stats['total_propietarios']; ?></div>
-                    <div class="stat-label">Propietarios</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value"><?php echo $stats['total_pacientes']; ?></div>
-                    <div class="stat-label">Pacientes</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value"><?php echo $stats['citas_hoy']; ?></div>
-                    <div class="stat-label">Citas Pendientes Hoy</div>
-                </div>
+                <div class="stat-card"><div class="stat-value"><?php echo $stats['total_veterinarios']; ?></div><div class="stat-label">Veterinarios</div></div>
+                <div class="stat-card"><div class="stat-value"><?php echo $stats['total_propietarios']; ?></div><div class="stat-label">Propietarios</div></div>
+                <div class="stat-card"><div class="stat-value"><?php echo $stats['total_pacientes']; ?></div><div class="stat-label">Pacientes</div></div>
+                <div class="stat-card"><div class="stat-value"><?php echo $stats['citas_hoy']; ?></div><div class="stat-label">Citas Pendientes Hoy</div></div>
             </div>
 
-            <h3 style="margin-top:30px;">Acciones rápidas</h3>
+            <h3 style="margin: 1.2rem 0 0.8rem;">Acciones rápidas</h3>
             <div class="tools-grid">
                 <div class="tool">
-                    <i class="fas fa-broom fa-2x" style="color:#40916c;"></i>
-                    <h4>Limpiar Caché</h4>
+                    <i class="fas fa-broom fa-2x" style="color: var(--vet-primary);"></i>
+                    <h4 style="margin: 0.8rem 0;">Limpiar Caché</h4>
                     <form method="post">
                         <input type="hidden" name="accion" value="limpiar_cache">
                         <button type="submit" class="btn btn-primary">Ejecutar</button>
                     </form>
                 </div>
                 <div class="tool">
-                    <i class="fas fa-database fa-2x" style="color:#40916c;"></i>
-                    <h4>Optimizar BD</h4>
+                    <i class="fas fa-database fa-2x" style="color: var(--vet-primary);"></i>
+                    <h4 style="margin: 0.8rem 0;">Optimizar BD</h4>
                     <form method="post">
                         <input type="hidden" name="accion" value="optimizar_bd">
                         <button type="submit" class="btn btn-primary">Ejecutar</button>
                     </form>
                 </div>
                 <div class="tool">
-                    <i class="fas fa-hdd fa-2x" style="color:#40916c;"></i>
-                    <h4>Respaldar BD</h4>
+                    <i class="fas fa-hdd fa-2x" style="color: var(--vet-primary);"></i>
+                    <h4 style="margin: 0.8rem 0;">Respaldar BD</h4>
                     <a href="backup_system.php" class="btn btn-primary">Ir a Backup</a>
                 </div>
             </div>
 
-            <h3 style="margin-top:30px;">Módulos de administración</h3>
+            <h3 style="margin: 1.2rem 0 0.8rem;">Módulos de administración</h3>
             <div class="module-links">
                 <a href="employee_list.php" class="module-link"><i class="fas fa-users-cog"></i> Empleados</a>
                 <a href="log_viewer.php" class="module-link"><i class="fas fa-history"></i> Bitácora</a>
@@ -166,7 +161,7 @@ try {
                 <a href="daily_report.php" class="module-link"><i class="fas fa-file-alt"></i> Reporte Diario</a>
             </div>
 
-            <div style="margin-top:20px;">
+            <div style="margin-top: 1.5rem;">
                 <a href="welcome.php" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver al Dashboard</a>
             </div>
         </div>
