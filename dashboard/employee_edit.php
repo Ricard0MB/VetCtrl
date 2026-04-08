@@ -130,23 +130,23 @@ try {
         <?php if ($success): ?><div class="alert alert-success"><i class="fas fa-check-circle"></i> <?php echo htmlspecialchars($success); ?></div><?php endif; ?>
         <form method="post">
             <div class="form-row">
-                <div class="form-group"><label>Cédula</label><input type="text" name="ci" value="<?php echo htmlspecialchars($employee['ci'] ?? ''); ?>"></div>
-                <div class="form-group"><label>Rol</label><select name="role_id"><?php foreach ($roles as $r): ?><option value="<?php echo $r['id']; ?>" <?php echo ($r['id']==$employee['role_id'])?'selected':''; ?>><?php echo htmlspecialchars($r['name']); ?></option><?php endforeach; ?></select></div>
+                <div class="form-group"><label>Cédula</label><input type="text" name="ci" value="<?php echo htmlspecialchars((string)($employee['ci']??'')); ?>"></div>
+                <div class="form-group"><label>Rol</label><select name="role_id"><?php foreach ($roles as $r): ?><option value="<?php echo $r['id']; ?>" <?php echo ($r['id']==($employee['role_id']??0))?'selected':''; ?>><?php echo htmlspecialchars($r['name']); ?></option><?php endforeach; ?></select></div>
             </div>
             <div class="form-row">
-                <div class="form-group"><label>Nombres *</label><input type="text" name="first_name" value="<?php echo htmlspecialchars($employee['first_name']); ?>" required></div>
-                <div class="form-group"><label>Apellidos *</label><input type="text" name="last_name" value="<?php echo htmlspecialchars($employee['last_name']); ?>" required></div>
+                <div class="form-group"><label>Nombres *</label><input type="text" name="first_name" value="<?php echo htmlspecialchars((string)($employee['first_name']??'')); ?>" required></div>
+                <div class="form-group"><label>Apellidos *</label><input type="text" name="last_name" value="<?php echo htmlspecialchars((string)($employee['last_name']??'')); ?>" required></div>
             </div>
             <div class="form-row">
-                <div class="form-group"><label>Email *</label><input type="email" name="email" value="<?php echo htmlspecialchars($employee['email']); ?>" required></div>
-                <div class="form-group"><label>Teléfono</label><input type="text" name="phone" value="<?php echo htmlspecialchars($employee['phone'] ?? ''); ?>"></div>
+                <div class="form-group"><label>Email *</label><input type="email" name="email" value="<?php echo htmlspecialchars((string)($employee['email']??'')); ?>" required></div>
+                <div class="form-group"><label>Teléfono</label><input type="text" name="phone" value="<?php echo htmlspecialchars((string)($employee['phone']??'')); ?>"></div>
             </div>
             <div class="form-row">
-                <div class="form-group"><label>Cargo *</label><input type="text" name="position" value="<?php echo htmlspecialchars($employee['position']); ?>" required></div>
-                <div class="form-group"><label>Estado</label><select name="status"><option value="active" <?php echo $employee['status']=='active'?'selected':''; ?>>Activo</option><option value="inactive" <?php echo $employee['status']=='inactive'?'selected':''; ?>>Inactivo</option><option value="suspended" <?php echo $employee['status']=='suspended'?'selected':''; ?>>Suspendido</option></select></div>
+                <div class="form-group"><label>Cargo *</label><input type="text" name="position" value="<?php echo htmlspecialchars((string)($employee['position']??'')); ?>" required></div>
+                <div class="form-group"><label>Estado</label><select name="status"><option value="active" <?php echo ($employee['status']??'')=='active'?'selected':''; ?>>Activo</option><option value="inactive" <?php echo ($employee['status']??'')=='inactive'?'selected':''; ?>>Inactivo</option><option value="suspended" <?php echo ($employee['status']??'')=='suspended'?'selected':''; ?>>Suspendido</option></select></div>
             </div>
-            <div class="form-group"><label>Dirección</label><textarea name="address" rows="3"><?php echo htmlspecialchars($employee['address'] ?? ''); ?></textarea></div>
-            <div class="form-footer"><button type="submit" class="btn"><i class="fas fa-save"></i> Guardar Cambios</button><a href="employee_view.php?id=<?php echo $employee_id; ?>" class="btn btn-secondary"><i class="fas fa-eye"></i> Ver Perfil</a><a href="employee_list.php" class="btn btn-secondary"><i class="fas fa-list"></i> Lista</a></div>
+            <div class="form-group"><label>Dirección</label><textarea name="address" rows="3"><?php echo htmlspecialchars((string)($employee['address']??'')); ?></textarea></div>
+            <div class="form-footer"><button type="submit" class="btn"><i class="fas fa-save"></i> Guardar Cambios</button><a href="employee_view.php?id=<?php echo (int)$employee_id; ?>" class="btn btn-secondary"><i class="fas fa-eye"></i> Ver Perfil</a><a href="employee_list.php" class="btn btn-secondary"><i class="fas fa-list"></i> Lista</a></div>
         </form>
     </div>
     <?php include '../includes/footer.php'; ?>
