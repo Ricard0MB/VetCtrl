@@ -18,7 +18,6 @@ $kpis = [];
 $ultimos = [];
 
 try {
-    // KPIs principales
     $sql = "SELECT 
         (SELECT COUNT(*) FROM users) as usuarios_totales,
         (SELECT COUNT(*) FROM pets) as pacientes_totales,
@@ -27,7 +26,6 @@ try {
     $stmt = $conn->query($sql);
     $kpis = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
-    // Últimos 5 pacientes registrados
     $sql2 = "SELECT p.name, pt.name as especie, p.created_at 
              FROM pets p 
              LEFT JOIN pet_types pt ON p.type_id = pt.id 
@@ -36,41 +34,159 @@ try {
     $stmt2 = $conn->query($sql2);
     $ultimos = $stmt2->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    // En producción podrías loguear el error y asignar valores por defecto
     $kpis = ['usuarios_totales' => 0, 'pacientes_totales' => 0, 'consultas_hoy' => 0, 'citas_pendientes' => 0];
     $ultimos = [];
-    // Opcional: mostrar mensaje de error
-    // $error = "Error al cargar métricas: " . $e->getMessage();
 }
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard de Métricas - VetCtrl</title>
     <link rel="stylesheet" href="../public/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { background-color: #f8f9fa; padding-top: 70px; font-family: 'Segoe UI', sans-serif; }
-        .breadcrumb { max-width: 1200px; margin: 10px auto 0; padding: 10px 20px; background: transparent; font-size: 0.95rem; }
-        .breadcrumb a { color: #40916c; text-decoration: none; }
+        :root {
+            --primary-dark: #1b4332;
+            --primary: #2d6a4f;
+            --primary-light: #40916c;
+            --accent: #b68b40;
+            --gray-bg: #f8fafc;
+        }
+        body {
+            background-color: var(--gray-bg);
+            padding-top: 70px;
+            font-family: 'Inter', system-ui, 'Segoe UI', sans-serif;
+        }
+        .breadcrumb {
+            max-width: 1200px;
+            margin: 10px auto 0;
+            padding: 10px 20px;
+            background: transparent;
+            font-size: 0.9rem;
+        }
+        .breadcrumb a { color: var(--primary-light); text-decoration: none; }
         .breadcrumb a:hover { text-decoration: underline; }
-        .breadcrumb span { color: #6c757d; }
-        .container { max-width: 1200px; margin: 20px auto; padding: 20px; }
-        .card { background: white; border-radius: 10px; padding: 25px; margin-bottom: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-        h1 { color: #1b4332; border-bottom: 2px solid #b68b40; padding-bottom: 10px; margin-bottom: 25px; display: flex; align-items: center; gap: 10px; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap:20px; margin-bottom:30px; }
-        .stat-card { background: #f8f9fa; border-radius: 8px; padding: 20px; text-align:center; border-left:4px solid #40916c; }
-        .stat-value { font-size:2rem; font-weight:bold; color:#1b4332; }
-        .stat-label { color:#6c757d; margin-top:5px; }
-        table { width:100%; border-collapse:collapse; margin-top:20px; }
-        th { background:#40916c; color:white; padding:12px; text-align:left; }
-        td { padding:10px; border-bottom:1px solid #ddd; }
-        .btn { padding:10px 20px; border:none; border-radius:6px; font-weight:600; cursor:pointer; text-decoration:none; display:inline-block; }
-        .btn-primary { background:#40916c; color:white; }
-        .btn-primary:hover { background:#2d6a4f; }
-        .btn-secondary { background:#6c757d; color:white; }
-        .btn-secondary:hover { background:#5a6268; }
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 28px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
+            border: 1px solid #eef2f8;
+        }
+        h1 {
+            color: var(--primary-dark);
+            border-bottom: 3px solid var(--accent);
+            padding-bottom: 12px;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 700;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+        .stat-card {
+            background: linear-gradient(145deg, #ffffff 0%, #f9fbfd 100%);
+            border-radius: 28px;
+            padding: 24px 20px;
+            text-align: center;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.03);
+            border: 1px solid #eef2f8;
+        }
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -12px rgba(0,0,0,0.1);
+            border-color: var(--primary-light);
+        }
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--primary-dark);
+            line-height: 1.2;
+        }
+        .stat-label {
+            color: #5b6e8c;
+            margin-top: 12px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+        }
+        .stat-icon {
+            font-size: 2rem;
+            color: var(--accent);
+            margin-bottom: 12px;
+        }
+        h3 {
+            font-size: 1.3rem;
+            color: var(--primary-dark);
+            margin: 20px 0 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+        th {
+            background: var(--primary-dark);
+            color: white;
+            padding: 14px;
+            text-align: left;
+            font-weight: 600;
+        }
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #eef2f8;
+        }
+        .btn {
+            padding: 10px 24px;
+            border-radius: 40px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: 0.2s;
+        }
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        .btn-primary:hover {
+            background: var(--primary-dark);
+        }
+        .btn-secondary {
+            background: #eef2f8;
+            color: var(--primary-dark);
+        }
+        .btn-secondary:hover {
+            background: #e2e8f0;
+        }
+        .actions-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        @media (max-width: 640px) {
+            .stats-grid { gap: 16px; }
+            .card { padding: 20px; }
+        }
     </style>
 </head>
 <body>
@@ -83,55 +199,33 @@ try {
 
     <div class="container">
         <div class="card">
-            <h1><i class="fas fa-chart-bar"></i> Dashboard de Métricas</h1>
-
-            <?php if (isset($error)): ?>
-                <div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div>
-            <?php endif; ?>
+            <h1><i class="fas fa-chart-line"></i> Dashboard de Métricas</h1>
 
             <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-value"><?php echo $kpis['usuarios_totales'] ?? 0; ?></div>
-                    <div class="stat-label">Usuarios totales</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value"><?php echo $kpis['pacientes_totales'] ?? 0; ?></div>
-                    <div class="stat-label">Pacientes totales</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value"><?php echo $kpis['consultas_hoy'] ?? 0; ?></div>
-                    <div class="stat-label">Consultas hoy</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value"><?php echo $kpis['citas_pendientes'] ?? 0; ?></div>
-                    <div class="stat-label">Citas pendientes</div>
-                </div>
+                <div class="stat-card"><div class="stat-icon"><i class="fas fa-users"></i></div><div class="stat-value"><?php echo $kpis['usuarios_totales'] ?? 0; ?></div><div class="stat-label">Usuarios totales</div></div>
+                <div class="stat-card"><div class="stat-icon"><i class="fas fa-paw"></i></div><div class="stat-value"><?php echo $kpis['pacientes_totales'] ?? 0; ?></div><div class="stat-label">Pacientes totales</div></div>
+                <div class="stat-card"><div class="stat-icon"><i class="fas fa-stethoscope"></i></div><div class="stat-value"><?php echo $kpis['consultas_hoy'] ?? 0; ?></div><div class="stat-label">Consultas hoy</div></div>
+                <div class="stat-card"><div class="stat-icon"><i class="fas fa-calendar-check"></i></div><div class="stat-value"><?php echo $kpis['citas_pendientes'] ?? 0; ?></div><div class="stat-label">Citas pendientes</div></div>
             </div>
 
-            <h3>Últimos pacientes registrados</h3>
+            <h3><i class="fas fa-dog"></i> Últimos pacientes registrados</h3>
             <table>
-                <thead>
-                    <tr><th>Nombre</th><th>Especie</th><th>Fecha</th></tr>
-                </thead>
+                <thead><tr><th>Nombre</th><th>Especie</th><th>Fecha</th></tr></thead>
                 <tbody>
                     <?php if (!empty($ultimos)): ?>
                         <?php foreach ($ultimos as $p): ?>
-                        <tr>
-                            <td><?php echo htmlspecialchars($p['name']); ?></td>
-                            <td><?php echo htmlspecialchars($p['especie'] ?? 'N/A'); ?></td>
-                            <td><?php echo date('d/m/Y', strtotime($p['created_at'])); ?></td>
-                        </tr>
+                        <tr><td><?php echo htmlspecialchars($p['name']); ?></td><td><?php echo htmlspecialchars($p['especie'] ?? 'N/A'); ?></td><td><?php echo date('d/m/Y', strtotime($p['created_at'])); ?></td></tr>
                         <?php endforeach; ?>
                     <?php else: ?>
-                        <tr><td colspan="3">No hay registros</td></tr>
+                        <tr><td colspan="3" class="no-data">No hay registros</td></tr>
                     <?php endif; ?>
                 </tbody>
             </table>
 
-            <div style="margin-top:20px;">
-                <a href="daily_report.php" class="btn btn-primary">Reporte Diario</a>
-                <a href="statistics_dashboard.php" class="btn btn-secondary">Estadísticas avanzadas</a>
-                <a href="welcome.php" class="btn btn-secondary">Volver</a>
+            <div class="actions-group">
+                <a href="daily_report.php" class="btn btn-primary"><i class="fas fa-file-alt"></i> Reporte Diario</a>
+                <a href="statistics_dashboard.php" class="btn btn-secondary"><i class="fas fa-chart-pie"></i> Estadísticas avanzadas</a>
+                <a href="welcome.php" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Volver</a>
             </div>
         </div>
     </div>
