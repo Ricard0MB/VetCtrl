@@ -1,427 +1,88 @@
 <?php
 session_start();
-require_once '../includes/config.php'; // $conn es un objeto PDO
+require_once '../includes/config.php';
 
-// Verificar permisos
-$user_role = $_SESSION['role_name'] ?? '';
-if (!in_array($user_role, ['Veterinario', 'admin'])) {
-    header("Location: welcome.php");
+if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !in_array($_SESSION['role_name'] ?? '', ['admin', 'Veterinario'])) {
+    header("Location: ../index.php");
     exit;
 }
 
-// Obtener ID del empleado
 $employee_id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
-
 if (!$employee_id || $employee_id <= 0) {
     header("Location: employee_list.php");
     exit;
 }
 
-$employee = null;
-
 try {
-    // Consultar datos del empleado
-    $sql = "SELECT u.*, r.name as role_name 
-            FROM users u 
-            LEFT JOIN roles r ON u.role_id = r.id 
-            WHERE u.id = :id";
-    $stmt = $conn->prepare($sql);
+    $stmt = $conn->prepare("SELECT u.*, r.name as role_name FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.id = :id");
     $stmt->bindValue(':id', $employee_id, PDO::PARAM_INT);
     $stmt->execute();
-
     $employee = $stmt->fetch(PDO::FETCH_ASSOC);
-
     if (!$employee) {
         header("Location: employee_list.php");
         exit;
     }
 } catch (PDOException $e) {
-    // Manejo de error: podrías redirigir con mensaje o mostrar error
-    die("Error al cargar empleado: " . $e->getMessage());
+    die("Error al cargar empleado.");
 }
-
-// No es necesario cerrar la conexión explícitamente, pero si se desea se puede hacer $conn = null;
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Detalles de Empleado - VetControl</title>
-    <link rel="stylesheet" href="../public/css/style.css">
+    <title>Detalles de Empleado - VetCtrl</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            padding-top: 80px;
-            background-color: #f8f9fa;
-            font-family: 'Segoe UI', Arial, sans-serif;
+            font-family: 'Inter', sans-serif;
+            background: #f4f7f9;
+            color: #1e2f2a;
+            padding-top: 72px;
         }
-        
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        
-        .header {
-            background: linear-gradient(135deg, #1b4332 0%, #2d6a4f 100%);
-            color: white;
-            padding: 25px;
-            border-radius: 10px;
-            margin-bottom: 30px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        
-        .header h1 {
-            font-size: 2rem;
-            margin-bottom: 10px;
-            color: white;
-        }
-        
-        .header-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-        }
-        
-        .btn {
-            padding: 10px 20px;
-            border-radius: 6px;
-            text-decoration: none;
-            font-weight: 600;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .btn-back {
-            background: #6c757d;
-            color: white;
-        }
-        
-        .btn-edit {
-            background: #0dcaf0;
-            color: white;
-        }
-        
-        .btn-list {
-            background: #40916c;
-            color: white;
-        }
-        
-        .btn:hover {
-            opacity: 0.9;
-        }
-        
-        /* Tarjeta de perfil */
-        .profile-card {
-            background: white;
-            border-radius: 10px;
-            padding: 30px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            margin-bottom: 30px;
-        }
-        
-        .profile-header {
-            display: flex;
-            align-items: center;
-            gap: 25px;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #eee;
-        }
-        
-        .profile-avatar {
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #1b4332 0%, #2d6a4f 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 3rem;
-            color: white;
-        }
-        
-        .profile-info h2 {
-            margin: 0;
-            color: #1b4332;
-            font-size: 1.8rem;
-        }
-        
-        .profile-info .position {
-            color: #40916c;
-            font-size: 1.2rem;
-            margin: 5px 0;
-        }
-        
-        .status-badge {
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            display: inline-block;
-        }
-        
-        .status-active {
-            background: #d1e7dd;
-            color: #0f5132;
-        }
-        
-        .status-inactive {
-            background: #fff3cd;
-            color: #856404;
-        }
-        
-        .status-suspended {
-            background: #f8d7da;
-            color: #842029;
-        }
-        
-        /* Grid de información */
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 25px;
-        }
-        
-        .info-section {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            border-left: 4px solid #40916c;
-        }
-        
-        .info-section h3 {
-            color: #1b4332;
-            margin-top: 0;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #dee2e6;
-        }
-        
-        .info-item {
-            margin-bottom: 15px;
-        }
-        
-        .info-item:last-child {
-            margin-bottom: 0;
-        }
-        
-        .info-label {
-            font-weight: 600;
-            color: #495057;
-            display: block;
-            margin-bottom: 5px;
-        }
-        
-        .info-value {
-            color: #212529;
-            padding: 8px;
-            background: white;
-            border-radius: 4px;
-            border: 1px solid #dee2e6;
-            min-height: 38px;
-            display: flex;
-            align-items: center;
-        }
-        
-        .empty-value {
-            color: #6c757d;
-            font-style: italic;
-        }
-        
-        /* Responsive */
-        @media (max-width: 768px) {
-            .profile-header {
-                flex-direction: column;
-                text-align: center;
-            }
-            
-            .info-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .header-actions {
-                flex-wrap: wrap;
-            }
-        }
+        :root { --vet-dark: #1b4332; --vet-primary: #40916c; --shadow-md: 0 8px 20px rgba(0,0,0,0.05); --radius-lg: 16px; }
+        .breadcrumb { max-width: 1000px; margin: 0 auto 1rem auto; padding: 0.5rem 1.5rem; font-size: 0.85rem; }
+        .breadcrumb a { color: var(--vet-primary); text-decoration: none; }
+        .container { max-width: 1000px; margin: 1.5rem auto; background: white; border-radius: var(--radius-lg); padding: 2rem; box-shadow: var(--shadow-md); }
+        .profile-header { display: flex; align-items: center; gap: 1.5rem; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid #e2e8e2; }
+        .avatar { width: 100px; height: 100px; border-radius: 50%; background: linear-gradient(135deg, #1b4332 0%, #2d6a4f 100%); display: flex; align-items: center; justify-content: center; font-size: 2.5rem; color: white; }
+        .profile-info h2 { font-size: 1.8rem; color: var(--vet-dark); }
+        .profile-info .position { color: var(--vet-primary); font-weight: 500; margin: 0.2rem 0; }
+        .status-badge { display: inline-block; padding: 0.2rem 0.8rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+        .status-active { background: #d1e7dd; color: #0f5132; }
+        .status-inactive { background: #fff3cd; color: #856404; }
+        .status-suspended { background: #f8d7da; color: #842029; }
+        .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px,1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .info-section { background: #f8faf8; padding: 1.2rem; border-radius: 12px; border-left: 4px solid var(--vet-primary); }
+        .info-section h3 { margin-bottom: 1rem; color: var(--vet-dark); font-size: 1.1rem; }
+        .info-item { margin-bottom: 0.8rem; }
+        .info-label { font-weight: 600; color: #495057; font-size: 0.8rem; display: block; margin-bottom: 0.2rem; }
+        .info-value { background: white; padding: 0.5rem; border-radius: 8px; border: 1px solid #dee2e6; font-size: 0.85rem; }
+        .btn-group { display: flex; gap: 1rem; justify-content: center; margin-top: 1.5rem; flex-wrap: wrap; }
+        .btn { padding: 0.6rem 1.2rem; border-radius: 8px; text-decoration: none; font-weight: 600; transition: 0.2s; display: inline-flex; align-items: center; gap: 0.5rem; }
+        .btn-primary { background: var(--vet-primary); color: white; }
+        .btn-primary:hover { background: var(--vet-dark); }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        @media (max-width: 768px) { .container { margin: 1rem; padding: 1rem; } .profile-header { flex-direction: column; text-align: center; } }
     </style>
 </head>
 <body>
     <?php include '../includes/navbar.php'; ?>
-    
+    <div class="breadcrumb"><a href="welcome.php">Inicio</a> <span>›</span> <a href="employee_list.php">Empleados</a> <span>›</span> <span>Detalles</span></div>
     <div class="container">
-        <div class="header">
-            <h1>👤 Detalles del Empleado</h1>
-            <div class="header-actions">
-                <a href="employee_list.php" class="btn btn-back">← Volver a la lista</a>
-                <a href="employee_edit.php?id=<?php echo $employee_id; ?>" class="btn btn-edit">✏️ Editar Empleado</a>
-                <a href="employee_list.php" class="btn btn-list">📋 Ver todos</a>
-            </div>
+        <div class="profile-header">
+            <div class="avatar"><?php echo strtoupper(substr($employee['first_name']??'E',0,1).substr($employee['last_name']??'M',0,1)); ?></div>
+            <div class="profile-info"><h2><?php echo htmlspecialchars($employee['first_name'].' '.$employee['last_name']); ?></h2><div class="position"><?php echo htmlspecialchars($employee['position']); ?></div><div><span class="status-badge status-<?php echo $employee['status']; ?>"><?php echo ucfirst($employee['status']); ?></span> <span style="margin-left:0.5rem;"><?php echo htmlspecialchars($employee['role_name']); ?></span></div></div>
         </div>
-        
-        <!-- Tarjeta de perfil -->
-        <div class="profile-card">
-            <div class="profile-header">
-                <div class="profile-avatar">
-                    <?php echo strtoupper(substr($employee['first_name'] ?? 'E', 0, 1) . substr($employee['last_name'] ?? 'M', 0, 1)); ?>
-                </div>
-                <div class="profile-info">
-                    <h2><?php echo htmlspecialchars($employee['first_name'] . ' ' . $employee['last_name']); ?></h2>
-                    <div class="position"><?php echo htmlspecialchars($employee['position']); ?></div>
-                    <div>
-                        <?php 
-                        $status_class = 'status-' . $employee['status'];
-                        $status_text = ucfirst($employee['status']);
-                        ?>
-                        <span class="status-badge <?php echo $status_class; ?>">
-                            <?php echo $status_text; ?>
-                        </span>
-                        <span style="margin-left: 10px; color: #6c757d;">
-                            <?php echo htmlspecialchars($employee['role_name']); ?>
-                        </span>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Grid de información -->
-            <div class="info-grid">
-                <!-- Información Personal -->
-                <div class="info-section">
-                    <h3>📝 Información Personal</h3>
-                    
-                    <div class="info-item">
-                        <span class="info-label">Cédula de Identidad:</span>
-                        <div class="info-value">
-                            <?php echo htmlspecialchars($employee['ci'] ?? '<span class="empty-value">No especificada</span>'); ?>
-                        </div>
-                    </div>
-                    
-                    <div class="info-item">
-                        <span class="info-label">Email:</span>
-                        <div class="info-value">
-                            <?php echo htmlspecialchars($employee['email']); ?>
-                        </div>
-                    </div>
-                    
-                    <div class="info-item">
-                        <span class="info-label">Teléfono:</span>
-                        <div class="info-value">
-                            <?php echo htmlspecialchars($employee['phone'] ?? '<span class="empty-value">No especificado</span>'); ?>
-                        </div>
-                    </div>
-                    
-                    <div class="info-item">
-                        <span class="info-label">Dirección:</span>
-                        <div class="info-value">
-                            <?php echo htmlspecialchars($employee['address'] ?? '<span class="empty-value">No especificada</span>'); ?>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Información Laboral -->
-                <div class="info-section">
-                    <h3>💼 Información Laboral</h3>
-                    
-                    <div class="info-item">
-                        <span class="info-label">Cargo/Puesto:</span>
-                        <div class="info-value">
-                            <?php echo htmlspecialchars($employee['position']); ?>
-                        </div>
-                    </div>
-                    
-                    <div class="info-item">
-                        <span class="info-label">Rol en el Sistema:</span>
-                        <div class="info-value">
-                            <?php echo htmlspecialchars($employee['role_name']); ?> (ID: <?php echo $employee['role_id']; ?>)
-                        </div>
-                    </div>
-                    
-                    <div class="info-item">
-                        <span class="info-label">Estado:</span>
-                        <div class="info-value">
-                            <span class="status-badge <?php echo 'status-' . $employee['status']; ?>">
-                                <?php echo ucfirst($employee['status']); ?>
-                            </span>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Información de Acceso -->
-                <div class="info-section">
-                    <h3>🔑 Información de Acceso</h3>
-                    
-                    <div class="info-item">
-                        <span class="info-label">Nombre de Usuario:</span>
-                        <div class="info-value">
-                            <?php echo htmlspecialchars($employee['username']); ?>
-                        </div>
-                    </div>
-                    
-                    <div class="info-item">
-                        <span class="info-label">Fecha de Registro:</span>
-                        <div class="info-value">
-                            <?php echo date('d/m/Y H:i', strtotime($employee['created_at'])); ?>
-                        </div>
-                    </div>
-                    
-                    <div class="info-item">
-                        <span class="info-label">ID de Usuario:</span>
-                        <div class="info-value">
-                            <?php echo $employee['id']; ?>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Sección de notas adicionales -->
-            <div style="margin-top: 30px; padding: 20px; background: #fff3cd; border-radius: 6px; border-left: 4px solid #ffc107;">
-                <h4 style="margin-top: 0; color: #856404;">ℹ️ Notas importantes</h4>
-                <p style="margin-bottom: 0; color: #856404;">
-                    • Solo usuarios con rol de Veterinario o Administrador pueden ver esta información.<br>
-                    • La contraseña no se muestra por razones de seguridad.<br>
-                    • Para cambiar el estado del empleado, utilice la opción de edición.
-                </p>
-            </div>
+        <div class="info-grid">
+            <div class="info-section"><h3>📝 Información Personal</h3><div class="info-item"><div class="info-label">Cédula</div><div class="info-value"><?php echo htmlspecialchars($employee['ci']??'No especificada'); ?></div></div><div class="info-item"><div class="info-label">Email</div><div class="info-value"><?php echo htmlspecialchars($employee['email']); ?></div></div><div class="info-item"><div class="info-label">Teléfono</div><div class="info-value"><?php echo htmlspecialchars($employee['phone']??'No especificado'); ?></div></div><div class="info-item"><div class="info-label">Dirección</div><div class="info-value"><?php echo htmlspecialchars($employee['address']??'No especificada'); ?></div></div></div>
+            <div class="info-section"><h3>💼 Información Laboral</h3><div class="info-item"><div class="info-label">Cargo</div><div class="info-value"><?php echo htmlspecialchars($employee['position']); ?></div></div><div class="info-item"><div class="info-label">Rol en Sistema</div><div class="info-value"><?php echo htmlspecialchars($employee['role_name']); ?> (ID: <?php echo $employee['role_id']; ?>)</div></div><div class="info-item"><div class="info-label">Estado</div><div class="info-value"><span class="status-badge status-<?php echo $employee['status']; ?>"><?php echo ucfirst($employee['status']); ?></span></div></div></div>
+            <div class="info-section"><h3>🔑 Acceso</h3><div class="info-item"><div class="info-label">Usuario</div><div class="info-value"><?php echo htmlspecialchars($employee['username']); ?></div></div><div class="info-item"><div class="info-label">Fecha Registro</div><div class="info-value"><?php echo date('d/m/Y H:i', strtotime($employee['created_at'])); ?></div></div><div class="info-item"><div class="info-label">ID Usuario</div><div class="info-value"><?php echo $employee['id']; ?></div></div></div>
         </div>
-        
-        <!-- Botones de acción -->
-        <div style="display: flex; gap: 15px; justify-content: center; margin-top: 20px;">
-            <a href="employee_edit.php?id=<?php echo $employee_id; ?>" 
-               class="btn" style="background: #0dcaf0; color: white; text-decoration: none;">
-                ✏️ Editar Información
-            </a>
-            <a href="employee_list.php" 
-               class="btn" style="background: #6c757d; color: white; text-decoration: none;">
-                📋 Volver a la Lista
-            </a>
-            <?php if (in_array($user_role, ['admin'])): ?>
-                <a href="employee_delete.php?id=<?php echo $employee_id; ?>" 
-                   class="btn" style="background: #dc3545; color: white; text-decoration: none;"
-                   onclick="return confirm('¿Está seguro de eliminar este empleado? Esta acción no se puede deshacer.')">
-                    🗑️ Eliminar Empleado
-                </a>
-            <?php endif; ?>
-        </div>
+        <div class="btn-group"><a href="employee_edit.php?id=<?php echo $employee_id; ?>" class="btn btn-primary"><i class="fas fa-edit"></i> Editar</a><a href="employee_list.php" class="btn btn-secondary"><i class="fas fa-list"></i> Volver a Lista</a><?php if ($_SESSION['role_name'] === 'admin'): ?><a href="employee_delete.php?id=<?php echo $employee_id; ?>" class="btn btn-danger" onclick="return confirm('¿Eliminar este empleado?')"><i class="fas fa-trash"></i> Eliminar</a><?php endif; ?></div>
     </div>
-    
     <?php include '../includes/footer.php'; ?>
-    
-    <script>
-        // Confirmación para eliminar
-        document.addEventListener('DOMContentLoaded', function() {
-            const deleteLinks = document.querySelectorAll('a[href*="employee_delete"]');
-            deleteLinks.forEach(link => {
-                link.addEventListener('click', function(e) {
-                    if (!confirm('¿Está completamente seguro de eliminar este empleado?\n\nEsta acción: \n• Eliminará permanentemente el registro\n• No podrá ser deshecha\n• Afectará cualquier dato relacionado')) {
-                        e.preventDefault();
-                    }
-                });
-            });
-        });
-    </script>
 </body>
 </html>
-<?php
-// Opcional: cerrar conexión explícitamente (no necesario con PDO)
-// $conn = null;
-?>
