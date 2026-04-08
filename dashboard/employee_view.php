@@ -73,15 +73,38 @@ try {
     <div class="breadcrumb"><a href="welcome.php">Inicio</a> <span>›</span> <a href="employee_list.php">Empleados</a> <span>›</span> <span>Detalles</span></div>
     <div class="container">
         <div class="profile-header">
-            <div class="avatar"><?php echo strtoupper(substr($employee['first_name']??'E',0,1).substr($employee['last_name']??'M',0,1)); ?></div>
-            <div class="profile-info"><h2><?php echo htmlspecialchars($employee['first_name'].' '.$employee['last_name']); ?></h2><div class="position"><?php echo htmlspecialchars($employee['position']); ?></div><div><span class="status-badge status-<?php echo $employee['status']; ?>"><?php echo ucfirst($employee['status']); ?></span> <span style="margin-left:0.5rem;"><?php echo htmlspecialchars($employee['role_name']); ?></span></div></div>
+            <div class="avatar"><?php echo strtoupper(substr((string)($employee['first_name']??'E'),0,1).substr((string)($employee['last_name']??'M'),0,1)); ?></div>
+            <div class="profile-info">
+                <h2><?php echo htmlspecialchars((string)($employee['first_name']??'').' '.(string)($employee['last_name']??'')); ?></h2>
+                <div class="position"><?php echo htmlspecialchars((string)($employee['position']??'')); ?></div>
+                <div><span class="status-badge status-<?php echo htmlspecialchars((string)($employee['status']??'inactive')); ?>"><?php echo ucfirst(htmlspecialchars((string)($employee['status']??'inactive'))); ?></span> <span style="margin-left:0.5rem;"><?php echo htmlspecialchars((string)($employee['role_name']??'')); ?></span></div>
+            </div>
         </div>
         <div class="info-grid">
-            <div class="info-section"><h3>📝 Información Personal</h3><div class="info-item"><div class="info-label">Cédula</div><div class="info-value"><?php echo htmlspecialchars($employee['ci']??'No especificada'); ?></div></div><div class="info-item"><div class="info-label">Email</div><div class="info-value"><?php echo htmlspecialchars($employee['email']); ?></div></div><div class="info-item"><div class="info-label">Teléfono</div><div class="info-value"><?php echo htmlspecialchars($employee['phone']??'No especificado'); ?></div></div><div class="info-item"><div class="info-label">Dirección</div><div class="info-value"><?php echo htmlspecialchars($employee['address']??'No especificada'); ?></div></div></div>
-            <div class="info-section"><h3>💼 Información Laboral</h3><div class="info-item"><div class="info-label">Cargo</div><div class="info-value"><?php echo htmlspecialchars($employee['position']); ?></div></div><div class="info-item"><div class="info-label">Rol en Sistema</div><div class="info-value"><?php echo htmlspecialchars($employee['role_name']); ?> (ID: <?php echo $employee['role_id']; ?>)</div></div><div class="info-item"><div class="info-label">Estado</div><div class="info-value"><span class="status-badge status-<?php echo $employee['status']; ?>"><?php echo ucfirst($employee['status']); ?></span></div></div></div>
-            <div class="info-section"><h3>🔑 Acceso</h3><div class="info-item"><div class="info-label">Usuario</div><div class="info-value"><?php echo htmlspecialchars($employee['username']); ?></div></div><div class="info-item"><div class="info-label">Fecha Registro</div><div class="info-value"><?php echo date('d/m/Y H:i', strtotime($employee['created_at'])); ?></div></div><div class="info-item"><div class="info-label">ID Usuario</div><div class="info-value"><?php echo $employee['id']; ?></div></div></div>
+            <div class="info-section"><h3>📝 Información Personal</h3>
+                <div class="info-item"><div class="info-label">Cédula</div><div class="info-value"><?php echo htmlspecialchars((string)($employee['ci']??'No especificada')); ?></div></div>
+                <div class="info-item"><div class="info-label">Email</div><div class="info-value"><?php echo htmlspecialchars((string)($employee['email']??'')); ?></div></div>
+                <div class="info-item"><div class="info-label">Teléfono</div><div class="info-value"><?php echo htmlspecialchars((string)($employee['phone']??'No especificado')); ?></div></div>
+                <div class="info-item"><div class="info-label">Dirección</div><div class="info-value"><?php echo htmlspecialchars((string)($employee['address']??'No especificada')); ?></div></div>
+            </div>
+            <div class="info-section"><h3>💼 Información Laboral</h3>
+                <div class="info-item"><div class="info-label">Cargo</div><div class="info-value"><?php echo htmlspecialchars((string)($employee['position']??'')); ?></div></div>
+                <div class="info-item"><div class="info-label">Rol en Sistema</div><div class="info-value"><?php echo htmlspecialchars((string)($employee['role_name']??'')); ?> (ID: <?php echo (int)($employee['role_id']??0); ?>)</div></div>
+                <div class="info-item"><div class="info-label">Estado</div><div class="info-value"><span class="status-badge status-<?php echo htmlspecialchars((string)($employee['status']??'inactive')); ?>"><?php echo ucfirst(htmlspecialchars((string)($employee['status']??'inactive'))); ?></span></div></div>
+            </div>
+            <div class="info-section"><h3>🔑 Acceso</h3>
+                <div class="info-item"><div class="info-label">Usuario</div><div class="info-value"><?php echo htmlspecialchars((string)($employee['username']??'')); ?></div></div>
+                <div class="info-item"><div class="info-label">Fecha Registro</div><div class="info-value"><?php echo date('d/m/Y H:i', strtotime($employee['created_at']??'now')); ?></div></div>
+                <div class="info-item"><div class="info-label">ID Usuario</div><div class="info-value"><?php echo (int)($employee['id']??0); ?></div></div>
+            </div>
         </div>
-        <div class="btn-group"><a href="employee_edit.php?id=<?php echo $employee_id; ?>" class="btn btn-primary"><i class="fas fa-edit"></i> Editar</a><a href="employee_list.php" class="btn btn-secondary"><i class="fas fa-list"></i> Volver a Lista</a><?php if ($_SESSION['role_name'] === 'admin'): ?><a href="employee_delete.php?id=<?php echo $employee_id; ?>" class="btn btn-danger" onclick="return confirm('¿Eliminar este empleado?')"><i class="fas fa-trash"></i> Eliminar</a><?php endif; ?></div>
+        <div class="btn-group">
+            <a href="employee_edit.php?id=<?php echo (int)($employee_id); ?>" class="btn btn-primary"><i class="fas fa-edit"></i> Editar</a>
+            <a href="employee_list.php" class="btn btn-secondary"><i class="fas fa-list"></i> Volver a Lista</a>
+            <?php if (($_SESSION['role_name'] ?? '') === 'admin'): ?>
+                <a href="employee_delete.php?id=<?php echo (int)($employee_id); ?>" class="btn btn-danger" onclick="return confirm('¿Eliminar este empleado?')"><i class="fas fa-trash"></i> Eliminar</a>
+            <?php endif; ?>
+        </div>
     </div>
     <?php include '../includes/footer.php'; ?>
 </body>
