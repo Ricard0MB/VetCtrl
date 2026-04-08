@@ -131,36 +131,212 @@ $pagination_params = http_build_query([
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bitácora del Sistema - VetCtrl</title>
     <link rel="stylesheet" href="../public/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* (los mismos estilos que tenías) */
-        body { background-color: #f8f9fa; padding-top: 70px; font-family: 'Segoe UI', sans-serif; }
-        .breadcrumb { max-width: 1400px; margin: 10px auto 0; padding: 10px 20px; background: transparent; font-size: 0.95rem; }
-        .breadcrumb a { color: #40916c; text-decoration: none; }
-        .breadcrumb a:hover { text-decoration: underline; }
-        .breadcrumb span { color: #6c757d; }
-        .container { max-width: 1400px; margin: 20px auto; padding: 20px; }
-        .card { background: white; border-radius: 10px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-        h1 { color: #1b4332; border-bottom: 2px solid #b68b40; padding-bottom: 10px; margin-bottom: 25px; display: flex; align-items: center; gap: 10px; }
-        .filter-form { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px; }
-        .filter-group { display: flex; flex-direction: column; }
-        .filter-group label { font-weight:600; margin-bottom:5px; color:#1b4332; }
-        .filter-group input, .filter-group select { padding:8px; border:1px solid #ccc; border-radius:4px; min-width:150px; }
-        .btn { padding:8px 15px; border:none; border-radius:4px; font-weight:600; cursor:pointer; text-decoration:none; display:inline-block; }
-        .btn-primary { background:#40916c; color:white; }
-        .btn-primary:hover { background:#2d6a4f; }
-        .btn-secondary { background:#6c757d; color:white; }
-        .btn-secondary:hover { background:#5a6268; }
-        table { width:100%; border-collapse:collapse; margin-top:20px; }
-        th { background:#40916c; color:white; padding:12px; text-align:left; }
-        td { padding:10px; border-bottom:1px solid #ddd; }
-        tr:hover { background:#f5f5f5; }
-        .pagination { display:flex; justify-content:center; margin-top:20px; gap:5px; }
-        .pagination a, .pagination span { padding:8px 12px; border:1px solid #ddd; border-radius:4px; text-decoration:none; color:#333; }
-        .pagination .current { background:#40916c; color:white; border-color:#40916c; }
-        .summary { margin-bottom:15px; color:#6c757d; }
+        :root {
+            --primary-dark: #1b4332;
+            --primary: #2d6a4f;
+            --primary-light: #40916c;
+            --accent: #b68b40;
+            --gray-bg: #f8f9fc;
+            --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
+            --transition: all 0.2s ease;
+        }
+
+        body {
+            background-color: var(--gray-bg);
+            padding-top: 70px;
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .breadcrumb {
+            max-width: 1400px;
+            margin: 10px auto 0;
+            padding: 10px 20px;
+            background: transparent;
+            font-size: 0.9rem;
+        }
+        .breadcrumb a {
+            color: var(--primary-light);
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+        .breadcrumb span {
+            color: #6c757d;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 24px;
+            padding: 28px 32px;
+            box-shadow: var(--card-shadow);
+            border: 1px solid rgba(0, 0, 0, 0.03);
+        }
+
+        h1 {
+            color: var(--primary-dark);
+            border-bottom: 3px solid var(--accent);
+            padding-bottom: 12px;
+            margin-bottom: 28px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+        h1 i {
+            color: var(--accent);
+        }
+
+        /* Filtros modernos */
+        .filter-form {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 28px;
+            background: #f9fafb;
+            padding: 20px;
+            border-radius: 20px;
+            align-items: flex-end;
+        }
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 180px;
+        }
+        .filter-group label {
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--primary-dark);
+            margin-bottom: 6px;
+        }
+        .filter-group input, .filter-group select {
+            padding: 10px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            font-size: 0.9rem;
+            transition: var(--transition);
+            background: white;
+        }
+        .filter-group input:focus, .filter-group select:focus {
+            outline: none;
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 3px rgba(64, 145, 108, 0.2);
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: var(--transition);
+            font-size: 0.85rem;
+        }
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+        .btn-secondary {
+            background: #e9ecef;
+            color: #2c3e2f;
+        }
+        .btn-secondary:hover {
+            background: #dee2e6;
+        }
+
+        /* Tabla elegante */
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 20px;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+        th {
+            background: var(--primary-dark);
+            color: white;
+            padding: 14px 16px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #edf2f7;
+            background-color: white;
+            font-size: 0.9rem;
+        }
+        tr:hover td {
+            background-color: #f8fafc;
+        }
+        .summary {
+            font-size: 0.85rem;
+            color: #4b5563;
+            margin: 15px 0 5px;
+        }
+
+        /* Paginación moderna */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            margin-top: 30px;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .pagination a, .pagination span {
+            padding: 8px 14px;
+            border-radius: 40px;
+            text-decoration: none;
+            color: var(--primary-dark);
+            background: white;
+            border: 1px solid #e2e8f0;
+            transition: var(--transition);
+            font-weight: 500;
+        }
+        .pagination a:hover {
+            background: var(--primary-light);
+            color: white;
+            border-color: var(--primary-light);
+        }
+        .pagination .current {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        @media (max-width: 768px) {
+            .card { padding: 20px; }
+            .filter-form { flex-direction: column; align-items: stretch; }
+            .filter-group { width: 100%; }
+            table, thead, tbody, th, td, tr { display: block; }
+            th { display: none; }
+            td { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; }
+            td::before { content: attr(data-label); font-weight: 600; width: 40%; color: var(--primary-dark); }
+        }
     </style>
 </head>
 <body>
@@ -197,32 +373,34 @@ $pagination_params = http_build_query([
                     <label>Hasta</label>
                     <input type="date" name="end_date" value="<?php echo htmlspecialchars($filter_end); ?>">
                 </div>
-                <div class="filter-group" style="justify-content:flex-end;">
-                    <button type="submit" class="btn btn-primary">Filtrar</button>
-                    <a href="log_viewer.php" class="btn btn-secondary">Limpiar</a>
+                <div class="filter-group" style="flex-direction: row; gap: 10px; align-items: center;">
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i> Filtrar</button>
+                    <a href="log_viewer.php" class="btn btn-secondary"><i class="fas fa-undo-alt"></i> Limpiar</a>
                 </div>
             </form>
 
             <?php if ($total > 0): ?>
                 <div class="summary">
-                    Mostrando registros <?php echo $offset + 1; ?> al <?php echo min($total, $offset + $limit); ?> de <?php echo $total; ?>.
+                    <i class="fas fa-chart-line"></i> Mostrando registros <?php echo $offset + 1; ?> al <?php echo min($total, $offset + $limit); ?> de <?php echo $total; ?>.
                 </div>
-                <table>
-                    <thead>
-                        <tr><th>ID</th><th>Fecha/Hora</th><th>Usuario</th><th>Rol</th><th>Acción</th></tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($logs as $log): ?>
-                        <tr>
-                            <td><?php echo $log['id']; ?></td>
-                            <td><?php echo formatTimestamp($log['timestamp']); ?></td>
-                            <td><?php echo htmlspecialchars($log['username']); ?></td>
-                            <td><?php echo htmlspecialchars($role_map[$log['role_id']] ?? $log['role_id']); ?></td>
-                            <td style="word-break:break-all;"><?php echo htmlspecialchars($log['action']); ?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr><th>ID</th><th>Fecha/Hora</th><th>Usuario</th><th>Rol</th><th>Acción</th></tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($logs as $log): ?>
+                            <tr>
+                                <td data-label="ID"><?php echo $log['id']; ?></td>
+                                <td data-label="Fecha/Hora"><?php echo formatTimestamp($log['timestamp']); ?></td>
+                                <td data-label="Usuario"><?php echo htmlspecialchars($log['username']); ?></td>
+                                <td data-label="Rol"><?php echo htmlspecialchars($role_map[$log['role_id']] ?? $log['role_id']); ?></td>
+                                <td data-label="Acción" style="word-break:break-all;"><?php echo htmlspecialchars($log['action']); ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
 
                 <?php if ($total_pages > 1): ?>
                 <div class="pagination">
@@ -242,7 +420,7 @@ $pagination_params = http_build_query([
                 </div>
                 <?php endif; ?>
             <?php else: ?>
-                <p>No hay registros que coincidan con los filtros aplicados.</p>
+                <div class="alert alert-info"><i class="fas fa-info-circle"></i> No hay registros que coincidan con los filtros aplicados.</div>
             <?php endif; ?>
         </div>
     </div>
@@ -250,6 +428,3 @@ $pagination_params = http_build_query([
     <?php include_once '../includes/footer.php'; ?>
 </body>
 </html>
-<?php
-// No es necesario cerrar la conexión explícitamente con PDO
-?>
