@@ -49,168 +49,154 @@ try {
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Historial de Vacunas - VetCtrl</title>
     <link rel="stylesheet" href="../public/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        :root {
+            --primary-dark: #1b4332;
+            --primary: #2d6a4f;
+            --primary-light: #40916c;
+            --accent: #b68b40;
+        }
         body {
-            background-color: #f4f4f4;
+            background-color: #f4f7fc;
             padding-top: 70px;
-            font-family: 'Segoe UI', sans-serif;
+            font-family: 'Inter', system-ui, 'Segoe UI', sans-serif;
         }
         .breadcrumb {
-            max-width: 1000px;
+            max-width: 1200px;
             margin: 10px auto 0;
             padding: 10px 20px;
-            background: transparent;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
         }
         .breadcrumb a {
-            color: #40916c;
+            color: var(--primary-light);
             text-decoration: none;
         }
-        .breadcrumb a:hover {
-            text-decoration: underline;
-        }
-        .breadcrumb span {
-            color: #6c757d;
-        }
         .dashboard-container {
-            max-width: 1000px;
+            max-width: 1200px;
             margin: 20px auto;
             padding: 20px;
         }
         .main-content {
             background: white;
             padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            border-radius: 32px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
+            border: 1px solid #eef2f8;
         }
         h1 {
-            color: #1b4332;
-            border-bottom: 2px solid #b68b40;
-            padding-bottom: 10px;
+            color: var(--primary-dark);
+            border-bottom: 3px solid var(--accent);
+            padding-bottom: 12px;
             margin-bottom: 25px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .alert {
-            padding: 15px 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border-left: 5px solid;
             display: flex;
             align-items: center;
             gap: 12px;
         }
-        .alert i { font-size: 1.4rem; }
-        .alert-success { background: #d4edda; color: #155724; border-left-color: #28a745; }
-        .alert-info { background: #d1ecf1; color: #0c5460; border-left-color: #17a2b8; }
-        .alert-danger { background: #f8d7da; color: #721c24; border-left-color: #dc3545; }
-        .info-header {
-            background: #e3f2fd;
-            padding: 15px;
-            border-radius: 6px;
+        .alert {
+            padding: 15px 20px;
+            border-radius: 20px;
             margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-left: 5px solid;
+        }
+        .alert-danger {
+            background: #fee7e7;
+            color: #b91c1c;
+            border-left-color: #dc3545;
+        }
+        .info-header {
+            background: #e0f2fe;
+            padding: 15px 20px;
+            border-radius: 24px;
+            margin-bottom: 25px;
             text-align: center;
-            color: #01579b;
+            color: #0369a1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
         .vaccine-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.9rem;
+            border-radius: 20px;
+            overflow: hidden;
         }
         .vaccine-table th {
-            background: #40916c;
+            background: var(--primary-dark);
             color: white;
-            padding: 12px;
+            padding: 14px;
             text-align: left;
+            font-weight: 600;
         }
         .vaccine-table td {
-            padding: 10px 12px;
-            border-bottom: 1px solid #ddd;
+            padding: 12px;
+            border-bottom: 1px solid #eef2f8;
             vertical-align: middle;
         }
-        .vaccine-table tr:hover {
-            background: #f5f5f5;
+        .vaccine-table tr:hover td {
+            background-color: #f9fbfd;
         }
         .date-tag {
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-weight: bold;
-            font-size: 0.8rem;
             display: inline-block;
+            padding: 5px 12px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 0.75rem;
         }
         .expired { background: #dc3545; color: white; }
         .due-soon { background: #ffc107; color: #333; }
         .ok { background: #28a745; color: white; }
         .na { background: #6c757d; color: white; }
-        
-        /* Estilos para botones */
         .btn {
-            display: inline-block;
-            font-weight: 600;
-            text-align: center;
-            white-space: nowrap;
-            vertical-align: middle;
-            border: 1px solid transparent;
-            padding: 6px 12px;
-            font-size: 0.875rem;
-            line-height: 1.5;
-            border-radius: 4px;
-            transition: all 0.15s ease-in-out;
-            text-decoration: none;
-            cursor: pointer;
-        }
-        .btn-sm {
-            padding: 4px 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 40px;
             font-size: 0.75rem;
-            border-radius: 3px;
-        }
-        .btn-primary {
-            background-color: #40916c;
-            border-color: #40916c;
-            color: white;
-        }
-        .btn-primary:hover {
-            background-color: #2d6a4f;
-            border-color: #2d6a4f;
-        }
-        .btn-outline-primary {
-            background-color: transparent;
-            border-color: #40916c;
-            color: #40916c;
-        }
-        .btn-outline-primary:hover {
-            background-color: #40916c;
-            color: white;
+            font-weight: 600;
+            text-decoration: none;
+            transition: 0.2s;
         }
         .btn-info {
-            background-color: #17a2b8;
-            border-color: #17a2b8;
+            background: #0ea5e9;
             color: white;
         }
         .btn-info:hover {
-            background-color: #138496;
-            border-color: #117a8b;
+            background: #0284c7;
+            transform: translateY(-2px);
         }
         .btn-success {
-            background-color: #40916c;
-            border-color: #40916c;
+            background: var(--primary);
             color: white;
         }
         .btn-success:hover {
-            background-color: #2d6a4f;
+            background: var(--primary-dark);
+            transform: translateY(-2px);
         }
-        
+        .btn-outline-primary {
+            background: transparent;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+        }
+        .btn-outline-primary:hover {
+            background: var(--primary);
+            color: white;
+        }
         .action-buttons {
             display: flex;
-            gap: 5px;
+            gap: 8px;
             flex-wrap: wrap;
         }
         .navigation-links {
-            margin: 20px 0;
+            margin: 25px 0 20px;
             display: flex;
             justify-content: center;
             gap: 15px;
@@ -218,28 +204,16 @@ try {
         }
         .no-data {
             text-align: center;
-            padding: 40px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            color: #6c757d;
+            padding: 50px;
+            background: #f9fbfd;
+            border-radius: 28px;
+            color: #5b6e8c;
         }
-        .no-data .btn-primary {
-            display: inline-block;
-            margin-top: 15px;
-        }
-        /* Ajustes responsivos */
         @media (max-width: 768px) {
-            .vaccine-table th, .vaccine-table td {
-                padding: 8px;
-            }
-            .btn-sm {
-                padding: 3px 6px;
-                font-size: 0.7rem;
-            }
-            .action-buttons {
-                flex-direction: column;
-                gap: 3px;
-            }
+            .main-content { padding: 20px; }
+            .vaccine-table th, .vaccine-table td { padding: 10px; }
+            .action-buttons { flex-direction: column; align-items: flex-start; }
+            .btn { width: 100%; justify-content: center; }
         }
     </style>
 </head>
@@ -256,12 +230,12 @@ try {
             <h1><i class="fas fa-syringe"></i> Historial de Vacunas</h1>
 
             <div class="info-header">
-                <strong>Vacunas aplicadas por <?php echo htmlspecialchars($username); ?></strong>
+                <i class="fas fa-info-circle"></i> Vacunas aplicadas por <strong><?php echo htmlspecialchars($username); ?></strong>
             </div>
 
             <div class="navigation-links">
                 <a href="welcome.php" class="btn btn-outline-primary"><i class="fas fa-home"></i> Dashboard</a>
-                <a href="vaccine_select_pet.php" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Registrar Vacuna</a>
+                <a href="vaccine_select_pet.php" class="btn btn-success"><i class="fas fa-plus-circle"></i> Registrar Vacuna</a>
                 <a href="vaccine_alerts.php" class="btn btn-outline-primary"><i class="fas fa-bell"></i> Alertas</a>
             </div>
 
@@ -269,67 +243,69 @@ try {
 
             <?php if (empty($vaccines)): ?>
                 <div class="no-data">
-                    <i class="fas fa-syringe" style="font-size: 3rem; margin-bottom: 15px;"></i>
+                    <i class="fas fa-syringe" style="font-size: 3rem; margin-bottom: 15px; display: block;"></i>
                     <p>No hay vacunas registradas.</p>
-                    <a href="vaccine_select_pet.php" class="btn btn-primary">Registrar primera vacuna</a>
+                    <a href="vaccine_select_pet.php" class="btn btn-success">Registrar primera vacuna</a>
                 </div>
             <?php else: ?>
-                <table class="vaccine-table">
-                    <thead>
-                        <tr>
-                            <th>Paciente</th>
-                            <th>Especie/Raza</th>
-                            <th>Vacuna</th>
-                            <th>Aplicación</th>
-                            <th>Próxima Dosis</th>
-                            <th>Lote</th>
-                            <th>Estado</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php 
-                        $today = date('Y-m-d');
-                        foreach ($vaccines as $v): 
-                            $next = $v['next_due_date'];
-                            $status_class = 'na';
-                            $status_text = 'N/D';
-                            if ($next) {
-                                $diff = strtotime($next) - strtotime($today);
-                                $days = round($diff / 86400);
-                                if ($days < 0) {
-                                    $status_class = 'expired';
-                                    $status_text = 'VENCIDA';
-                                } elseif ($days <= 60) {
-                                    $status_class = 'due-soon';
-                                    $status_text = "Próx. $days días";
-                                } else {
-                                    $status_class = 'ok';
-                                    $status_text = 'Al día';
+                <div class="table-responsive">
+                    <table class="vaccine-table">
+                        <thead>
+                            <tr>
+                                <th>Paciente</th>
+                                <th>Especie/Raza</th>
+                                <th>Vacuna</th>
+                                <th>Aplicación</th>
+                                <th>Próxima Dosis</th>
+                                <th>Lote</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php 
+                            $today = date('Y-m-d');
+                            foreach ($vaccines as $v): 
+                                $next = $v['next_due_date'];
+                                $status_class = 'na';
+                                $status_text = 'N/D';
+                                if ($next) {
+                                    $diff = strtotime($next) - strtotime($today);
+                                    $days = round($diff / 86400);
+                                    if ($days < 0) {
+                                        $status_class = 'expired';
+                                        $status_text = 'VENCIDA';
+                                    } elseif ($days <= 60) {
+                                        $status_class = 'due-soon';
+                                        $status_text = "Próx. $days días";
+                                    } else {
+                                        $status_class = 'ok';
+                                        $status_text = 'Al día';
+                                    }
                                 }
-                            }
-                        ?>
-                        <tr>
-                            <td><strong><?php echo htmlspecialchars($v['pet_name']); ?></strong></td>
-                            <td>
-                                <small><?php echo htmlspecialchars($v['species_name'] ?? 'Desconocida'); ?>
-                                <?php echo !empty($v['breed_name']) ? ' / ' . htmlspecialchars($v['breed_name']) : ''; ?></small>
-                            </td>
-                            <td><?php echo htmlspecialchars($v['vaccine_name']); ?></td>
-                            <td><?php echo date('d/m/Y', strtotime($v['application_date'])); ?></td>
-                            <td><?php echo $next ? date('d/m/Y', strtotime($next)) : '—'; ?></td>
-                            <td><?php echo htmlspecialchars($v['lote_number'] ?? 'N/A'); ?></td>
-                            <td><span class="date-tag <?php echo $status_class; ?>"><?php echo $status_text; ?></span></td>
-                            <td>
-                                <div class="action-buttons">
-                                    <a href="pet_profile.php?id=<?php echo $v['pet_id']; ?>" class="btn btn-sm btn-info"><i class="fas fa-eye"></i> Perfil</a>
-                                    <a href="vaccine_register.php?pet_id=<?php echo $v['pet_id']; ?>" class="btn btn-sm btn-success"><i class="fas fa-syringe"></i> Nueva</a>
-                                </div>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+                            ?>
+                            <tr>
+                                <td data-label="Paciente"><strong><?php echo htmlspecialchars($v['pet_name']); ?></strong></td>
+                                <td data-label="Especie/Raza">
+                                    <small><?php echo htmlspecialchars($v['species_name'] ?? 'Desconocida'); ?>
+                                    <?php echo !empty($v['breed_name']) ? ' / ' . htmlspecialchars($v['breed_name']) : ''; ?></small>
+                                </td>
+                                <td data-label="Vacuna"><?php echo htmlspecialchars($v['vaccine_name']); ?></td>
+                                <td data-label="Aplicación"><?php echo date('d/m/Y', strtotime($v['application_date'])); ?></td>
+                                <td data-label="Próxima Dosis"><?php echo $next ? date('d/m/Y', strtotime($next)) : '—'; ?></td>
+                                <td data-label="Lote"><?php echo htmlspecialchars($v['lote_number'] ?? 'N/A'); ?></td>
+                                <td data-label="Estado"><span class="date-tag <?php echo $status_class; ?>"><?php echo $status_text; ?></span></td>
+                                <td data-label="Acciones">
+                                    <div class="action-buttons">
+                                        <a href="pet_profile.php?id=<?php echo $v['pet_id']; ?>" class="btn btn-info"><i class="fas fa-eye"></i> Perfil</a>
+                                        <a href="vaccine_register.php?pet_id=<?php echo $v['pet_id']; ?>" class="btn btn-success"><i class="fas fa-syringe"></i> Nueva</a>
+                                    </div>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
             <?php endif; ?>
         </div>
     </div>
