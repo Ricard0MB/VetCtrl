@@ -77,30 +77,116 @@ try {
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Eliminar Tratamiento - VetCtrl</title>
     <link rel="stylesheet" href="../public/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { background-color: #f4f4f4; padding-top: 70px; font-family: 'Segoe UI', sans-serif; }
-        .breadcrumb { max-width: 600px; margin: 10px auto 0; padding: 10px 20px; background: transparent; font-size: 0.95rem; }
-        .breadcrumb a { color: #40916c; text-decoration: none; }
-        .breadcrumb a:hover { text-decoration: underline; }
-        .breadcrumb span { color: #6c757d; }
-        .container { max-width: 600px; margin: 20px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); text-align: center; }
-        h1 { color: #dc3545; border-bottom: 2px solid #b68b40; padding-bottom: 10px; margin-bottom: 25px; display: flex; align-items: center; justify-content: center; gap: 10px; }
-        .alert { padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid; display: flex; align-items: center; gap: 12px; text-align: left; }
-        .alert i { font-size: 1.4rem; }
-        .alert-danger { background: #f8d7da; color: #721c24; border-left-color: #dc3545; }
-        .alert-warning { background: #fff3cd; color: #856404; border-left-color: #ffc107; }
-        .btn-group { display: flex; gap: 15px; justify-content: center; margin-top: 30px; }
-        .btn { padding: 12px 25px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block; }
-        .btn-danger { background: #dc3545; color: white; }
-        .btn-danger:hover { background: #c82333; }
-        .btn-secondary { background: #6c757d; color: white; }
-        .btn-secondary:hover { background: #5a6268; }
-        @media (max-width: 768px) {
+        :root {
+            --primary-dark: #1b4332;
+            --primary: #2d6a4f;
+            --primary-light: #40916c;
+            --accent: #b68b40;
+            --danger: #dc3545;
+            --danger-dark: #b91c1c;
+        }
+        body {
+            background-color: #f4f7fc;
+            padding-top: 70px;
+            font-family: 'Inter', system-ui, 'Segoe UI', sans-serif;
+        }
+        .breadcrumb {
+            max-width: 600px;
+            margin: 10px auto 0;
+            padding: 10px 20px;
+            font-size: 0.9rem;
+        }
+        .breadcrumb a {
+            color: var(--primary-light);
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 32px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
+            border: 1px solid #eef2f8;
+            text-align: center;
+        }
+        h1 {
+            color: var(--danger);
+            border-bottom: 3px solid var(--accent);
+            padding-bottom: 12px;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+        .alert {
+            padding: 15px 20px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-align: left;
+            border-left: 5px solid;
+        }
+        .alert-danger {
+            background: #fee7e7;
+            color: var(--danger-dark);
+            border-left-color: var(--danger);
+        }
+        .alert-warning {
+            background: #fff3cd;
+            color: #856404;
+            border-left-color: #ffc107;
+        }
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 12px 28px;
+            border-radius: 40px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        .btn-danger:hover {
+            background: var(--danger-dark);
+            transform: translateY(-2px);
+        }
+        .btn-secondary {
+            background: #eef2f8;
+            color: var(--primary-dark);
+        }
+        .btn-secondary:hover {
+            background: #e2e8f0;
+            transform: translateY(-2px);
+        }
+        @media (max-width: 640px) {
+            .container { padding: 20px; margin: 15px; }
             .btn-group { flex-direction: column; }
-            .btn-group .btn { width: 100%; }
+            .btn-group .btn { width: 100%; justify-content: center; }
         }
     </style>
 </head>
