@@ -25,12 +25,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         header("Location: treatment_register.php?id=" . $selected_pet_id);
         exit;
     } else {
-        $message = "<p class='error-message'>Por favor, seleccione un paciente válido.</p>";
-        // Continuar para mostrar el formulario nuevamente
+        $message = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Por favor, seleccione un paciente válido.</div>";
     }
 }
 
-// Consulta para obtener las mascotas registradas por este veterinario (aunque owner_id debería ser el dueño real, se mantiene la lógica original)
+// Consulta para obtener las mascotas registradas por este veterinario
 try {
     $sql = "SELECT 
                 p.id, 
@@ -48,20 +47,28 @@ try {
     $stmt->execute();
     $pets = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    $message = "<p class='error-message'>Error al cargar pacientes: " . htmlspecialchars($e->getMessage()) . "</p>";
+    $message = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Error al cargar pacientes: " . htmlspecialchars($e->getMessage()) . "</div>";
 }
-// No es necesario cerrar la conexión explícitamente
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Seleccionar Paciente para Tratamiento</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seleccionar Paciente para Tratamiento - VetCtrl</title>
     <link rel="stylesheet" href="../public/css/style.css"> 
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        :root {
+            --primary-dark: #1b4332;
+            --primary: #2d6a4f;
+            --primary-light: #40916c;
+            --accent: #b68b40;
+        }
         body {
-            background-color: #f4f4f4;
-            padding-top: 60px; /* Espacio para la navbar fija */
+            background-color: #f4f7fc;
+            padding-top: 70px;
+            font-family: 'Inter', system-ui, 'Segoe UI', sans-serif;
         }
         .dashboard-container {
             display: flex;
@@ -69,64 +76,91 @@ try {
             padding: 40px 20px;
         }
         .main-content {
-            background-color: #fff;
+            background-color: white;
             padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border-radius: 32px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
             width: 100%;
             max-width: 500px;
+            border: 1px solid #eef2f8;
         }
         h1 {
-            color: #1b4332;
+            color: var(--primary-dark);
             margin-bottom: 5px;
             text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
         h2 {
-            color: #2d6a4f;
+            color: var(--primary);
             text-align: center;
             margin-top: 5px;
-            border-bottom: 1px solid #eee;
+            border-bottom: 2px solid var(--accent);
             padding-bottom: 15px;
-            font-size: 1.2em;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        .alert {
+            padding: 15px 20px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-left: 5px solid;
+        }
+        .alert-danger {
+            background: #fee7e7;
+            color: #b91c1c;
+            border-left-color: #dc3545;
         }
         select, button {
             width: 100%;
-            padding: 10px;
+            padding: 12px;
             margin-top: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            box-sizing: border-box;
-            font-size: 1em;
+            border: 2px solid #e2e8f0;
+            border-radius: 16px;
+            font-size: 1rem;
+            transition: 0.2s;
         }
-        select {
-            height: 45px;
-        }
-        .error-message {
-            padding: 10px;
-            border-radius: 4px;
-            margin-bottom: 20px;
-            font-weight: 600;
-            background-color: #f8d7da;
-            color: #721c24;
-            text-align: center;
+        select:focus, button:focus {
+            outline: none;
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 3px rgba(64,145,108,0.2);
         }
         .btn-primary {
-            background-color: #40916c;
+            background-color: var(--primary);
             color: white;
             border: none;
             cursor: pointer;
-            transition: background-color 0.3s;
+            font-weight: 600;
+            transition: 0.2s;
         }
         .btn-primary:hover {
-            background-color: #2d6a4f;
+            background-color: var(--primary-dark);
+            transform: translateY(-2px);
         }
         .back-link {
             display: block;
             text-align: center;
             margin-bottom: 20px;
-            color: #2d6a4f;
+            color: var(--primary-light);
             text-decoration: none;
             font-weight: 600;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        label {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 5px;
+            color: var(--primary-dark);
+        }
+        @media (max-width: 640px) {
+            .main-content { padding: 20px; margin: 15px; }
         }
     </style>
 </head>
@@ -135,18 +169,20 @@ try {
     <?php include '../includes/navbar.php'; ?>
     <div class="dashboard-container">
         <div class="main-content">
-            <h1>Agregar Tratamiento 💊</h1>
+            <h1><i class="fas fa-prescription-bottle-alt"></i> Agregar Tratamiento</h1>
             <h2>Paso 1: Seleccione el Paciente</h2>
 
-            <p><a href="welcome.php" class="back-link">← Volver al Dashboard</a></p>
+            <a href="welcome.php" class="back-link"><i class="fas fa-arrow-left"></i> Volver al Dashboard</a>
 
             <?php echo $message; ?>
 
             <?php if (empty($pets)): ?>
-                <p class='error-message'>Aún no tienes pacientes registrados. Por favor, <a href="pet_register.php" style="color: #721c24; font-weight: bold;">registra un paciente</a> primero.</p>
+                <div class="alert alert-danger">
+                    <i class="fas fa-info-circle"></i> Aún no tienes pacientes registrados. Por favor, <a href="pet_register.php" style="color: #b91c1c; font-weight: bold;">registra un paciente</a> primero.
+                </div>
             <?php else: ?>
                 <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
-                    <label for="pet_id" style="font-weight: 600; display: block; margin-bottom: 5px; color: #1b4332;">Seleccionar Paciente:</label>
+                    <label for="pet_id">Seleccionar Paciente:</label>
                     <select id="pet_id" name="pet_id" required>
                         <option value="">-- Elija una Mascota --</option>
                         <?php foreach ($pets as $pet): ?>
@@ -161,7 +197,7 @@ try {
                     </select>
 
                     <button type="submit" class="btn-primary" style="margin-top: 20px;">
-                        Continuar al Registro de Tratamiento
+                        <i class="fas fa-arrow-right"></i> Continuar al Registro de Tratamiento
                     </button>
                 </form>
             <?php endif; ?>
