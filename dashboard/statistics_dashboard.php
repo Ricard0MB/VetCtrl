@@ -15,7 +15,7 @@ $period = $_GET['period'] ?? 'month';
 $start_date_input = $_GET['start_date'] ?? '';
 $end_date_input = $_GET['end_date'] ?? '';
 
-// Calcular rango según período (función similar a la original, simplificada)
+// Calcular rango según período
 function calculateDateRange($period, $custom_start, $custom_end) {
     $today = new DateTime();
     $start = clone $today; $end = clone $today;
@@ -37,42 +37,167 @@ $range = calculateDateRange($period, $start_date_input, $end_date_input);
 $start_date = $range['start'];
 $end_date = $range['end'];
 
-// Aquí irían todas las consultas para estadísticas (por brevedad omito, pero se deben incluir las del original)
-// Nota: cuando se implementen, deben usarse métodos PDO (prepare, execute, fetch, etc.)
-
-// No es necesario cerrar la conexión explícitamente con PDO
-// $conn = null; // Opcional
+// Aquí irían las consultas reales para estadísticas (se mantienen los valores 0 como placeholder)
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Estadísticas - VetCtrl</title>
     <link rel="stylesheet" href="../public/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { background-color: #f8f9fa; padding-top: 70px; font-family: 'Segoe UI', sans-serif; }
-        .breadcrumb { max-width: 1400px; margin: 10px auto 0; padding: 10px 20px; background: transparent; font-size: 0.95rem; }
-        .breadcrumb a { color: #40916c; text-decoration: none; }
-        .breadcrumb a:hover { text-decoration: underline; }
-        .breadcrumb span { color: #6c757d; }
-        .container { max-width: 1400px; margin: 20px auto; padding: 20px; }
-        .card { background: white; border-radius: 10px; padding: 25px; margin-bottom: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-        h1 { color: #1b4332; border-bottom: 2px solid #b68b40; padding-bottom: 10px; margin-bottom: 25px; display: flex; align-items: center; gap: 10px; }
-        .filter-form { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px; align-items: flex-end; }
-        .filter-group { display: flex; flex-direction: column; }
-        .filter-group label { font-weight:600; margin-bottom:5px; color:#1b4332; }
-        .filter-group input, .filter-group select { padding:8px; border:1px solid #ccc; border-radius:4px; min-width:150px; }
-        .btn { padding:8px 15px; border:none; border-radius:4px; font-weight:600; cursor:pointer; text-decoration:none; display:inline-block; }
-        .btn-primary { background:#40916c; color:white; }
-        .btn-primary:hover { background:#2d6a4f; }
-        .btn-secondary { background:#6c757d; color:white; }
-        .btn-secondary:hover { background:#5a6268; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(250px,1fr)); gap:20px; margin-bottom:30px; }
-        .stat-card { background: #f8f9fa; padding:20px; border-radius:8px; text-align:center; border-left:4px solid #40916c; }
-        .stat-value { font-size:2rem; font-weight:bold; color:#1b4332; }
-        .chart-container { height:300px; margin:20px 0; }
+        :root {
+            --primary-dark: #1b4332;
+            --primary: #2d6a4f;
+            --primary-light: #40916c;
+            --accent: #b68b40;
+            --gray-bg: #f8fafc;
+        }
+        body {
+            background-color: #f4f7fc;
+            padding-top: 70px;
+            font-family: 'Inter', system-ui, 'Segoe UI', sans-serif;
+        }
+        .breadcrumb {
+            max-width: 1400px;
+            margin: 10px auto 0;
+            padding: 10px 20px;
+            font-size: 0.9rem;
+        }
+        .breadcrumb a {
+            color: var(--primary-light);
+            text-decoration: none;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 32px;
+            padding: 28px 32px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
+            border: 1px solid #eef2f8;
+        }
+        h1 {
+            color: var(--primary-dark);
+            border-bottom: 3px solid var(--accent);
+            padding-bottom: 12px;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .filter-form {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            margin-bottom: 30px;
+            background: #f9fbfd;
+            padding: 20px;
+            border-radius: 24px;
+        }
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .filter-group label {
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--primary-dark);
+            margin-bottom: 6px;
+        }
+        .filter-group input, .filter-group select {
+            padding: 10px 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 16px;
+            transition: 0.2s;
+            min-width: 150px;
+        }
+        .filter-group input:focus, .filter-group select:focus {
+            border-color: var(--primary-light);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(64,145,108,0.2);
+        }
+        .btn {
+            padding: 10px 20px;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+        }
+        .btn-secondary {
+            background: #eef2f8;
+            color: var(--primary-dark);
+        }
+        .btn-secondary:hover {
+            background: #e2e8f0;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+        .stat-card {
+            background: linear-gradient(145deg, #ffffff 0%, #f9fbfd 100%);
+            border-radius: 28px;
+            padding: 24px;
+            text-align: center;
+            border: 1px solid #eef2f8;
+            transition: all 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -12px rgba(0,0,0,0.1);
+        }
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--primary);
+            line-height: 1;
+        }
+        .stat-label {
+            color: #5b6e8c;
+            margin-top: 8px;
+            font-weight: 500;
+        }
+        .chart-container {
+            margin: 30px 0;
+            height: 350px;
+        }
+        .info-note {
+            text-align: center;
+            color: #6c757d;
+            padding: 20px;
+            background: #f9fbfd;
+            border-radius: 24px;
+            margin-top: 20px;
+        }
+        @media (max-width: 768px) {
+            .card { padding: 20px; }
+            .filter-form { flex-direction: column; align-items: stretch; }
+            .filter-group { width: 100%; }
+        }
     </style>
 </head>
 <body>
@@ -90,7 +215,7 @@ $end_date = $range['end'];
             <form method="get" class="filter-form">
                 <div class="filter-group">
                     <label>Período</label>
-                    <select name="period">
+                    <select name="period" id="periodSelect">
                         <option value="today" <?php echo $period=='today'?'selected':''; ?>>Hoy</option>
                         <option value="yesterday" <?php echo $period=='yesterday'?'selected':''; ?>>Ayer</option>
                         <option value="week" <?php echo $period=='week'?'selected':''; ?>>Esta semana</option>
@@ -107,42 +232,40 @@ $end_date = $range['end'];
                     <label>Hasta</label>
                     <input type="date" name="end_date" value="<?php echo $range['end_date']; ?>">
                 </div>
-                <div class="filter-group">
-                    <button type="submit" class="btn btn-primary">Actualizar</button>
-                    <a href="statistics_dashboard.php" class="btn btn-secondary">Reiniciar</a>
+                <div class="filter-group" style="flex-direction: row; gap: 10px; align-items: center;">
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-sync-alt"></i> Actualizar</button>
+                    <a href="statistics_dashboard.php" class="btn btn-secondary"><i class="fas fa-undo-alt"></i> Reiniciar</a>
                 </div>
             </form>
 
             <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-value">0</div>
-                    <div class="stat-label">Consultas</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">0</div>
-                    <div class="stat-label">Citas</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">0</div>
-                    <div class="stat-label">Vacunas</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">0</div>
-                    <div class="stat-label">Tratamientos</div>
-                </div>
+                <div class="stat-card"><div class="stat-value">0</div><div class="stat-label"><i class="fas fa-stethoscope"></i> Consultas</div></div>
+                <div class="stat-card"><div class="stat-value">0</div><div class="stat-label"><i class="fas fa-calendar-check"></i> Citas</div></div>
+                <div class="stat-card"><div class="stat-value">0</div><div class="stat-label"><i class="fas fa-syringe"></i> Vacunas</div></div>
+                <div class="stat-card"><div class="stat-value">0</div><div class="stat-label"><i class="fas fa-pills"></i> Tratamientos</div></div>
             </div>
 
             <div class="chart-container">
                 <canvas id="myChart"></canvas>
             </div>
 
-            <p style="color:#6c757d;">Los datos estadísticos completos se implementarán en la siguiente fase.</p>
+            <div class="info-note">
+                <i class="fas fa-chart-simple"></i> Los datos estadísticos completos se implementarán en la siguiente fase.
+            </div>
         </div>
     </div>
 
     <script>
-        // Aquí irían los gráficos con Chart.js (usando datos PHP)
         document.addEventListener('DOMContentLoaded', function() {
+            const periodSelect = document.getElementById('periodSelect');
+            const customDates = document.getElementById('custom_dates');
+            const customDates2 = document.getElementById('custom_dates2');
+            periodSelect.addEventListener('change', function() {
+                const isCustom = this.value === 'custom';
+                customDates.style.display = isCustom ? 'block' : 'none';
+                customDates2.style.display = isCustom ? 'block' : 'none';
+            });
+            
             var ctx = document.getElementById('myChart').getContext('2d');
             new Chart(ctx, {
                 type: 'bar',
@@ -151,8 +274,17 @@ $end_date = $range['end'];
                     datasets: [{
                         label: 'Actividades',
                         data: [0,0,0,0],
-                        backgroundColor: '#40916c'
+                        backgroundColor: '#40916c',
+                        borderRadius: 8,
                     }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { position: 'top' },
+                        tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.raw}` } }
+                    }
                 }
             });
         });
