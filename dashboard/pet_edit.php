@@ -109,27 +109,126 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Editar Mascota - VetCtrl</title>
     <link rel="stylesheet" href="../public/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { background-color: #f8f9fa; padding-top: 70px; font-family: 'Segoe UI', sans-serif; }
-        .breadcrumb { max-width: 600px; margin: 10px auto 0; padding: 10px 20px; background: transparent; font-size: 0.95rem; }
-        .breadcrumb a { color: #40916c; text-decoration: none; }
+        :root {
+            --primary-dark: #1b4332;
+            --primary: #2d6a4f;
+            --primary-light: #40916c;
+            --accent: #b68b40;
+            --gray-bg: #f8fafc;
+            --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+        }
+        body {
+            background-color: #f4f7fc;
+            padding-top: 70px;
+            font-family: 'Inter', system-ui, 'Segoe UI', sans-serif;
+        }
+        .breadcrumb {
+            max-width: 600px;
+            margin: 10px auto 0;
+            padding: 10px 20px;
+            background: transparent;
+            font-size: 0.9rem;
+        }
+        .breadcrumb a { color: var(--primary-light); text-decoration: none; }
         .breadcrumb a:hover { text-decoration: underline; }
         .breadcrumb span { color: #6c757d; }
-        .container { max-width: 600px; margin: 20px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-        h1 { color: #1b4332; border-bottom: 2px solid #b68b40; padding-bottom: 10px; margin-bottom: 25px; display: flex; align-items: center; gap: 10px; }
-        .alert { padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid; display: flex; align-items: center; gap: 12px; }
-        .alert i { font-size: 1.4rem; }
-        .alert-danger { background: #f8d7da; color: #721c24; border-left-color: #dc3545; }
-        label { display: block; margin: 15px 0 5px; font-weight: 600; color: #1b4332; }
-        input, select, textarea { width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px; }
-        input:focus, select:focus, textarea:focus { border-color: #40916c; outline: none; }
-        .btn { padding: 12px 25px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; background: #40916c; color: white; }
-        .btn:hover { background: #2d6a4f; }
-        .btn-secondary { background: #6c757d; text-decoration: none; display: inline-block; margin-top: 20px; }
-        .btn-secondary:hover { background: #5a6268; }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 28px;
+            box-shadow: var(--card-shadow);
+            border: 1px solid #eef2f8;
+        }
+        h1 {
+            color: var(--primary-dark);
+            border-bottom: 3px solid var(--accent);
+            padding-bottom: 12px;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 700;
+        }
+        .alert {
+            padding: 15px 20px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-left: 5px solid;
+        }
+        .alert-danger {
+            background: #fee7e7;
+            color: #b91c1c;
+            border-left-color: #b91c1c;
+        }
+        label {
+            display: block;
+            margin: 18px 0 6px;
+            font-weight: 600;
+            color: var(--primary-dark);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 16px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--primary-light);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(64, 145, 108, 0.2);
+        }
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+            background: var(--primary);
+            color: white;
+            width: 100%;
+            margin-top: 25px;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .btn:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+        }
+        .btn-secondary {
+            background: #eef2f8;
+            color: var(--primary-dark);
+            width: auto;
+            display: inline-block;
+            margin-top: 20px;
+            text-decoration: none;
+            padding: 10px 24px;
+        }
+        .btn-secondary:hover {
+            background: #e2e8f0;
+            transform: translateY(-2px);
+        }
+        @media (max-width: 640px) {
+            .container { padding: 20px; margin: 15px; }
+        }
     </style>
     <script>
         const allBreeds = <?php echo json_encode($breeds, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
