@@ -8,7 +8,6 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
 
 require_once '../includes/config.php'; // $conn es un objeto PDO
 
-// Inicializar variables de sesión para la barra de navegación
 $username = $_SESSION["username"] ?? 'Veterinario'; 
 $attendant_id = $_SESSION['user_id'];
 $alert_records = [];
@@ -17,7 +16,6 @@ $today = date('Y-m-d');
 $future_date = date('Y-m-d', strtotime('+60 days')); 
 
 try {
-    // Consulta SQL - incluyendo teléfono del dueño
     $sql = "SELECT 
                 v.*, 
                 p.name as pet_name,
@@ -53,98 +51,97 @@ try {
 } catch (PDOException $e) {
     $message = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Error al cargar alertas: " . htmlspecialchars($e->getMessage()) . "</div>";
 }
-
-// No es necesario cerrar la conexión explícitamente con PDO
 ?>
 
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Alertas de Vacunas - VetCtrl</title>
     <link rel="stylesheet" href="../public/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* ===== RESET Y BASE ===== */
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
+        :root {
+            --primary-dark: #1b4332;
+            --primary: #2d6a4f;
+            --primary-light: #40916c;
+            --accent: #b68b40;
+            --danger: #dc3545;
+            --warning: #ffc107;
         }
-
         body {
-            background-color: #f4f4f4;
+            background-color: #f4f7fc;
             padding-top: 70px;
-            font-family: 'Segoe UI', sans-serif;
-            line-height: 1.5;
+            font-family: 'Inter', system-ui, 'Segoe UI', sans-serif;
         }
-
-        /* ===== BREADCRUMB ===== */
         .breadcrumb {
             max-width: 1200px;
             margin: 10px auto 0;
             padding: 10px 20px;
-            background: transparent;
-            font-size: 0.95rem;
-            word-break: break-word;
-            white-space: normal;
+            font-size: 0.9rem;
         }
         .breadcrumb a {
-            color: #40916c;
+            color: var(--primary-light);
             text-decoration: none;
         }
         .breadcrumb a:hover {
             text-decoration: underline;
         }
-        .breadcrumb span {
-            color: #6c757d;
-        }
-
-        /* ===== CONTENEDOR PRINCIPAL ===== */
         .dashboard-container {
-            padding: 20px;
             max-width: 1200px;
-            margin: 0 auto;
+            margin: 20px auto;
+            padding: 20px;
         }
         .main-content {
             background: white;
             padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            overflow: hidden;
+            border-radius: 32px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
+            border: 1px solid #eef2f8;
         }
-
-        /* ===== TÍTULOS ===== */
         h1 {
-            color: #1b4332;
-            border-bottom: 2px solid #b68b40;
-            padding-bottom: 10px;
+            color: var(--primary-dark);
+            border-bottom: 3px solid var(--accent);
+            padding-bottom: 12px;
             margin-bottom: 25px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-        h1 i {
-            color: #e74c3c; /* Rojo para icono de alerta */
-        }
-
-        /* ===== ALERTAS ===== */
-        .alert {
-            padding: 15px 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border-left: 5px solid;
             display: flex;
             align-items: center;
             gap: 12px;
         }
-        .alert i { font-size: 1.4rem; }
-        .alert-success { background: #d4edda; color: #155724; border-left-color: #28a745; }
-        .alert-info { background: #d1ecf1; color: #0c5460; border-left-color: #17a2b8; }
-        .alert-danger { background: #f8d7da; color: #721c24; border-left-color: #dc3545; }
-
-        /* ===== BOTONES PRINCIPALES ===== */
+        h1 i {
+            color: var(--danger);
+        }
+        .alert {
+            padding: 15px 20px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-left: 5px solid;
+        }
+        .alert-success {
+            background: #e0f2e9;
+            color: #1e7b4a;
+            border-left-color: #1e7b4a;
+        }
+        .alert-danger {
+            background: #fee7e7;
+            color: #b91c1c;
+            border-left-color: var(--danger);
+        }
+        .info-box {
+            background: #e0f2fe;
+            padding: 16px 20px;
+            border-radius: 24px;
+            margin-bottom: 25px;
+            border-left: 5px solid #0ea5e9;
+            color: #0369a1;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
         .action-buttons {
             display: flex;
             justify-content: center;
@@ -153,43 +150,35 @@ try {
             flex-wrap: wrap;
         }
         .btn-primary, .btn-outline {
-            padding: 10px 20px;
-            border-radius: 6px;
+            padding: 10px 24px;
+            border-radius: 40px;
             font-weight: 600;
             display: inline-flex;
             align-items: center;
-            justify-content: center;
             gap: 8px;
-            transition: all 0.3s;
+            transition: all 0.2s;
             text-decoration: none;
             cursor: pointer;
-            box-sizing: border-box;
-            /* Ancho fijo para que todos los botones tengan el mismo tamaño */
-            width: 180px;
-            text-align: center;
         }
         .btn-primary {
-            background: #40916c;
-            border: none;
+            background: var(--primary);
             color: white;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            border: none;
         }
         .btn-primary:hover {
-            background: #2d6a4f;
+            background: var(--primary-dark);
             transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
         }
         .btn-outline {
             background: transparent;
-            border: 2px solid #40916c;
-            color: #40916c;
+            border: 2px solid var(--primary);
+            color: var(--primary);
         }
         .btn-outline:hover {
-            background: #40916c;
+            background: var(--primary);
             color: white;
+            transform: translateY(-2px);
         }
-
-        /* ===== TABLA DE ALERTAS ===== */
         .table-responsive {
             overflow-x: auto;
             margin-top: 20px;
@@ -197,114 +186,79 @@ try {
         .alert-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
-            table-layout: auto;
-            word-break: break-word;
-            font-size: 0.9rem;
+            border-radius: 20px;
+            overflow: hidden;
         }
         .alert-table th {
-            background: #40916c;
+            background: var(--primary-dark);
             color: white;
-            padding: 12px 15px;
+            padding: 14px;
             text-align: left;
-            white-space: nowrap;
             font-weight: 600;
         }
         .alert-table td {
-            padding: 12px 15px;
-            border-bottom: 1px solid #ddd;
+            padding: 12px;
+            border-bottom: 1px solid #eef2f8;
             vertical-align: middle;
         }
-        .alert-table tr:hover {
-            background: #f8f9fa;
+        .alert-table tr:hover td {
+            background-color: #f9fbfd;
         }
         .expired-row {
-            background-color: #ffeaea;
-            border-left: 5px solid #dc3545;
+            background-color: #fee7e7;
         }
         .due-soon-row {
             background-color: #fff3cd;
-            border-left: 5px solid #ffc107;
         }
         .days-remaining {
-            font-weight: 600;
-            padding: 6px 12px;
-            border-radius: 20px;
-            color: white;
             display: inline-block;
-            font-size: 0.9em;
+            padding: 5px 12px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 0.75rem;
             text-align: center;
             min-width: 120px;
         }
         .days-remaining.expired {
-            background-color: #dc3545;
+            background-color: var(--danger);
+            color: white;
         }
         .days-remaining.due-soon {
-            background-color: #ffc107;
+            background-color: var(--warning);
             color: #333;
         }
-
-        /* Botón de acción (dentro de tabla) */
         .btn-action {
-            background-color: #40916c;
+            background: var(--primary);
             color: white;
             padding: 8px 16px;
-            border-radius: 6px;
+            border-radius: 40px;
             text-decoration: none;
             font-weight: 600;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             display: inline-flex;
             align-items: center;
-            justify-content: center;
-            gap: 5px;
-            transition: background 0.2s;
-            width: auto; /* se ajusta al contenido */
-            min-width: 120px; /* opcional, para dar un ancho mínimo */
+            gap: 6px;
+            transition: 0.2s;
         }
         .btn-action:hover {
-            background-color: #2d6a4f;
-            text-decoration: none;
+            background: var(--primary-dark);
+            transform: translateY(-2px);
         }
-
         .total-count {
             margin-top: 20px;
             text-align: right;
-            color: #6c757d;
-            font-style: italic;
+            color: #5b6e8c;
+            font-size: 0.85rem;
             padding: 10px;
-            background: #f8f9fa;
-            border-radius: 6px;
+            background: #f9fbfd;
+            border-radius: 20px;
         }
-
-        .info-box {
-            background: #e8f4fc;
-            padding: 15px 20px;
-            border-radius: 8px;
-            margin-bottom: 25px;
-            border-left: 4px solid #17a2b8;
-            color: #0c5460;
-        }
-
-        /* ===== MEDIA QUERIES ===== */
         @media (max-width: 768px) {
-            .action-buttons {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            .btn-primary, .btn-outline {
-                width: 100%;  /* en móvil ocupan todo el ancho */
-            }
-            .alert-table th, .alert-table td {
-                padding: 8px 10px;
-                white-space: normal;
-            }
-            .days-remaining {
-                min-width: auto;
-                padding: 4px 8px;
-            }
-            .main-content {
-                padding: 20px 15px;
-            }
+            .main-content { padding: 20px; }
+            .action-buttons { flex-direction: column; align-items: stretch; }
+            .btn-primary, .btn-outline { justify-content: center; }
+            .alert-table th, .alert-table td { padding: 10px; }
+            .days-remaining { min-width: auto; }
         }
     </style>
 </head>
@@ -321,7 +275,8 @@ try {
             <h1><i class="fas fa-bell"></i> Alertas de Vacunación</h1>
 
             <div class="info-box">
-                <i class="fas fa-info-circle"></i> Mostrando vacunas vencidas y aquellas que vencen en los próximos <strong>60 días</strong>.
+                <i class="fas fa-info-circle"></i>
+                Mostrando vacunas vencidas y aquellas que vencen en los próximos <strong>60 días</strong>.
                 Solo se muestran las vacunas registradas por <strong><?php echo htmlspecialchars($username); ?></strong>.
             </div>
 
@@ -344,7 +299,8 @@ try {
                                 <th>Estado</th>
                                 <th>Dueño</th>
                                 <th>Acción</th>
-                            </thead>
+                            </tr>
+                        </thead>
                         <tbody>
                             <?php foreach ($alert_records as $record): 
                                 $next_due_date = $record['next_due_date'];
@@ -362,11 +318,11 @@ try {
                                 }
                             ?>
                                 <tr class="<?php echo $row_class; ?>">
-                                     <td>
-                                        <a href="pet_profile.php?id=<?php echo $record['pet_id']; ?>" style="color: #1b4332; font-weight: 600; text-decoration: none;">
+                                    <td data-label="Paciente">
+                                        <a href="pet_profile.php?id=<?php echo $record['pet_id']; ?>" style="color: var(--primary-dark); font-weight: 600; text-decoration: none;">
                                             <?php echo htmlspecialchars($record['pet_name']); ?>
                                         </a>
-                                        <div class="pet-info" style="font-size: 0.85rem; color: #6c757d;">
+                                        <div style="font-size: 0.8rem; color: #5b6e8c;">
                                             <?php 
                                                 echo htmlspecialchars($record['pet_species_name'] ?? 'Desconocida'); 
                                                 if (!empty($record['pet_breed_name'])) {
@@ -374,23 +330,21 @@ try {
                                                 }
                                             ?>
                                         </div>
-                                      </td>
-                                      <td><strong><?php echo htmlspecialchars($record['vaccine_name']); ?></strong></td>
-                                      <td><strong><?php echo date('d/m/Y', strtotime($next_due_date)); ?></strong></td>
-                                      <td><span class="days-remaining <?php echo $status_class; ?>"><?php echo $status_text; ?></span></td>
-                                      <td>
-                                        <div>
-                                            <strong><?php echo htmlspecialchars($record['owner_name'] ?? 'N/D'); ?></strong>
-                                            <?php if (!empty($record['owner_phone'])): ?>
-                                                <br><small><a href="tel:<?php echo htmlspecialchars($record['owner_phone']); ?>" style="color: #40916c;">📞 <?php echo htmlspecialchars($record['owner_phone']); ?></a></small>
-                                            <?php endif; ?>
-                                        </div>
-                                      </td>
-                                      <td>
+                                    </td>
+                                    <td data-label="Vacuna"><strong><?php echo htmlspecialchars($record['vaccine_name']); ?></strong></td>
+                                    <td data-label="Próxima Dosis"><strong><?php echo date('d/m/Y', strtotime($next_due_date)); ?></strong></td>
+                                    <td data-label="Estado"><span class="days-remaining <?php echo $status_class; ?>"><?php echo $status_text; ?></span></td>
+                                    <td data-label="Dueño">
+                                        <strong><?php echo htmlspecialchars($record['owner_name'] ?? 'N/D'); ?></strong>
+                                        <?php if (!empty($record['owner_phone'])): ?>
+                                            <br><small><a href="tel:<?php echo htmlspecialchars($record['owner_phone']); ?>" style="color: var(--primary-light);">📞 <?php echo htmlspecialchars($record['owner_phone']); ?></a></small>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td data-label="Acción">
                                         <a href="vaccine_register.php?pet_id=<?php echo $record['pet_id']; ?>" class="btn-action">
                                             <i class="fas fa-syringe"></i> Aplicar Dosis
                                         </a>
-                                      </td>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
