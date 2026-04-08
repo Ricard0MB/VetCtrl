@@ -29,7 +29,6 @@ $vaccine_types = [];
 $error = '';
 
 try {
-    // Obtener nombre de la mascota
     $sql = "SELECT name FROM pets WHERE id = :pet_id";
     $stmt = $conn->prepare($sql);
     $stmt->bindValue(':pet_id', $pet_id, PDO::PARAM_INT);
@@ -41,7 +40,6 @@ try {
         exit;
     }
 
-    // Obtener tipos de vacunas
     $stmtTypes = $conn->query("SELECT id, name FROM vaccine_types ORDER BY name");
     $vaccine_types = $stmtTypes->fetchAll(PDO::FETCH_ASSOC);
 
@@ -88,29 +86,119 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aplicar Vacuna - VetCtrl</title>
     <link rel="stylesheet" href="../public/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { background-color: #f4f4f4; padding-top: 70px; font-family: 'Segoe UI', sans-serif; }
-        .breadcrumb { max-width: 600px; margin: 10px auto 0; padding: 10px 20px; background: transparent; font-size: 0.95rem; }
-        .breadcrumb a { color: #40916c; text-decoration: none; }
-        .breadcrumb a:hover { text-decoration: underline; }
-        .breadcrumb span { color: #6c757d; }
-        .container { max-width: 600px; margin: 20px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-        h1 { color: #1b4332; border-bottom: 2px solid #b68b40; padding-bottom: 10px; margin-bottom: 25px; display: flex; align-items: center; gap: 10px; }
-        .alert { padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid; display: flex; align-items: center; gap: 12px; }
-        .alert i { font-size: 1.4rem; }
-        .alert-danger { background: #f8d7da; color: #721c24; border-left-color: #dc3545; }
-        label { display: block; margin: 15px 0 5px; font-weight: 600; color: #1b4332; }
-        select, input, textarea { width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px; box-sizing: border-box; }
-        select:focus, input:focus, textarea:focus { border-color: #40916c; outline: none; }
-        .btn { padding: 12px 25px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; background: #40916c; color: white; width: 100%; display: inline-block; text-align: center; text-decoration: none; box-sizing: border-box; }
-        .btn:hover { background: #2d6a4f; }
-        .btn-secondary { background: #6c757d; }
-        .btn-secondary:hover { background: #5a6268; }
-        /* Aseguramos que el enlace también ocupe todo el ancho */
-        .btn-block { width: 100%; display: block; }
+        :root {
+            --primary-dark: #1b4332;
+            --primary: #2d6a4f;
+            --primary-light: #40916c;
+            --accent: #b68b40;
+        }
+        body {
+            background-color: #f4f7fc;
+            padding-top: 70px;
+            font-family: 'Inter', system-ui, 'Segoe UI', sans-serif;
+        }
+        .breadcrumb {
+            max-width: 600px;
+            margin: 10px auto 0;
+            padding: 10px 20px;
+            font-size: 0.9rem;
+        }
+        .breadcrumb a {
+            color: var(--primary-light);
+            text-decoration: none;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 32px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
+            border: 1px solid #eef2f8;
+        }
+        h1 {
+            color: var(--primary-dark);
+            border-bottom: 3px solid var(--accent);
+            padding-bottom: 12px;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .alert {
+            padding: 15px 20px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-left: 5px solid;
+        }
+        .alert-danger {
+            background: #fee7e7;
+            color: #b91c1c;
+            border-left-color: #dc3545;
+        }
+        label {
+            display: block;
+            margin: 18px 0 6px;
+            font-weight: 600;
+            color: var(--primary-dark);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        select, input, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 16px;
+            transition: 0.2s;
+            font-size: 0.9rem;
+        }
+        select:focus, input:focus, textarea:focus {
+            border-color: var(--primary-light);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(64,145,108,0.2);
+        }
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+            background: var(--primary);
+            color: white;
+            width: 100%;
+            margin-top: 25px;
+            transition: 0.2s;
+        }
+        .btn:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+        }
+        .btn-secondary {
+            background: #eef2f8;
+            color: var(--primary-dark);
+            text-decoration: none;
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 40px;
+        }
+        .btn-secondary:hover {
+            background: #e2e8f0;
+            transform: translateY(-2px);
+        }
+        @media (max-width: 640px) {
+            .container { padding: 20px; margin: 15px; }
+        }
     </style>
 </head>
 <body>
@@ -155,10 +243,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
             <button type="submit" class="btn"><i class="fas fa-save"></i> Registrar Vacuna</button>
         </form>
 
-        <!-- Enlace modificado para que tenga el mismo ancho que el botón -->
-        <a href="pet_profile.php?id=<?php echo $pet_id; ?>" class="btn btn-secondary" style="width: 100%; display: block; box-sizing: border-box; text-align: center; margin-top: 20px;">
-            <i class="fas fa-arrow-left"></i> Volver al Perfil
-        </a>
+        <a href="pet_profile.php?id=<?php echo $pet_id; ?>" class="btn-secondary"><i class="fas fa-arrow-left"></i> Volver al Perfil</a>
     </div>
 
     <?php include_once '../includes/footer.php'; ?>
