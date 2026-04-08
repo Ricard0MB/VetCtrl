@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once '../includes/config.php'; // $conn es un objeto PDO
+require_once '../includes/config.php';
 require_once '../includes/bitacora_function.php';
 
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
@@ -23,47 +23,27 @@ $owners = [];
 $error = '';
 $success = '';
 
-// ========== MAPA DE LONGEVIDAD POR ESPECIE (en años) ==========
+// Mapa de longevidad
 $lifespanMap = [
-    'perro' => 18,
-    'gato' => 20,
-    'tortuga' => 100,
-    'conejo' => 12,
-    'hámster' => 3,
-    'ave' => 20,
-    'pez' => 5,
-    'reptil' => 30,
-    'roedor' => 4,
-    'caballo' => 30,
-    'cerdo' => 15,
-    'otros' => 20
+    'perro' => 18, 'gato' => 20, 'tortuga' => 100, 'conejo' => 12, 'hámster' => 3,
+    'ave' => 20, 'pez' => 5, 'reptil' => 30, 'roedor' => 4, 'caballo' => 30,
+    'cerdo' => 15, 'otros' => 20
 ];
 
-/**
- * Obtiene la edad máxima permitida para un tipo de mascota dado su nombre.
- * @param string $typeName
- * @return int
- */
 function getMaxAgeForType($typeName) {
     global $lifespanMap;
     $key = strtolower(trim($typeName));
     return $lifespanMap[$key] ?? $lifespanMap['otros'];
 }
 
-// ========== ASEGURAR QUE EXISTAN TODAS LAS ESPECIES NECESARIAS ==========
-$requiredTypes = [
-    'Perro', 'Gato', 'Tortuga', 'Conejo', 'Hámster',
-    'Ave', 'Pez', 'Reptil', 'Roedor', 'Caballo', 'Cerdo', 'Otros'
-];
+// Asegurar especies esenciales
+$requiredTypes = ['Perro', 'Gato', 'Tortuga', 'Conejo', 'Hámster', 'Ave', 'Pez', 'Reptil', 'Roedor', 'Caballo', 'Cerdo', 'Otros'];
 try {
-    // Obtener los nombres de especies existentes
     $stmtCheck = $conn->query("SELECT name FROM pet_types");
     $existingNames = $stmtCheck->fetchAll(PDO::FETCH_COLUMN);
     $existingNamesLower = array_map('strtolower', $existingNames);
-
     foreach ($requiredTypes as $typeName) {
         if (!in_array(strtolower($typeName), $existingNamesLower)) {
-            // Insertar la especie faltante, incluyendo attendant_id (usuario actual)
             $stmtInsert = $conn->prepare("INSERT INTO pet_types (name, attendant_id) VALUES (:name, :attendant_id)");
             $stmtInsert->bindValue(':name', $typeName);
             $stmtInsert->bindValue(':attendant_id', $user_id, PDO::PARAM_INT);
@@ -73,18 +53,12 @@ try {
 } catch (PDOException $e) {
     $error = "Error al verificar especies: " . $e->getMessage();
 }
-// ==============================================================
 
 try {
-    // Obtener tipos de mascota (ahora con todas las especies)
     $stmtTypes = $conn->query("SELECT id, name FROM pet_types ORDER BY name");
     $pet_types = $stmtTypes->fetchAll(PDO::FETCH_ASSOC);
-
-    // Obtener razas
     $stmtBreeds = $conn->query("SELECT id, name, type_id FROM breeds ORDER BY name");
     $breeds = $stmtBreeds->fetchAll(PDO::FETCH_ASSOC);
-
-    // Para veterinario/admin, permitir seleccionar dueño
     if (in_array($role_name, ['Veterinario', 'admin'])) {
         $stmtOwners = $conn->query("SELECT id, username, first_name, last_name FROM users WHERE role_id = 3 ORDER BY first_name");
         $owners = $stmtOwners->fetchAll(PDO::FETCH_ASSOC);
@@ -93,106 +67,63 @@ try {
     $error = "Error al cargar datos: " . $e->getMessage();
 }
 
-// ========== FUNCIONES DE VALIDACIÓN DE NOMBRE ==========
 function sanitizePetName($name) {
     $name = preg_replace('/[0-9]/', '', $name);
     $name = preg_replace('/[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s\-\']/u', '', $name);
     $name = preg_replace('/\s+/', ' ', $name);
     return trim($name);
 }
-
 function containsProfanity($name) {
-    $profanityList = [
-        'puta', 'puto', 'pendejo', 'cabrón', 'cabron', 'coño', 'cojones', 'joder', 'mierda', 'imbécil', 'imbecil',
-        'gilipollas', 'zorra', 'bastardo', 'malparido', 'hijueputa', 'maricón', 'maricon',
-        'chucha', 'concha', 'culiao', 'weon', 'weón', 'weona', 'ctm', 'conchetumare',
-        'fuck', 'shit', 'bitch', 'asshole', 'bastard', 'cunt', 'dick', 'pussy', 'whore', 'slut', 'motherfucker'
-    ];
+    $profanityList = ['puta','puto','pendejo','cabrón','cabron','coño','cojones','joder','mierda','imbécil','imbecil','gilipollas','zorra','bastardo','malparido','hijueputa','maricón','maricon','chucha','concha','culiao','weon','weón','weona','ctm','conchetumare','fuck','shit','bitch','asshole','bastard','cunt','dick','pussy','whore','slut','motherfucker'];
     $lower = strtolower($name);
-    foreach ($profanityList as $word) {
-        if (strpos($lower, $word) !== false) return true;
-    }
+    foreach ($profanityList as $word) if (strpos($lower, $word) !== false) return true;
     return false;
 }
-
-function hasExcessiveRepeats($name) {
-    return preg_match('/(.)\1{3,}/u', $name);
-}
-
-function containsLetter($name) {
-    return preg_match('/[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]/u', $name);
-}
-// ==================================================
+function hasExcessiveRepeats($name) { return preg_match('/(.)\1{3,}/u', $name); }
+function containsLetter($name) { return preg_match('/[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]/u', $name); }
 
 if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
     $name = trim($_POST['name'] ?? '');
     $type_id = intval($_POST['type_id'] ?? 0);
     $breed_id = !empty($_POST['breed_id']) ? intval($_POST['breed_id']) : null;
-    $gender = !empty($_POST['gender']) ? $_POST['gender'] : null;
-    $dob = !empty($_POST['dob']) ? $_POST['dob'] : null;
-    $medical_history = !empty($_POST['medical_history']) ? trim($_POST['medical_history']) : null;
+    $gender = $_POST['gender'] ?? null;
+    $dob = $_POST['dob'] ?? null;
+    $medical_history = trim($_POST['medical_history'] ?? '');
 
-    // Validación del nombre
     if (empty($name)) {
         $error = "El nombre de la mascota es obligatorio.";
     } else {
         $name = sanitizePetName($name);
-        if (strlen($name) < 2) {
-            $error = "El nombre debe tener al menos 2 caracteres válidos (letras, espacios, guiones).";
-        } elseif (strlen($name) > 50) {
-            $error = "El nombre no puede exceder los 50 caracteres.";
-        } elseif (!containsLetter($name)) {
-            $error = "El nombre debe contener al menos una letra (no solo símbolos).";
-        } elseif (hasExcessiveRepeats($name)) {
-            $error = "El nombre no puede tener un mismo carácter repetido más de 3 veces seguidas.";
-        } elseif (containsProfanity($name)) {
-            $error = "El nombre contiene palabras inapropiadas. Por favor, elige otro nombre.";
-        }
+        if (strlen($name) < 2) $error = "El nombre debe tener al menos 2 caracteres válidos.";
+        elseif (strlen($name) > 50) $error = "El nombre no puede exceder los 50 caracteres.";
+        elseif (!containsLetter($name)) $error = "El nombre debe contener al menos una letra.";
+        elseif (hasExcessiveRepeats($name)) $error = "El nombre no puede tener un mismo carácter repetido más de 3 veces seguidas.";
+        elseif (containsProfanity($name)) $error = "El nombre contiene palabras inapropiadas.";
     }
 
-    // Determinar owner_id
     if (empty($error)) {
         if (in_array($role_name, ['Veterinario', 'admin'])) {
             $owner_id = intval($_POST['owner_id'] ?? 0);
-            if ($owner_id <= 0) $error = "Debe seleccionar un dueño para la mascota.";
+            if ($owner_id <= 0) $error = "Debe seleccionar un dueño.";
         } else {
             $owner_id = $user_id;
         }
     }
 
-    // Validar especie
-    if (empty($error) && $type_id == 0) {
-        $error = "Debe seleccionar una especie.";
-    }
+    if (empty($error) && $type_id == 0) $error = "Debe seleccionar una especie.";
 
-    // Validar fecha de nacimiento según especie
     if (empty($error) && !empty($dob)) {
-        // Obtener nombre del tipo de mascota
         $typeName = '';
-        foreach ($pet_types as $pt) {
-            if ($pt['id'] == $type_id) {
-                $typeName = $pt['name'];
-                break;
-            }
-        }
-        if (empty($typeName)) {
-            $error = "Especie no válida.";
-        } else {
+        foreach ($pet_types as $pt) if ($pt['id'] == $type_id) { $typeName = $pt['name']; break; }
+        if (empty($typeName)) $error = "Especie no válida.";
+        else {
             $maxAge = getMaxAgeForType($typeName);
             $dobDate = new DateTime($dob);
             $today = new DateTime();
             $age = $today->diff($dobDate)->y;
-
-            if ($age < 0) {
-                $error = "La fecha de nacimiento no puede ser futura.";
-            } elseif ($age > $maxAge) {
-                $error = "La edad de la mascota ($age años) excede la esperanza de vida máxima para $typeName ($maxAge años).";
-            }
+            if ($age < 0) $error = "La fecha de nacimiento no puede ser futura.";
+            elseif ($age > $maxAge) $error = "La edad ($age años) excede la esperanza de vida máxima para $typeName ($maxAge años).";
         }
-    }
-
-    if (empty($error) && empty($name)) {
-        $error = "El nombre es obligatorio.";
     }
 
     if (empty($error)) {
@@ -214,7 +145,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
             $action = "Nueva mascota registrada: $name (ID $new_id)";
             log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
             $success = "Mascota registrada correctamente.";
-            $_POST = []; // Limpiar formulario
+            $_POST = [];
         } catch (PDOException $e) {
             $error = "Error al registrar: " . $e->getMessage();
         }
@@ -225,165 +156,129 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registrar Mascota - VetCtrl</title>
     <link rel="stylesheet" href="../public/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* ===== RESET LOCAL ===== */
-        * {
-            box-sizing: border-box;
+        :root {
+            --primary-dark: #1b4332;
+            --primary: #2d6a4f;
+            --primary-light: #40916c;
+            --accent: #b68b40;
         }
         body {
-            background-color: #f8f9fa;
+            background-color: #f4f7fc;
             padding-top: 70px;
-            font-family: 'Segoe UI', sans-serif;
+            font-family: 'Inter', system-ui, 'Segoe UI', sans-serif;
         }
         .breadcrumb {
             max-width: 600px;
             margin: 10px auto 0;
             padding: 10px 20px;
-            background: transparent;
-            font-size: 0.95rem;
-            word-break: break-word;
+            font-size: 0.9rem;
         }
-        .breadcrumb a {
-            color: #40916c;
-            text-decoration: none;
-        }
-        .breadcrumb a:hover {
-            text-decoration: underline;
-        }
-        .breadcrumb span {
-            color: #6c757d;
-        }
+        .breadcrumb a { color: var(--primary-light); text-decoration: none; }
         .container {
             max-width: 600px;
             margin: 20px auto;
             background: white;
             padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            overflow: hidden;
+            border-radius: 32px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
+            border: 1px solid #eef2f8;
         }
         h1 {
-            color: #1b4332;
-            border-bottom: 2px solid #b68b40;
-            padding-bottom: 10px;
+            color: var(--primary-dark);
+            border-bottom: 3px solid var(--accent);
+            padding-bottom: 12px;
             margin-bottom: 25px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-        .alert {
-            padding: 15px 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border-left: 5px solid;
             display: flex;
             align-items: center;
             gap: 12px;
         }
-        .alert i { font-size: 1.4rem; }
-        .alert-success { background: #d4edda; color: #155724; border-left-color: #28a745; }
-        .alert-danger { background: #f8d7da; color: #721c24; border-left-color: #dc3545; }
-
+        .alert {
+            padding: 15px 20px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-left: 5px solid;
+        }
+        .alert-success { background: #e0f2e9; color: #1e7b4a; border-left-color: #1e7b4a; }
+        .alert-danger { background: #fee7e7; color: #b91c1c; border-left-color: #b91c1c; }
         label {
             display: block;
-            margin: 15px 0 5px;
+            margin: 18px 0 6px;
             font-weight: 600;
-            color: #1b4332;
+            color: var(--primary-dark);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         input, select, textarea {
             width: 100%;
-            padding: 10px;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            box-sizing: border-box;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 16px;
+            transition: 0.2s;
         }
         input:focus, select:focus, textarea:focus {
-            border-color: #40916c;
+            border-color: var(--primary-light);
             outline: none;
-        }
-        .input-error {
-            border-color: #dc3545 !important;
-        }
-        .error-message {
-            color: #dc3545;
-            font-size: 0.85rem;
-            margin-top: 4px;
-            display: none;
+            box-shadow: 0 0 0 3px rgba(64,145,108,0.2);
         }
         .btn {
             padding: 12px 25px;
             border: none;
-            border-radius: 6px;
+            border-radius: 40px;
             font-weight: 600;
             cursor: pointer;
-            background: #40916c;
+            background: var(--primary);
             color: white;
             width: 100%;
-            margin-top: 20px;
-            transition: background 0.3s, transform 0.2s;
+            margin-top: 25px;
+            transition: 0.2s;
         }
         .btn:hover {
-            background: #2d6a4f;
+            background: var(--primary-dark);
             transform: translateY(-2px);
         }
         .btn-secondary {
-            background: #6c757d;
-            color: white;
-            padding: 12px 25px;
-            border-radius: 6px;
-            text-decoration: none;
-            font-weight: 600;
+            background: #eef2f8;
+            color: var(--primary-dark);
+            width: auto;
             display: inline-block;
             margin-top: 20px;
-            transition: background 0.3s;
-            text-align: center;
-        }
-        .btn-secondary:hover {
-            background: #5a6268;
             text-decoration: none;
-            color: white;
+            padding: 10px 24px;
         }
-        @media (max-width: 600px) {
-            .btn-secondary {
-                width: 100%;
-                display: block;
-            }
+        .error-message {
+            color: #dc3545;
+            font-size: 0.75rem;
+            margin-top: 4px;
+            display: none;
+        }
+        .input-error {
+            border-color: #dc3545 !important;
+        }
+        @media (max-width: 640px) {
+            .container { padding: 20px; margin: 15px; }
         }
     </style>
     <script>
-        // Datos de especies y su longevidad (en años)
-        const lifespanMap = <?php echo json_encode($lifespanMap, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
-        
-        // Lista de tipos de mascotas con id y nombre (se genera desde PHP)
-        const petTypes = <?php echo json_encode($pet_types, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
-        
-        // Lista de groserías
-        const profanityList = [
-            'puta', 'puto', 'pendejo', 'cabrón', 'cabron', 'coño', 'cojones', 'joder', 'mierda', 'imbécil', 'imbecil',
-            'gilipollas', 'zorra', 'bastardo', 'malparido', 'hijueputa', 'maricón', 'maricon',
-            'chucha', 'concha', 'culiao', 'weon', 'weón', 'weona', 'ctm', 'conchetumare',
-            'fuck', 'shit', 'bitch', 'asshole', 'bastard', 'cunt', 'dick', 'pussy', 'whore', 'slut', 'motherfucker'
-        ];
+        const lifespanMap = <?php echo json_encode($lifespanMap); ?>;
+        const petTypes = <?php echo json_encode($pet_types); ?>;
+        const profanityList = ['puta','puto','pendejo','cabrón','cabron','coño','cojones','joder','mierda','imbécil','imbecil','gilipollas','zorra','bastardo','malparido','hijueputa','maricón','maricon','chucha','concha','culiao','weon','weón','weona','ctm','conchetumare','fuck','shit','bitch','asshole','bastard','cunt','dick','pussy','whore','slut','motherfucker'];
 
         function containsProfanity(str) {
             const lower = str.toLowerCase();
-            for (let word of profanityList) {
-                if (lower.includes(word)) return true;
-            }
+            for (let word of profanityList) if (lower.includes(word)) return true;
             return false;
         }
-
-        function hasExcessiveRepeats(str) {
-            return /(.)\1{3,}/.test(str);
-        }
-
-        function containsLetter(str) {
-            return /[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]/.test(str);
-        }
+        function hasExcessiveRepeats(str) { return /(.)\1{3,}/.test(str); }
+        function containsLetter(str) { return /[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]/.test(str); }
 
         function validatePetName() {
             const nameInput = document.getElementById('name');
@@ -395,23 +290,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
 
             let isValid = true;
             let errorMsg = '';
-
-            if (name.length < 2) {
-                errorMsg = 'El nombre debe tener al menos 2 caracteres válidos.';
-                isValid = false;
-            } else if (name.length > 50) {
-                errorMsg = 'El nombre no puede exceder los 50 caracteres.';
-                isValid = false;
-            } else if (!containsLetter(name)) {
-                errorMsg = 'El nombre debe contener al menos una letra (no solo símbolos).';
-                isValid = false;
-            } else if (hasExcessiveRepeats(name)) {
-                errorMsg = 'El nombre no puede tener un mismo carácter repetido más de 3 veces seguidas.';
-                isValid = false;
-            } else if (containsProfanity(name)) {
-                errorMsg = 'El nombre contiene palabras inapropiadas. Por favor, elige otro nombre.';
-                isValid = false;
-            }
+            if (name.length < 2) { errorMsg = 'Mínimo 2 caracteres.'; isValid = false; }
+            else if (name.length > 50) { errorMsg = 'Máximo 50 caracteres.'; isValid = false; }
+            else if (!containsLetter(name)) { errorMsg = 'Debe contener al menos una letra.'; isValid = false; }
+            else if (hasExcessiveRepeats(name)) { errorMsg = 'No puede tener un mismo carácter repetido más de 3 veces.'; isValid = false; }
+            else if (containsProfanity(name)) { errorMsg = 'Contiene palabras inapropiadas.'; isValid = false; }
 
             const errorSpan = document.getElementById('name-error');
             if (!isValid) {
@@ -420,7 +303,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
                 errorSpan.style.display = 'block';
             } else {
                 nameInput.classList.remove('input-error');
-                errorSpan.textContent = '';
                 errorSpan.style.display = 'none';
             }
             return isValid;
@@ -432,18 +314,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
             const typeSelect = document.getElementById('type_id');
             const selectedOption = typeSelect.options[typeSelect.selectedIndex];
             const typeName = selectedOption ? selectedOption.textContent.trim().toLowerCase() : '';
-            
             const errorSpan = document.getElementById('dob-error');
-            if (!dob) {
-                errorSpan.style.display = 'none';
-                return true;
-            }
+            if (!dob) { errorSpan.style.display = 'none'; return true; }
 
-            // Obtener longevidad máxima para esta especie
-            let maxAge = lifespanMap['otros']; // default
-            if (typeName && lifespanMap[typeName] !== undefined) {
-                maxAge = lifespanMap[typeName];
-            }
+            let maxAge = lifespanMap['otros'] || 20;
+            if (typeName && lifespanMap[typeName] !== undefined) maxAge = lifespanMap[typeName];
 
             const today = new Date();
             const birthDate = new Date(dob);
@@ -454,19 +329,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
                 return false;
             }
             if (birthDate > today) {
-                errorSpan.textContent = 'La fecha de nacimiento no puede ser futura.';
+                errorSpan.textContent = 'La fecha no puede ser futura.';
                 errorSpan.style.display = 'block';
                 dobInput.classList.add('input-error');
                 return false;
             }
-
             let age = today.getFullYear() - birthDate.getFullYear();
             const monthDiff = today.getMonth() - birthDate.getMonth();
-            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-                age--;
-            }
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
             if (age > maxAge) {
-                errorSpan.textContent = `La edad de la mascota (${age} años) excede la esperanza de vida máxima para ${selectedOption.textContent} (${maxAge} años).`;
+                errorSpan.textContent = `La edad (${age} años) excede la esperanza de vida máxima para ${selectedOption.textContent} (${maxAge} años).`;
                 errorSpan.style.display = 'block';
                 dobInput.classList.add('input-error');
                 return false;
@@ -477,43 +349,26 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
             }
         }
 
-        // Eventos
         document.addEventListener('DOMContentLoaded', function() {
-            // Inicializar errores ocultos
-            const nameError = document.getElementById('name-error');
-            const dobError = document.getElementById('dob-error');
-            if (nameError) nameError.style.display = 'none';
-            if (dobError) dobError.style.display = 'none';
-
+            document.getElementById('name-error').style.display = 'none';
+            document.getElementById('dob-error').style.display = 'none';
             const nameInput = document.getElementById('name');
-            if (nameInput) {
-                nameInput.addEventListener('input', validatePetName);
-                nameInput.addEventListener('blur', validatePetName);
-            }
-
+            nameInput.addEventListener('input', validatePetName);
+            nameInput.addEventListener('blur', validatePetName);
             const typeSelect = document.getElementById('type_id');
             const dobInput = document.getElementById('dob');
-            if (typeSelect && dobInput) {
-                typeSelect.addEventListener('change', validateDateOfBirth);
-                dobInput.addEventListener('change', validateDateOfBirth);
-                dobInput.addEventListener('input', validateDateOfBirth);
-            }
+            typeSelect.addEventListener('change', validateDateOfBirth);
+            dobInput.addEventListener('change', validateDateOfBirth);
+            dobInput.addEventListener('input', validateDateOfBirth);
 
-            // Validación final del formulario
             const form = document.querySelector('form');
-            if (form) {
-                form.addEventListener('submit', function(e) {
-                    let valid = true;
-                    if (!validatePetName()) valid = false;
-                    if (dobInput && !validateDateOfBirth()) valid = false;
-                    if (!valid) {
-                        e.preventDefault();
-                        alert('Por favor corrige los errores en el formulario.');
-                    }
-                });
-            }
+            form.addEventListener('submit', function(e) {
+                let valid = true;
+                if (!validatePetName()) valid = false;
+                if (dobInput && !validateDateOfBirth()) valid = false;
+                if (!valid) { e.preventDefault(); alert('Por favor corrige los errores en el formulario.'); }
+            });
 
-            // Filtrar razas
             const allBreeds = <?php echo json_encode($breeds, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
             function filterBreeds() {
                 const typeSelect = document.getElementById('type_id');
@@ -532,7 +387,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
                 }
             }
             filterBreeds();
-            if (typeSelect) typeSelect.addEventListener('change', filterBreeds);
+            typeSelect.addEventListener('change', filterBreeds);
         });
     </script>
 </head>
