@@ -66,12 +66,6 @@ if (isset($_GET['query']) && !empty(trim($_GET['query']))) {
 
     $sql = $sql_select . $sql_from_join . $sql_where . " ORDER BY p.name ASC";
 
-    // --- DEPURACIÓN (solo para admin) ---
-    if ($is_vet_or_admin) {
-        echo "<!-- SQL: " . htmlspecialchars($sql) . " -->";
-        echo "<!-- Params: " . htmlspecialchars(print_r($params, true)) . " -->";
-    }
-
     try {
         $stmt = $conn->prepare($sql);
         $stmt->execute($params);
@@ -84,7 +78,7 @@ if (isset($_GET['query']) && !empty(trim($_GET['query']))) {
         }
 
         if (empty($search_results)) {
-            $message = "<div class='alert alert-info'><i class='fas fa-info-circle'></i> No se encontraron pacientes que coincidan con la búsqueda: <strong>" . htmlspecialchars($search_query) . "</strong>" . ($is_vet_or_admin ? "" : " (Restringida a tus mascotas, ahora también puedes buscar por tu nombre o cédula)") . "</div>";
+            $message = "<div class='alert alert-info'><i class='fas fa-info-circle'></i> No se encontraron pacientes que coincidan con la búsqueda: <strong>" . htmlspecialchars($search_query) . "</strong>" . ($is_vet_or_admin ? "" : " (Restringida a tus mascotas)") . "</div>";
         }
     } catch (PDOException $e) {
         if (function_exists('log_to_bitacora')) {
@@ -99,75 +93,209 @@ if (isset($_GET['query']) && !empty(trim($_GET['query']))) {
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Buscar Paciente - VetCtrl</title>
     <link rel="stylesheet" href="../public/css/style.css"> 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://unpkg.com/jspdf-autotable@3.5.25/dist/jspdf.plugin.autotable.js"></script>
     <style>
+        :root {
+            --primary-dark: #1b4332;
+            --primary: #2d6a4f;
+            --primary-light: #40916c;
+            --accent: #b68b40;
+            --gray-bg: #f8fafc;
+        }
         body {
-            font-family: 'Segoe UI', sans-serif;
-            background-color: #f4f4f4;
+            font-family: 'Inter', system-ui, 'Segoe UI', sans-serif;
+            background-color: #f4f7fc;
             padding-top: 70px;
         }
         .breadcrumb {
-            max-width: 900px;
-            margin: 10px auto 0 auto;
+            max-width: 1000px;
+            margin: 10px auto 0;
             padding: 10px 20px;
-            background: transparent;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
         }
         .breadcrumb a {
-            color: #40916c;
+            color: var(--primary-light);
             text-decoration: none;
         }
-        .breadcrumb a:hover {
-            text-decoration: underline;
+        .dashboard-container {
+            max-width: 1000px;
+            margin: 20px auto;
+            padding: 0 20px;
         }
-        .breadcrumb span {
-            color: #6c757d;
+        .main-content {
+            background: white;
+            padding: 30px;
+            border-radius: 32px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
+            border: 1px solid #eef2f8;
         }
-        .dashboard-container { padding: 40px 20px; max-width: 900px; margin: 0 auto; }
-        .main-content { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
-        h1 { color: #1b4332; border-bottom: 2px solid #b68b40; padding-bottom: 10px; margin-bottom: 20px; text-align: center; }
-        .role-badge { background: #40916c; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.9rem; display: inline-block; margin-bottom: 15px; }
-        .search-info { text-align: center; margin-bottom: 20px; font-size: 0.95em; color: #495057; }
-        .restriction-alert { background: #fff3cd; color: #856404; padding: 15px; border-radius: 8px; border: 1px solid #ffeeba; margin-top: 15px; }
-        .search-form { display: flex; gap: 10px; margin-bottom: 30px; }
-        .search-form input[type="text"] { flex: 1; padding: 12px; border: 1px solid #ced4da; border-radius: 6px; }
-        .btn-primary { background: #2d6a4f; color: white; padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
-        .btn-primary:hover { background: #1b4332; }
-        .result-actions { display: flex; justify-content: flex-end; margin-bottom: 15px; }
-        #btnExportPdf { background: #b68b40; color: white; padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; }
-        .result-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }
-        .pet-card {
-            background: white; border: 1px solid #e0e0e0; border-left: 6px solid #40916c; padding: 20px; border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.08); transition: transform 0.3s;
-        }
-        .pet-card:hover { transform: translateY(-5px); box-shadow: 0 8px 16px rgba(0,0,0,0.15); }
-        .pet-card h3 { margin-top: 0; color: #1b4332; border-bottom: 1px dashed #ced4da; padding-bottom: 8px; display: flex; align-items: center; gap: 10px; }
-        .pet-card h3::before { content: '🐾'; }
-        .pet-card p { margin: 8px 0; color: #343a40; }
-        .pet-card strong { color: #2d6a4f; }
-        .pet-card a { color: #007bff; text-decoration: none; font-weight: 600; margin-top: 10px; display: inline-block; }
-        /* Mensajes de alerta */
-        .alert {
-            padding: 15px 20px;
-            border-radius: 8px;
+        h1 {
+            color: var(--primary-dark);
+            border-bottom: 3px solid var(--accent);
+            padding-bottom: 12px;
             margin-bottom: 20px;
-            border-left: 5px solid;
-            font-weight: 500;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+        .role-badge {
+            background: var(--primary-light);
+            color: white;
+            padding: 5px 16px;
+            border-radius: 40px;
+            font-size: 0.8rem;
+            display: inline-block;
+            margin-bottom: 15px;
+        }
+        .search-info {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #5b6e8c;
+        }
+        .restriction-alert {
+            background: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-radius: 20px;
+            border-left: 5px solid #ffc107;
+            margin-top: 15px;
             display: flex;
             align-items: center;
             gap: 12px;
         }
-        .alert i { font-size: 1.4rem; }
-        .alert-success { background: #d4edda; color: #155724; border-left-color: #28a745; }
-        .alert-info { background: #d1ecf1; color: #0c5460; border-left-color: #17a2b8; }
-        .alert-warning { background: #fff3cd; color: #856404; border-left-color: #ffc107; }
-        .alert-danger { background: #f8d7da; color: #721c24; border-left-color: #dc3545; }
-        @media (max-width: 600px) {
+        .search-form {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        .search-form input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 40px;
+            font-size: 1rem;
+            transition: 0.2s;
+        }
+        .search-form input:focus {
+            border-color: var(--primary-light);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(64,145,108,0.2);
+        }
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 40px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+        }
+        .alert {
+            padding: 15px 20px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-left: 5px solid;
+        }
+        .alert-info {
+            background: #e0f2fe;
+            color: #0369a1;
+            border-left-color: #0ea5e9;
+        }
+        .alert-danger {
+            background: #fee7e7;
+            color: #b91c1c;
+            border-left-color: #dc3545;
+        }
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            margin: 20px 0 15px;
+        }
+        .result-header h2 {
+            color: var(--primary-dark);
+            font-size: 1.3rem;
+        }
+        .btn-pdf {
+            background: var(--accent);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 40px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.2s;
+        }
+        .btn-pdf:hover {
+            background: #9e6b2f;
+            transform: translateY(-2px);
+        }
+        .result-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .pet-card {
+            background: white;
+            border: 1px solid #eef2f8;
+            border-left: 6px solid var(--primary-light);
+            padding: 20px;
+            border-radius: 24px;
+            transition: all 0.2s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+        }
+        .pet-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -12px rgba(0,0,0,0.1);
+            border-left-color: var(--accent);
+        }
+        .pet-card h3 {
+            margin-top: 0;
+            color: var(--primary-dark);
+            border-bottom: 1px dashed #e2e8f0;
+            padding-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .pet-card p {
+            margin: 8px 0;
+            color: #2c3e50;
+        }
+        .pet-card strong {
+            color: var(--primary);
+        }
+        .pet-card a {
+            color: var(--primary-light);
+            text-decoration: none;
+            font-weight: 600;
+            margin-top: 10px;
+            display: inline-block;
+        }
+        .pet-card a:hover {
+            text-decoration: underline;
+        }
+        @media (max-width: 640px) {
+            .main-content { padding: 20px; }
             .search-form { flex-direction: column; }
-            .result-list { grid-template-columns: 1fr; }
+            .result-header { flex-direction: column; align-items: stretch; gap: 10px; }
         }
     </style>
 </head>
@@ -181,36 +309,36 @@ if (isset($_GET['query']) && !empty(trim($_GET['query']))) {
 
     <div class="dashboard-container">
         <div class="main-content">
-            <h1>Buscar Paciente o Dueño 🔎</h1>
+            <h1><i class="fas fa-search"></i> Buscar Paciente o Dueño</h1>
             <div style="text-align: center;">
-                <span class="role-badge">Rol: <?php echo htmlspecialchars($user_role); ?></span>
+                <span class="role-badge"><i class="fas fa-user-tag"></i> Rol: <?php echo htmlspecialchars($user_role); ?></span>
             </div>
 
             <div class="search-info">
                 <?php if ($is_vet_or_admin): ?>
-                    <p>Búsqueda completa: por <strong>Nombre de mascota, Especie, Raza, Nombre de usuario del dueño o Cédula (CI)</strong>.</p>
+                    <p><i class="fas fa-globe"></i> Búsqueda completa: por <strong>Nombre de mascota, Especie, Raza, Nombre de usuario del dueño o Cédula (CI)</strong>.</p>
                 <?php else: ?>
-                    <p>Búsqueda restringida a tus mascotas: por <strong>Nombre de mascota, Especie, Raza, tu nombre de usuario o tu cédula</strong>.</p>
+                    <p><i class="fas fa-lock"></i> Búsqueda restringida a tus mascotas: por <strong>Nombre de mascota, Especie, Raza, tu nombre de usuario o tu cédula</strong>.</p>
                     <div class="restriction-alert">
-                        ⚠️ Solo puedes buscar en tus propias mascotas. ¡Ahora también puedes buscar por tu nombre o cédula!
+                        <i class="fas fa-info-circle"></i> Solo puedes buscar en tus propias mascotas. También puedes buscar por tu nombre o cédula.
                     </div>
                 <?php endif; ?>
             </div>
 
-            <p style="text-align: center;"><a href="welcome.php">← Volver al Dashboard</a></p>
+            <p style="text-align: center;"><a href="welcome.php" style="color: var(--primary-light);">← Volver al Dashboard</a></p>
 
             <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="get" class="search-form">
                 <input type="text" name="query" placeholder="Nombre de mascota, dueño, especie, raza o cédula..." 
                        value="<?php echo htmlspecialchars($search_query); ?>" required>
-                <input type="submit" value="Buscar" class="btn-primary">
+                <button type="submit" class="btn-primary"><i class="fas fa-search"></i> Buscar</button>
             </form>
             
             <?php echo $message; ?>
 
             <?php if (!empty($search_results)): ?>
-                <h2>Resultados (<?php echo count($search_results); ?>)</h2>
-                <div class="result-actions">
-                    <button id="btnExportPdf">📄 Exportar a PDF</button>
+                <div class="result-header">
+                    <h2><i class="fas fa-list-ul"></i> Resultados (<?php echo count($search_results); ?>)</h2>
+                    <button id="btnExportPdf" class="btn-pdf"><i class="fas fa-file-pdf"></i> Exportar a PDF</button>
                 </div>
                 <div class="result-list" id="petResultsList">
                     <?php foreach ($search_results as $pet): ?>
@@ -223,7 +351,7 @@ if (isset($_GET['query']) && !empty(trim($_GET['query']))) {
                             data-pet-owner="<?php echo htmlspecialchars($pet['owner_name'] ?? 'N/D'); ?>"
                             data-owner-ci="<?php echo htmlspecialchars($pet['owner_ci'] ?? 'N/D'); ?>"
                         >
-                            <h3><?php echo htmlspecialchars($pet['name']); ?></h3>
+                            <h3><i class="fas fa-dog"></i> <?php echo htmlspecialchars($pet['name']); ?></h3>
                             <p><strong>Especie:</strong> <?php echo htmlspecialchars($pet['species_name']); ?></p>
                             <p><strong>Raza:</strong> <?php echo htmlspecialchars($pet['breed_name'] ?? 'N/D'); ?></p>
                             <p><strong>Dueño:</strong> 
