@@ -96,7 +96,6 @@ try {
     }
 
 } catch (PDOException $e) {
-    // En un entorno real podrías loguear el error y mostrar un mensaje genérico
     die("Error al cargar el expediente: " . $e->getMessage());
 }
 
@@ -106,16 +105,25 @@ $issue_date = date('d/m/Y H:i');
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Expediente Médico · <?php echo htmlspecialchars($pet['name']); ?></title>
     <!-- jsPDF y autoTable -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://unpkg.com/jspdf-autotable@3.5.25/dist/jspdf.plugin.autotable.js"></script>
     <style>
-        /* Estilos originales */
+        :root {
+            --primary-dark: #1b4332;
+            --primary: #2d6a4f;
+            --primary-light: #40916c;
+            --accent: #b68b40;
+            --gray-bg: #f4f7fc;
+            --card-radius: 28px;
+            --shadow-sm: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+        }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Segoe UI', Roboto, Arial, sans-serif;
-            background-color: #f0f2f5;
+            font-family: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--gray-bg);
             padding: 30px 20px;
             display: flex;
             flex-direction: column;
@@ -125,138 +133,132 @@ $issue_date = date('d/m/Y H:i');
             max-width: 1100px;
             width: 100%;
             background: white;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            border-radius: 12px;
+            box-shadow: var(--shadow-sm);
+            border-radius: var(--card-radius);
             overflow: hidden;
             margin-bottom: 30px;
-            border: 1px solid #d0d7de;
+            border: 1px solid rgba(0,0,0,0.05);
         }
         .record-header {
-            background: linear-gradient(135deg, #1b4332 0%, #2d6a4f 100%);
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
             color: white;
             padding: 30px 40px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 5px solid #b68b40;
+            flex-wrap: wrap;
+            gap: 15px;
         }
         .clinic-info h1 {
-            font-size: 2.2rem;
-            font-weight: 600;
-            margin-bottom: 5px;
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 6px;
+            letter-spacing: -0.5px;
         }
         .clinic-info p {
-            font-size: 1rem;
-            opacity: 0.9;
+            font-size: 0.9rem;
+            opacity: 0.85;
         }
         .document-info {
-            text-align: right;
-            background: rgba(255,255,255,0.15);
-            padding: 12px 20px;
-            border-radius: 8px;
+            background: rgba(255,255,255,0.12);
+            padding: 12px 24px;
+            border-radius: 60px;
+            backdrop-filter: blur(4px);
         }
         .document-info .doc-title {
-            font-size: 1.5rem;
+            font-size: 1.3rem;
             font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-        }
-        .document-info .doc-date {
-            font-size: 0.9rem;
-            margin-top: 5px;
+            letter-spacing: 1px;
         }
         .patient-data {
-            background: #f8fafc;
-            padding: 25px 40px;
-            border-bottom: 1px solid #e2e8f0;
+            background: #f9fafc;
+            padding: 28px 40px;
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 20px;
+            border-bottom: 1px solid #eef2f6;
         }
         .data-item {
             display: flex;
             flex-direction: column;
         }
         .data-label {
-            font-size: 0.8rem;
+            font-size: 0.7rem;
             text-transform: uppercase;
-            color: #4a5568;
+            color: #5b6e8c;
             letter-spacing: 0.5px;
-            margin-bottom: 4px;
+            margin-bottom: 6px;
         }
         .data-value {
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             font-weight: 600;
-            color: #1e293b;
-        }
-        .data-value small {
-            font-weight: normal;
-            font-size: 0.9rem;
-            color: #64748b;
+            color: #1e2a3a;
         }
         .record-body {
             padding: 30px 40px;
         }
         .section-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: #1b4332;
-            border-bottom: 3px solid #b68b40;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--primary-dark);
+            border-bottom: 3px solid var(--accent);
             padding-bottom: 8px;
-            margin: 30px 0 20px 0;
+            margin: 40px 0 20px 0;
+            display: inline-block;
         }
         .records-table {
             width: 100%;
             border-collapse: collapse;
             margin-bottom: 25px;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
+            border-radius: 16px;
+            overflow: hidden;
         }
         .records-table th {
-            background: #e9edf2;
-            color: #1e293b;
-            font-weight: 600;
-            padding: 12px 10px;
+            background: #eef2f9;
+            color: var(--primary-dark);
+            font-weight: 700;
+            padding: 12px 15px;
             text-align: left;
-            border-bottom: 2px solid #cbd5e1;
         }
         .records-table td {
-            padding: 10px;
-            border-bottom: 1px solid #e2e8f0;
+            padding: 12px 15px;
+            border-bottom: 1px solid #e9edf2;
         }
         .badge {
             display: inline-block;
-            padding: 4px 10px;
-            border-radius: 30px;
-            font-size: 0.8rem;
+            padding: 5px 12px;
+            border-radius: 40px;
+            font-size: 0.75rem;
             font-weight: 600;
         }
-        .badge-success { background: #dcfce7; color: #166534; }
-        .badge-warning { background: #fef9c3; color: #854d0e; }
-        .badge-danger { background: #fee2e2; color: #991b1b; }
-        .badge-secondary { background: #e2e8f0; color: #334155; }
+        .badge-success { background: #e0f2e9; color: #1e7b4a; }
+        .badge-warning { background: #fff0db; color: #b45f06; }
+        .badge-danger { background: #fee7e7; color: #b91c1c; }
+        .badge-secondary { background: #eef2f6; color: #2c3e50; }
         .no-data {
             text-align: center;
-            padding: 30px;
-            background: #f8fafc;
-            border-radius: 8px;
-            color: #64748b;
-            font-style: italic;
-            border: 2px dashed #cbd5e1;
+            padding: 35px;
+            background: #fafcff;
+            border-radius: 24px;
+            color: #7e8b9c;
+            border: 1px dashed #cbd5e1;
         }
         .record-footer {
-            background: #f1f5f9;
-            padding: 15px 40px;
-            border-top: 1px solid #cbd5e1;
-            font-size: 0.85rem;
-            color: #475569;
+            background: #f8fafd;
+            padding: 18px 40px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 0.8rem;
+            color: #4a5b6e;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
         }
         .signature {
             font-family: 'Brush Script MT', cursive;
             font-size: 1.3rem;
-            color: #1b4332;
+            color: var(--primary-dark);
         }
         .action-buttons {
             max-width: 1100px;
@@ -264,48 +266,53 @@ $issue_date = date('d/m/Y H:i');
             display: flex;
             gap: 15px;
             justify-content: flex-end;
-            margin-top: 15px;
+            margin-top: 5px;
             margin-bottom: 20px;
         }
         .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
+            padding: 12px 28px;
+            border-radius: 40px;
             font-weight: 600;
             cursor: pointer;
             background: white;
-            color: #1b4332;
-            border: 2px solid #1b4332;
-            transition: all 0.3s;
-            font-size: 1rem;
+            color: var(--primary-dark);
+            border: 2px solid var(--primary-dark);
+            transition: all 0.2s;
+            font-size: 0.9rem;
             text-decoration: none;
             display: inline-flex;
             align-items: center;
             gap: 8px;
         }
         .btn-primary {
-            background: #1b4332;
+            background: var(--primary-dark);
             color: white;
-            border: 2px solid #1b4332;
+            border: none;
         }
         .btn-primary:hover {
-            background: #2d6a4f;
+            background: var(--primary);
         }
         .btn-pdf {
-            background: #b68b40;
+            background: var(--accent);
             color: white;
-            border-color: #b68b40;
+            border: none;
         }
         .btn-pdf:hover {
-            background: #a07632;
+            background: #9e6b2f;
+            transform: translateY(-2px);
         }
         .btn-outline:hover {
-            background: #e9ecef;
+            background: #f1f5f9;
         }
         @media print {
-            .action-buttons, .no-print { display: none !important; }
+            .action-buttons, .no-print { display: none; }
             body { background: white; padding: 0; }
             .record-container { box-shadow: none; border: 1px solid #ccc; }
+        }
+        @media (max-width: 700px) {
+            .record-header { flex-direction: column; text-align: center; }
+            .patient-data { padding: 20px; }
+            .record-body { padding: 20px; }
         }
     </style>
 </head>
@@ -317,7 +324,7 @@ $issue_date = date('d/m/Y H:i');
             <div class="clinic-info">
                 <h1>🐾 VetCtrl</h1>
                 <p>Clínica Veterinaria • Salud y Bienestar Animal</p>
-                <p style="font-size:0.9rem; margin-top:5px;">Calle Ejemplo 123, Ciudad • Tel: (123) 456-7890</p>
+                <p style="font-size:0.85rem;">Calle Ejemplo 123, Ciudad • Tel: (123) 456-7890</p>
             </div>
             <div class="document-info">
                 <div class="doc-title">Expediente Médico</div>
@@ -425,7 +432,6 @@ $issue_date = date('d/m/Y H:i');
         </div>
     </div>
 
-    <!-- Botones reubicados después del expediente -->
     <div class="action-buttons no-print">
         <button id="downloadPdfBtn" class="btn btn-pdf">📥 Descargar PDF</button>
         <a href="pet_profile.php?id=<?php echo $pet_id; ?>" class="btn btn-outline">⬅️ Volver al Perfil</a>
@@ -436,13 +442,7 @@ $issue_date = date('d/m/Y H:i');
     <script>
         document.getElementById('downloadPdfBtn').addEventListener('click', function() {
             const { jsPDF } = window.jspdf;
-            const doc = new jsPDF({
-                orientation: 'portrait',
-                unit: 'mm',
-                format: 'a4'
-            });
-
-            // Datos desde PHP (escapados para JSON)
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
             const pet = <?php echo json_encode($pet, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
             const consultations = <?php echo json_encode($consultations, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
             const vaccinations = <?php echo json_encode($vaccinations, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
@@ -450,35 +450,13 @@ $issue_date = date('d/m/Y H:i');
             const issueDate = '<?php echo $issue_date; ?>';
 
             let y = 20;
-
-            // --- Encabezado (sin emoji para evitar problemas) ---
-            doc.setFontSize(20);
-            doc.setTextColor(27, 67, 50);
-            doc.text('VetCtrl', 105, y, { align: 'center' });
-            y += 8;
-            doc.setFontSize(12);
-            doc.setTextColor(0,0,0);
-            doc.text('Clínica Veterinaria • Salud y Bienestar Animal', 105, y, { align: 'center' });
-            y += 6;
-            doc.setFontSize(9);
-            doc.text('Calle Ejemplo 123, Ciudad • Tel: (123) 456-7890', 105, y, { align: 'center' });
-            y += 8;
-
-            doc.setFontSize(16);
-            doc.setTextColor(27, 67, 50);
-            doc.text('Expediente Médico', 105, y, { align: 'center' });
-            y += 6;
-            doc.setFontSize(9);
-            doc.setTextColor(100,100,100);
-            doc.text(`Emisión: ${issueDate}`, 105, y, { align: 'center' });
+            doc.setFontSize(20); doc.setTextColor(27, 67, 50); doc.text('VetCtrl', 105, y, { align: 'center' });
+            y += 8; doc.setFontSize(12); doc.setTextColor(0,0,0); doc.text('Clínica Veterinaria • Salud y Bienestar Animal', 105, y, { align: 'center' });
+            y += 6; doc.setFontSize(9); doc.text('Calle Ejemplo 123, Ciudad • Tel: (123) 456-7890', 105, y, { align: 'center' });
+            y += 8; doc.setFontSize(16); doc.setTextColor(27, 67, 50); doc.text('Expediente Médico', 105, y, { align: 'center' });
+            y += 6; doc.setFontSize(9); doc.setTextColor(100,100,100); doc.text(`Emisión: ${issueDate}`, 105, y, { align: 'center' });
             y += 10;
 
-            // --- Datos del paciente ---
-            doc.setFontSize(11);
-            doc.setTextColor(27, 67, 50);
-            doc.text('Datos del Paciente', 20, y);
-            y += 5;
-            // Calcular edad correctamente
             const birthDate = new Date(pet.date_of_birth);
             const today = new Date();
             let age = today.getFullYear() - birthDate.getFullYear();
@@ -492,98 +470,36 @@ $issue_date = date('d/m/Y H:i');
                 ['Dueño:', pet.owner_name || 'N/A'],
                 ['ID:', '#' + String(pet.id).padStart(5, '0')]
             ];
-            doc.autoTable({
-                startY: y,
-                body: petData,
-                theme: 'plain',
-                styles: { fontSize: 9, cellPadding: 2 },
-                columnStyles: { 0: { fontStyle: 'bold', cellWidth: 35 }, 1: { cellWidth: 140 } },
-                margin: { left: 20 }
-            });
+            doc.autoTable({ startY: y, body: petData, theme: 'plain', styles: { fontSize: 9, cellPadding: 2 }, columnStyles: { 0: { fontStyle: 'bold', cellWidth: 35 }, 1: { cellWidth: 140 } }, margin: { left: 20 } });
             y = doc.lastAutoTable.finalY + 10;
 
-            // --- Consultas ---
-            doc.setFontSize(12);
-            doc.setTextColor(27, 67, 50);
-            doc.text('Historial de Consultas', 20, y);
+            doc.setFontSize(12); doc.setTextColor(27, 67, 50); doc.text('Historial de Consultas', 20, y);
             y += 5;
-            if (consultations.length === 0) {
-                doc.setFontSize(9);
-                doc.text('No hay consultas registradas.', 25, y);
-                y += 10;
-            } else {
-                const consData = consultations.map(c => [
-                    c.consultation_date ? new Date(c.consultation_date).toLocaleDateString('es-ES') : '—',
-                    c.reason || '—',
-                    c.diagnosis || '—',
-                    c.treatment || '—',
-                    c.vet_name || 'N/A'
-                ]);
-                doc.autoTable({
-                    startY: y,
-                    head: [['Fecha', 'Motivo', 'Diagnóstico', 'Tratamiento', 'Veterinario']],
-                    body: consData,
-                    theme: 'grid',
-                    headStyles: { fillColor: [27, 67, 50], textColor: 255 },
-                    styles: { fontSize: 8, cellPadding: 2 },
-                    margin: { left: 20, right: 20 }
-                });
+            if (consultations.length === 0) { doc.setFontSize(9); doc.text('No hay consultas registradas.', 25, y); y += 10; } 
+            else {
+                const consData = consultations.map(c => [ c.consultation_date ? new Date(c.consultation_date).toLocaleDateString('es-ES') : '—', c.reason || '—', c.diagnosis || '—', c.treatment || '—', c.vet_name || 'N/A' ]);
+                doc.autoTable({ startY: y, head: [['Fecha', 'Motivo', 'Diagnóstico', 'Tratamiento', 'Veterinario']], body: consData, theme: 'grid', headStyles: { fillColor: [27, 67, 50], textColor: 255 }, styles: { fontSize: 8, cellPadding: 2 }, margin: { left: 20, right: 20 } });
                 y = doc.lastAutoTable.finalY + 10;
             }
 
-            // --- Vacunas ---
             if (vaccinations.length > 0) {
-                doc.setFontSize(12);
-                doc.setTextColor(27, 67, 50);
-                doc.text('Vacunas Aplicadas', 20, y);
+                doc.setFontSize(12); doc.setTextColor(27, 67, 50); doc.text('Vacunas Aplicadas', 20, y);
                 y += 5;
-                const vacData = vaccinations.map(v => {
-                    const appDate = v.application_date ? new Date(v.application_date).toLocaleDateString('es-ES') : '—';
-                    const nextDate = v.next_dose_date ? new Date(v.next_dose_date).toLocaleDateString('es-ES') : '—';
-                    return [v.vaccine_name || 'Vacuna', appDate, nextDate];
-                });
-                doc.autoTable({
-                    startY: y,
-                    head: [['Vacuna', 'Fecha Aplicación', 'Próxima Dosis']],
-                    body: vacData,
-                    theme: 'grid',
-                    headStyles: { fillColor: [27, 67, 50], textColor: 255 },
-                    styles: { fontSize: 8 },
-                    margin: { left: 20, right: 20 }
-                });
+                const vacData = vaccinations.map(v => { const appDate = v.application_date ? new Date(v.application_date).toLocaleDateString('es-ES') : '—'; const nextDate = v.next_dose_date ? new Date(v.next_dose_date).toLocaleDateString('es-ES') : '—'; return [v.vaccine_name || 'Vacuna', appDate, nextDate]; });
+                doc.autoTable({ startY: y, head: [['Vacuna', 'Fecha Aplicación', 'Próxima Dosis']], body: vacData, theme: 'grid', headStyles: { fillColor: [27, 67, 50], textColor: 255 }, styles: { fontSize: 8 }, margin: { left: 20, right: 20 } });
                 y = doc.lastAutoTable.finalY + 10;
             }
 
-            // --- Tratamientos ---
             if (treatments.length > 0) {
-                doc.setFontSize(12);
-                doc.setTextColor(27, 67, 50);
-                doc.text('Tratamientos / Prescripciones', 20, y);
+                doc.setFontSize(12); doc.setTextColor(27, 67, 50); doc.text('Tratamientos / Prescripciones', 20, y);
                 y += 5;
-                const treatData = treatments.map(t => {
-                    const start = t.start_date ? new Date(t.start_date).toLocaleDateString('es-ES') : '—';
-                    const end = t.end_date ? new Date(t.end_date).toLocaleDateString('es-ES') : '—';
-                    return [t.description || 'Sin descripción', start, end];
-                });
-                doc.autoTable({
-                    startY: y,
-                    head: [['Descripción', 'Inicio', 'Fin']],
-                    body: treatData,
-                    theme: 'grid',
-                    headStyles: { fillColor: [27, 67, 50], textColor: 255 },
-                    styles: { fontSize: 8 },
-                    margin: { left: 20, right: 20 }
-                });
+                const treatData = treatments.map(t => { const start = t.start_date ? new Date(t.start_date).toLocaleDateString('es-ES') : '—'; const end = t.end_date ? new Date(t.end_date).toLocaleDateString('es-ES') : '—'; return [t.description || 'Sin descripción', start, end]; });
+                doc.autoTable({ startY: y, head: [['Descripción', 'Inicio', 'Fin']], body: treatData, theme: 'grid', headStyles: { fillColor: [27, 67, 50], textColor: 255 }, styles: { fontSize: 8 }, margin: { left: 20, right: 20 } });
                 y = doc.lastAutoTable.finalY + 10;
             }
 
-            // --- Pie de página ---
-            doc.setFontSize(8);
-            doc.setTextColor(100,100,100);
-            doc.text('Documento generado electrónicamente. Validez clínica respaldada por VetCtrl.', 20, 280);
-            doc.setFont('helvetica', 'italic');
-            doc.text('VetCtrl', 180, 280);
-
+            doc.setFontSize(8); doc.setTextColor(100,100,100); doc.text('Documento generado electrónicamente. Validez clínica respaldada por VetCtrl.', 20, 280);
+            doc.setFont('helvetica', 'italic'); doc.text('VetCtrl', 180, 280);
             doc.save(`Expediente_${(pet.name || 'mascota').replace(/[^a-z0-9]/gi,'_')}.pdf`);
         });
     </script>
