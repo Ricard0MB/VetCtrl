@@ -7,7 +7,7 @@ header("Access-Control-Allow-Headers: Content-Type, Authorization");
 
 // Ajusta la ruta a tu archivo de conexión (ej: ../config/database.php)
 // Si tu conexión está en otro lado, cambia esta ruta.
-include '../config/database.php'; 
+include '../includes/config.php'; 
 
 $response = [];
 
