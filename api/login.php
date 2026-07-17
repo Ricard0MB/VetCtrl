@@ -26,9 +26,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        $query = "SELECT id, username, email, password, role_id, first_name, last_name, status FROM users WHERE username = :login OR email = :login";
+        $query = "SELECT id, username, email, password, role_id, first_name, last_name, status 
+                  FROM users 
+                  WHERE username = :login OR email = :login";
         $stmt = $conn->prepare($query);
-        $stmt->execute(['login' => $username]);
+        // 🔥 Usamos bindParam para que el mismo valor se use en ambos lugares
+        $stmt->bindParam(':login', $username, PDO::PARAM_STR);
+        $stmt->execute();
+
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$user) {
