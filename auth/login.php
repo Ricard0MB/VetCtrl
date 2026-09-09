@@ -2,7 +2,7 @@
 session_start();
 
 require_once __DIR__ . '/../includes/config.php';
-require_once '../includes/bitacora_function.php';
+require_once __DIR__ . '/../includes/bitacora_function.php';
 
 $error = '';
 $user_input_value = '';
@@ -16,7 +16,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $error = "Por favor, complete ambos campos.";
     } else {
         try {
-            // Usamos marcadores ? y pasamos dos veces el mismo valor al execute
             $sql = "
                 SELECT 
                     u.id, 
@@ -28,10 +27,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 FROM users u
                 INNER JOIN roles r ON u.role_id = r.id
                 WHERE u.username = ? OR u.email = ?
+                LIMIT 1
             ";
             
             $stmt = $conn->prepare($sql);
-            // Ejecutamos con un array que contiene el mismo valor dos veces
             if ($stmt->execute([$user_input_value, $user_input_value])) {
                 if ($stmt->rowCount() == 1) {
                     $row = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -51,33 +50,30 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             log_to_bitacora($conn, $action_log, $row['username'], $row['role_id']);
                         }
 
-                        // Redirigir al dashboard
                         header("Location: ../dashboard/welcome.php");
                         exit;
 
                     } else {
                         $error = "Usuario/Correo o contraseña incorrectos.";
                         if (function_exists('log_to_bitacora')) {
-                            log_to_bitacora($conn, "Intento fallido para: '{$user_input_value}' (contraseña incorrecta)", 0, 0);
+                            log_to_bitacora($conn, "Intento fallido para: '{$user_input_value}' (contraseña incorrecta)", $user_input_value, 0);
                         }
                     }
                 } else {
                     $error = "Usuario/Correo o contraseña incorrectos.";
                     if (function_exists('log_to_bitacora')) {
-                        log_to_bitacora($conn, "Intento fallido: Usuario/Correo '{$user_input_value}' no encontrado", 0, 0);
+                        log_to_bitacora($conn, "Intento fallido: Usuario/Correo '{$user_input_value}' no encontrado", $user_input_value, 0);
                     }
                 }
             } else {
                 $error = "Error al ejecutar la consulta.";
             }
-            $stmt = null;
         } catch (PDOException $e) {
             $error = "Error de base de datos: " . $e->getMessage();
             error_log("PDO Error en login: " . $e->getMessage());
         }
     }
     
-    // No cerrar $conn aquí porque aún puede ser usado en redirección
     $_SESSION['login_error'] = $error;
     header("Location: ../index.php");
     exit();
