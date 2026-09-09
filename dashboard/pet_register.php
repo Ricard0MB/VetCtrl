@@ -23,7 +23,6 @@ $owners = [];
 $error = '';
 $success = '';
 
-// Mapa de longevidad
 $lifespanMap = [
     'perro' => 18, 'gato' => 20, 'tortuga' => 100, 'conejo' => 12, 'hámster' => 3,
     'ave' => 20, 'pez' => 5, 'reptil' => 30, 'roedor' => 4, 'caballo' => 30,
@@ -36,7 +35,6 @@ function getMaxAgeForType($typeName) {
     return $lifespanMap[$key] ?? $lifespanMap['otros'];
 }
 
-// Asegurar especies esenciales
 $requiredTypes = ['Perro', 'Gato', 'Tortuga', 'Conejo', 'Hámster', 'Ave', 'Pez', 'Reptil', 'Roedor', 'Caballo', 'Cerdo', 'Otros'];
 try {
     $stmtCheck = $conn->query("SELECT name FROM pet_types");
@@ -73,12 +71,14 @@ function sanitizePetName($name) {
     $name = preg_replace('/\s+/', ' ', $name);
     return trim($name);
 }
+
 function containsProfanity($name) {
     $profanityList = ['puta','puto','pendejo','cabrón','cabron','coño','cojones','joder','mierda','imbécil','imbecil','gilipollas','zorra','bastardo','malparido','hijueputa','maricón','maricon','chucha','concha','culiao','weon','weón','weona','ctm','conchetumare','fuck','shit','bitch','asshole','bastard','cunt','dick','pussy','whore','slut','motherfucker'];
     $lower = strtolower($name);
     foreach ($profanityList as $word) if (strpos($lower, $word) !== false) return true;
     return false;
 }
+
 function hasExcessiveRepeats($name) { return preg_match('/(.)\1{3,}/u', $name); }
 function containsLetter($name) { return preg_match('/[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]/u', $name); }
 
@@ -121,7 +121,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
             $dobDate = new DateTime($dob);
             $today = new DateTime();
             $age = $today->diff($dobDate)->y;
-            if ($age < 0) $error = "La fecha de nacimiento no puede ser futura.";
+            if ($dobDate > $today) $error = "La fecha de nacimiento no puede ser futura.";
             elseif ($age > $maxAge) $error = "La edad ($age años) excede la esperanza de vida máxima para $typeName ($maxAge años).";
         }
     }
@@ -143,7 +143,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
 
             $new_id = $conn->lastInsertId();
             $action = "Nueva mascota registrada: $name (ID $new_id)";
-            log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
+            if (function_exists('log_to_bitacora')) {
+                log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
+            }
             $success = "Mascota registrada correctamente.";
             $_POST = [];
         } catch (PDOException $e) {
