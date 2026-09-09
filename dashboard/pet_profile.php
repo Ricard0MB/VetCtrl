@@ -6,19 +6,25 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     exit;
 }
 
-require_once '../includes/config.php'; // $conn es un objeto PDO
+require_once '../includes/config.php';
 
 $username = $_SESSION["username"] ?? 'Veterinario';
 $user_id = $_SESSION['user_id'] ?? 0;
 $role_name = $_SESSION['role_name'] ?? 'Propietario';
 
-// Capturar mensajes de error/success desde la URL
 $error_msg = $_GET['error'] ?? '';
-$success_msg = $_GET['msg'] ?? '';
+$success_msg = $_GET['msg'] ?? ($_GET['success'] ?? '');
 $message = '';
+
 if ($error_msg) {
+    if ($error_msg === 'confirm_required') {
+        $error_msg = 'Debe confirmar la acción para poder eliminar la mascota.';
+    }
     $message = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> " . htmlspecialchars($error_msg) . "</div>";
 } elseif ($success_msg) {
+    if ($success_msg === 'updated') {
+        $success_msg = 'Mascota actualizada correctamente.';
+    }
     $message = "<div class='alert alert-success'><i class='fas fa-check-circle'></i> " . htmlspecialchars($success_msg) . "</div>";
 }
 
@@ -35,7 +41,6 @@ if (isset($_GET['id']) && is_numeric($_GET['id'])) {
 }
 
 try {
-    // Obtener datos de la mascota
     $sql_pet = "SELECT 
                 p.id,
                 p.name,
@@ -65,7 +70,6 @@ try {
     if (!$pet_data) {
         $message = "<div class='alert alert-danger'><i class='fas fa-exclamation-triangle'></i> Paciente no encontrado o ha sido eliminado.</div>";
     } else {
-        // Preparar datos del dueño si existe
         if (!empty($pet_data['owner_user_id'])) {
             $owner_data = [
                 'id' => $pet_data['owner_user_id'],
@@ -92,7 +96,6 @@ try {
             $owner_data = null;
         }
 
-        // Obtener historial de consultas
         $sql_history = "SELECT c.*, u.username as vet_name 
                         FROM consultations c
                         LEFT JOIN users u ON c.attendant_id = u.id
