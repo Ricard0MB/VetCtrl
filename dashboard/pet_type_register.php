@@ -6,13 +6,12 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     exit;
 }
 
-require_once '../includes/config.php'; // $conn es un objeto PDO
+require_once '../includes/config.php';
 
 $username = $_SESSION["username"] ?? 'Usuario';
 $user_id = $_SESSION['user_id'] ?? 0;
 $role_name = $_SESSION['role_name'] ?? 'Propietario';
 
-// Solo veterinario y admin pueden acceder
 if (!in_array($role_name, ['Veterinario', 'admin'])) {
     header("Location: welcome.php?error=access_denied");
     exit;
@@ -21,6 +20,13 @@ if (!in_array($role_name, ['Veterinario', 'admin'])) {
 $error = '';
 $success = '';
 $type_name = '';
+
+function sanitizeSpeciesName($name) {
+    $name = preg_replace('/[0-9]/', '', $name);
+    $name = preg_replace('/[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s\-\']/u', '', $name);
+    $name = preg_replace('/\s+/', ' ', $name);
+    return trim($name);
+}
 
 try {
     $stmtTypes = $conn->query("SELECT name, created_at FROM pet_types ORDER BY name ASC");
@@ -35,6 +41,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
     if (empty($type_name)) {
         $error = "Ingrese el nombre de la especie.";
     } else {
+        $type_name = sanitizeSpeciesName($type_name);
+        if (strlen($type_name) < 2) {
+            $error = "El nombre de la especie debe tener al menos 2 caracteres válidos.";
+        }
+    }
+
+    if (empty($error)) {
         try {
             $sql = "INSERT INTO pet_types (name, attendant_id) VALUES (:name, :attendant_id)";
             $stmt = $conn->prepare($sql);
@@ -44,7 +57,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
 
             require_once '../includes/bitacora_function.php';
             $action = "Nueva especie registrada: $type_name";
-            log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
+            if (function_exists('log_to_bitacora')) {
+                log_to_bitacora($conn, $action, $username, $_SESSION['role_id'] ?? 0);
+            }
 
             $success = "Especie '$type_name' registrada correctamente.";
             $type_name = '';
@@ -53,10 +68,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && empty($error)) {
             $types = $stmtTypes->fetchAll(PDO::FETCH_ASSOC);
 
         } catch (PDOException $e) {
-            if ($e->errorInfo[1] == 1062) {
+            if (isset($e->errorInfo[1]) && $e->errorInfo[1] == 1062) {
                 $error = "La especie '$type_name' ya existe.";
             } else {
-                $error = "Error al registrar: " . $e->getMessage();
+                $error = "Error al registrar la especie: " . $e->getMessage();
             }
         }
     }
