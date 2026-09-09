@@ -2,8 +2,8 @@
 session_start();
 
 require_once __DIR__ . '/../includes/config.php';
-require_once '../includes/functions.php';
-require_once '../includes/bitacora_function.php';
+require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/bitacora_function.php';
 
 unset($_SESSION['registration_error']);
 unset($_SESSION['registration_success']);
@@ -44,7 +44,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     try {
         // Verificar si el usuario ya existe
-        $stmt = $conn->prepare("SELECT id FROM users WHERE username = ?");
+        $stmt = $conn->prepare("SELECT id FROM users WHERE username = ? LIMIT 1");
         $stmt->execute([$username]);
         if ($stmt->fetch()) {
             $_SESSION['registration_error'] = "El nombre de usuario ya está en uso. Por favor, elige otro.";
@@ -53,7 +53,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         // Verificar si el email ya existe
-        $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
+        $stmt = $conn->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");
         $stmt->execute([$email]);
         if ($stmt->fetch()) {
             $_SESSION['registration_error'] = "El correo electrónico ya está en uso. Por favor, utiliza otro.";
@@ -63,7 +63,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
-        // Insertar nuevo usuario (role_id = 2 por defecto = Propietario)
+        // Insertar nuevo usuario (role_id = 2 -> Propietario)
         $sql = "INSERT INTO users (username, email, password, role_id, created_at) VALUES (?, ?, ?, 2, NOW())";
         $stmt = $conn->prepare($sql);
         if ($stmt->execute([$username, $email, $hashed_password])) {
