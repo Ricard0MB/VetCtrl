@@ -12,7 +12,7 @@ if (!in_array($role_name, ['Veterinario', 'admin'])) {
 }
 
 require_once '../includes/config.php';
-require_once '../includes/bitacora_function.php'; // si existe, si no, comenta
+require_once '../includes/bitacora_function.php';
 
 $pet_id = isset($_GET['id']) && is_numeric($_GET['id']) ? intval($_GET['id']) : 0;
 $confirm = isset($_GET['confirm']) && $_GET['confirm'] == 1;
@@ -41,25 +41,21 @@ try {
     // ===== INICIAR TRANSACCIÓN =====
     $conn->beginTransaction();
 
-    // Eliminar registros dependientes en orden (para respetar claves foráneas)
-    // Primero las tablas que tienen FK hacia pets
+    // Eliminar registros dependientes en orden para respetar claves foráneas
     $dependent_tables = [
         'consultations' => 'pet_id',
         'appointments'  => 'pet_id',
         'vaccines'      => 'pet_id',
         'treatments'    => 'pet_id',
-        // Si tienes otras tablas con FK a pets, agrégalas aquí
     ];
 
     $deleted_counts = [];
 
     foreach ($dependent_tables as $table => $fk_column) {
         try {
-            // Verificar si la tabla existe
             $check = $conn->query("SHOW TABLES LIKE '$table'");
             if ($check->rowCount() == 0) continue;
 
-            // Verificar si la columna existe (opcional)
             $col_check = $conn->query("SHOW COLUMNS FROM $table LIKE '$fk_column'");
             if ($col_check->rowCount() == 0) continue;
 
@@ -68,8 +64,9 @@ try {
             $stmt->execute();
             $deleted_counts[$table] = $stmt->rowCount();
         } catch (PDOException $e) {
-            // Si hay error, hacemos rollback y lanzamos excepción
-            $conn->rollBack();
+            if ($conn->inTransaction()) {
+                $conn->rollBack();
+            }
             throw new PDOException("Error eliminando registros de $table: " . $e->getMessage());
         }
     }
@@ -79,10 +76,9 @@ try {
     $stmt->bindValue(':id', $pet_id, PDO::PARAM_INT);
     $stmt->execute();
 
-    // Commit de la transacción
     $conn->commit();
 
-    // Registrar en bitácora con detalle de cuántos registros se eliminaron
+    // Registrar en bitácora
     $username = $_SESSION['username'] ?? 'Usuario';
     $details = [];
     foreach ($deleted_counts as $table => $count) {
@@ -98,13 +94,11 @@ try {
         error_log("Eliminación de mascota: $action por $username");
     }
 
-    // Redirigir con mensaje de éxito
     $msg = urlencode("Mascota {$pet['name']} eliminada correctamente junto con todos sus registros asociados.");
     header("Location: pet_list.php?msg=" . $msg);
     exit;
 
 } catch (PDOException $e) {
-    // Asegurar rollback si la transacción sigue activa
     if ($conn->inTransaction()) {
         $conn->rollBack();
     }
