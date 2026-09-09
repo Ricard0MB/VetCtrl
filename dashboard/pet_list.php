@@ -7,42 +7,42 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     exit;
 }
 
-require_once '../includes/config.php'; // $conn es un objeto PDO
+require_once '../includes/config.php';
 
 $role_name = $_SESSION['role_name'] ?? 'Propietario';
 $user_id = $_SESSION['user_id'] ?? 0;
 $username = $_SESSION['username'] ?? 'Usuario';
 
-// Obtener filtros de la URL (GET)
 $search_name = trim($_GET['search_name'] ?? '');
 $species_filter = intval($_GET['species'] ?? 0);
 $owner_filter = intval($_GET['owner'] ?? 0);
 
-// Obtener especies para el filtro
 $species_list = [];
 try {
     $stmt = $conn->query("SELECT id, name FROM pet_types ORDER BY name");
     $species_list = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    // silencioso
+    // Silencioso
 }
 
-// Obtener dueños para el filtro (solo para roles que lo necesiten)
 $owners_list = [];
 if (in_array($role_name, ['Veterinario', 'admin'])) {
     try {
         $stmt = $conn->query("SELECT id, username, first_name, last_name FROM users WHERE role_id = 3 ORDER BY first_name");
         $owners_list = $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
-        // silencioso
+        // Silencioso
     }
 }
 
 $pets = [];
 $message = '';
 
+if (isset($_GET['msg'])) {
+    $message = "<div class='alert alert-success'><i class='fas fa-check-circle'></i> " . htmlspecialchars($_GET['msg']) . "</div>";
+}
+
 try {
-    // Construir la consulta base según el rol
     $sqlBase = "";
     $params = [];
 
@@ -67,7 +67,6 @@ try {
         $params[':owner_id'] = $user_id;
     }
 
-    // Añadir filtros dinámicos
     if (!empty($search_name)) {
         $sqlBase .= " AND p.name LIKE :search_name";
         $params[':search_name'] = "%$search_name%";
@@ -81,7 +80,6 @@ try {
         $params[':owner_id_filter'] = $owner_filter;
     }
 
-    // Ordenar por más reciente primero
     $sqlBase .= " ORDER BY p.created_at DESC";
 
     $stmt = $conn->prepare($sqlBase);
@@ -158,8 +156,10 @@ try {
             display: flex;
             align-items: center;
             gap: 12px;
+            border-left: 5px solid;
         }
-        .alert-danger { background: #fee7e7; color: #b91c1c; border-left: 5px solid #b91c1c; }
+        .alert-success { background: #e0f2e9; color: #1e7b4a; border-left-color: #1e7b4a; }
+        .alert-danger { background: #fee7e7; color: #b91c1c; border-left-color: #b91c1c; }
         .filter-section {
             background: #f9fbfd;
             padding: 24px;
@@ -298,7 +298,6 @@ try {
             .pet-table th { display: none; }
             .pet-table td { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eef2f8; }
             .pet-table td::before { content: attr(data-label); font-weight: 600; width: 40%; color: var(--primary-dark); }
-            .action-buttons { flex-direction: column; gap: 10px; }
         }
     </style>
 </head>
