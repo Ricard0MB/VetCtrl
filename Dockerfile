@@ -4,33 +4,37 @@ FROM php:8.2-apache
 # Instalar extensiones necesarias
 RUN docker-php-ext-install mysqli pdo pdo_mysql
 
-# Instalar utilidades necesarias para Composer (unzip, zip, git)
+# Instalar utilidades para Composer
 RUN apt-get update && apt-get install -y \
     unzip \
     zip \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Instalar Composer (usando la imagen oficial)
+# Instalar Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 # Copiar los archivos del proyecto
 COPY . /var/www/html/
 
-# Establecer el directorio de trabajo
 WORKDIR /var/www/html/
 
-# Instalar dependencias de Composer (sin dev y con autoload optimizado para producción)
+# Instalar dependencias de Composer
 RUN composer install --no-dev --optimize-autoloader
 
-# ⚠️ Si quieres que la raíz web sea la carpeta 'public', descomenta la siguiente línea
-# RUN sed -i 's|/var/www/html|/var/www/html/public|g' /etc/apache2/sites-available/000-default.conf
-
-# Habilitar el módulo rewrite de Apache
+# Habilitar módulo rewrite
 RUN a2enmod rewrite
 
-# Ajustar permisos para que Apache pueda leer/escribir
+# 🔥 CAMBIO CRÍTICO: Apache debe escuchar en $PORT
+# Render asigna un puerto dinámico en la variable de entorno $PORT
+RUN sed -i 's/80/${PORT}/g' /etc/apache2/sites-available/000-default.conf \
+    && sed -i 's/Listen 80/Listen ${PORT}/g' /etc/apache2/ports.conf \
+    && echo "ServerName localhost" >> /etc/apache2/apache2.conf
+
+# Ajustar permisos
 RUN chown -R www-data:www-data /var/www/html/
 
-# Exponer el puerto 80
-EXPOSE 80
+# NO expongas un puerto fijo (Render ignora EXPOSE)
+# EXPOSE 80  ← borra o comenta esta línea
+
+CMD ["apache2-foreground"]
