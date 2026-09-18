@@ -8,7 +8,8 @@ require_once __DIR__ . '/../core/auth.php';
 
 $method   = getMethod();
 $segments = getUriSegments();
-$action   = $segments[1] ?? null;
+// Soportar /auth/login Y index.php?resource=auth&action=login
+$action   = $segments[1] ?? $_GET['action'] ?? null;
 
 switch ($action) {
 
