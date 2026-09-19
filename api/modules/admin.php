@@ -20,7 +20,7 @@ switch ($action) {
         $stmt = $db->query("
             SELECT 
                 (SELECT COUNT(*) FROM users WHERE role_id = 1) AS total_veterinarios,
-                (SELECT COUNT(*) FROM users WHERE role_id = 3) AS total_propietarios,
+                (SELECT COUNT(*) FROM users WHERE role_id = 2) AS total_propietarios,
                 (SELECT COUNT(*) FROM pets) AS total_pacientes,
                 (SELECT COUNT(*) FROM appointments WHERE status = 'PENDIENTE' AND DATE(appointment_date) = CURDATE()) AS citas_hoy
         ");
