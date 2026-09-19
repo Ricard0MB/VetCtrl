@@ -1,47 +1,51 @@
 <?php
-// Configurar cabeceras para permitir peticiones desde la App (Ionic)
-header("Content-Type: application/json");
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization");
+// api/pets.php
+// Wrapper de compatibilidad: redirige al módulo de pets nuevo
+// Soporta ?owner_id=X para compatibilidad con la app vieja
 
-// 🔥 Incluir tu archivo de configuración (está en la carpeta "includes")
-// __DIR__ es la carpeta donde está este archivo (/api)
-// Subimos un nivel y entramos a includes/config.php
-require_once __DIR__ . '/../includes/config.php';
+require_once __DIR__ . '/core/response.php';
+require_once __DIR__ . '/core/auth.php';
 
-$response = [];
+handleCors();
 
-// Verificar que nos llegue el ID del dueño (ej: ?owner_id=1)
-if (isset($_GET['owner_id']) && !empty($_GET['owner_id'])) {
-    $owner_id = intval($_GET['owner_id']);
+$user = requireAuth(); // Requiere token válido
+$db = getDB();
 
-    try {
-        // 🔥 Usamos PDO (la variable $conn viene de tu config.php)
-        $query = "SELECT p.*, pt.name as type_name, b.name as breed_name 
-                  FROM pets p
-                  LEFT JOIN pet_types pt ON p.type_id = pt.id
-                  LEFT JOIN breeds b ON p.breed_id = b.id
-                  WHERE p.owner_id = :owner_id
-                  ORDER BY p.created_at DESC";
-        
-        $stmt = $conn->prepare($query);
-        $stmt->execute(['owner_id' => $owner_id]);
-        $mascotas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$ownerId = isset($_GET['owner_id']) ? (int)$_GET['owner_id'] : 0;
 
-        $response['success'] = true;
-        $response['data'] = $mascotas;
-        $response['count'] = count($mascotas);
+$sql = "SELECT 
+            p.id, p.name, p.date_of_birth, p.gender,
+            p.medical_history, p.created_at,
+            p.owner_id, p.attendant_id,
+            pt.name AS species_name,
+            b.name  AS breed_name,
+            u.username AS owner_name,
+            u.email    AS owner_email
+        FROM pets p
+        LEFT JOIN pet_types pt ON p.type_id = pt.id
+        LEFT JOIN breeds   b  ON p.breed_id = b.id
+        LEFT JOIN users    u  ON p.owner_id = u.id
+        WHERE 1=1";
+$params = [];
 
-    } catch (PDOException $e) {
-        $response['success'] = false;
-        $response['message'] = 'Error en la consulta: ' . $e->getMessage();
-    }
-} else {
-    $response['success'] = false;
-    $response['message'] = 'Falta el parámetro owner_id. Ejemplo: ?owner_id=1';
+if ($ownerId > 0) {
+    $sql .= " AND p.owner_id = :owner_id";
+    $params[':owner_id'] = $ownerId;
+} elseif ($user['role_name'] === 'Propietario') {
+    $sql .= " AND p.owner_id = :owner_id";
+    $params[':owner_id'] = $user['id'];
+} elseif ($user['role_name'] === 'Veterinario') {
+    $sql .= " AND p.attendant_id = :attendant_id";
+    $params[':attendant_id'] = $user['id'];
 }
 
-// Devolver el resultado en JSON
-echo json_encode($response);
-?>
+$sql .= " ORDER BY p.created_at DESC LIMIT 100";
+
+$stmt = $db->prepare($sql);
+$stmt->execute($params);
+$pets = $stmt->fetchAll();
+
+// ⚠️ Formato NUEVO compatible con el viejo:
+// El viejo devolvía {success, data: [...], count}
+// Pero también añadimos {species_name, breed_name} para que el HTML nuevo funcione
+jsonSuccess($pets, 'Listado de mascotas');
