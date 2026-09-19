@@ -1,83 +1,82 @@
 <?php
-// Configurar cabeceras para permitir peticiones desde la App
-header("Content-Type: application/json");
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization");
+// api/pet_detail.php
+// Wrapper de compatibilidad: redirige al módulo de pets nuevo
 
-// Incluir tu archivo de configuración (PDO)
-require_once __DIR__ . '/../includes/config.php';
+require_once __DIR__ . '/core/response.php';
+require_once __DIR__ . '/core/auth.php';
 
-$response = [];
+handleCors();
 
-// Verificar que nos llegue el ID de la mascota (ej: ?pet_id=1)
-if (isset($_GET['pet_id']) && !empty($_GET['pet_id'])) {
-    $pet_id = intval($_GET['pet_id']);
+$user = requireAuth();
+$db = getDB();
 
-    try {
-        // ----- 1. OBTENER DATOS DE LA MASCOTA -----
-        $queryPet = "SELECT p.*, pt.name as type_name, b.name as breed_name 
-                     FROM pets p
-                     LEFT JOIN pet_types pt ON p.type_id = pt.id
-                     LEFT JOIN breeds b ON p.breed_id = b.id
-                     WHERE p.id = :pet_id";
-        $stmt = $conn->prepare($queryPet);
-        $stmt->execute(['pet_id' => $pet_id]);
-        $pet = $stmt->fetch(PDO::FETCH_ASSOC);
+$petId = isset($_GET['pet_id']) ? (int)$_GET['pet_id'] : 0;
+if ($petId <= 0) jsonError('Falta pet_id', 400);
 
-        if (!$pet) {
-            $response['success'] = false;
-            $response['message'] = 'Mascota no encontrada';
-            echo json_encode($response);
-            exit;
-        }
+// Datos de la mascota
+$stmt = $db->prepare("
+    SELECT p.*, pt.name AS species_name, b.name AS breed_name,
+           u.username AS owner_name, u.email AS owner_email
+    FROM pets p
+    LEFT JOIN pet_types pt ON p.type_id = pt.id
+    LEFT JOIN breeds b ON p.breed_id = b.id
+    LEFT JOIN users u ON p.owner_id = u.id
+    WHERE p.id = :id
+");
+$stmt->execute([':id' => $petId]);
+$pet = $stmt->fetch();
 
-        // ----- 2. OBTENER CITAS -----
-        $queryAppointments = "SELECT * FROM appointments WHERE pet_id = :pet_id ORDER BY appointment_date DESC";
-        $stmt = $conn->prepare($queryAppointments);
-        $stmt->execute(['pet_id' => $pet_id]);
-        $appointments = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        // ----- 3. OBTENER VACUNAS -----
-        $queryVaccines = "SELECT v.*, vt.name as vaccine_name 
-                          FROM vaccines v
-                          LEFT JOIN vaccine_types vt ON v.vaccine_type_id = vt.id
-                          WHERE v.pet_id = :pet_id 
-                          ORDER BY v.application_date DESC";
-        $stmt = $conn->prepare($queryVaccines);
-        $stmt->execute(['pet_id' => $pet_id]);
-        $vaccines = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        // ----- 4. OBTENER CONSULTAS -----
-        $queryConsultations = "SELECT * FROM consultations WHERE pet_id = :pet_id ORDER BY consultation_date DESC";
-        $stmt = $conn->prepare($queryConsultations);
-        $stmt->execute(['pet_id' => $pet_id]);
-        $consultations = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        // ----- 5. OBTENER TRATAMIENTOS -----
-        $queryTreatments = "SELECT * FROM treatments WHERE pet_id = :pet_id ORDER BY created_at DESC";
-        $stmt = $conn->prepare($queryTreatments);
-        $stmt->execute(['pet_id' => $pet_id]);
-        $treatments = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        // ----- ARMAR LA RESPUESTA -----
-        $response['success'] = true;
-        $response['data'] = [
-            'pet' => $pet,
-            'appointments' => $appointments,
-            'vaccines' => $vaccines,
-            'consultations' => $consultations,
-            'treatments' => $treatments
-        ];
-
-    } catch (PDOException $e) {
-        $response['success'] = false;
-        $response['message'] = 'Error en la consulta: ' . $e->getMessage();
-    }
-} else {
-    $response['success'] = false;
-    $response['message'] = 'Falta el parámetro pet_id. Ejemplo: ?pet_id=1';
+if (!$pet) jsonError('Mascota no encontrada', 404);
+if ($user['role_name'] === 'Propietario' && (int)$pet['owner_id'] !== (int)$user['id']) {
+    jsonError('No tienes permiso', 403);
 }
 
-echo json_encode($response);
-?>
+// Historiales
+$stmt = $db->prepare("
+    SELECT c.id, c.consultation_date, c.reason, c.diagnosis, c.treatment, c.notes,
+           u.username AS vet_name
+    FROM consultations c
+    LEFT JOIN users u ON c.attendant_id = u.id
+    WHERE c.pet_id = :id
+    ORDER BY c.consultation_date DESC
+");
+$stmt->execute([':id' => $petId]);
+$consultations = $stmt->fetchAll();
+
+$stmt = $db->prepare("
+    SELECT v.id, v.application_date, v.next_due_date, v.lote_number, v.notes,
+           vt.name AS vaccine_name
+    FROM vaccines v
+    LEFT JOIN vaccine_types vt ON v.vaccine_type_id = vt.id
+    WHERE v.pet_id = :id
+    ORDER BY v.application_date DESC
+");
+$stmt->execute([':id' => $petId]);
+$vaccines = $stmt->fetchAll();
+
+$stmt = $db->prepare("
+    SELECT t.id, t.title, t.start_date, t.end_date, t.diagnosis, t.status
+    FROM treatments t
+    WHERE t.pet_id = :id
+    ORDER BY t.created_at DESC
+");
+$stmt->execute([':id' => $petId]);
+$treatments = $stmt->fetchAll();
+
+$stmt = $db->prepare("
+    SELECT a.id, a.appointment_date, a.reason, a.status, u.username AS vet_name
+    FROM appointments a
+    LEFT JOIN users u ON a.attendant_id = u.id
+    WHERE a.pet_id = :id
+    ORDER BY a.appointment_date DESC
+");
+$stmt->execute([':id' => $petId]);
+$appointments = $stmt->fetchAll();
+
+jsonSuccess([
+    'pet'           => $pet,
+    'consultations' => $consultations,
+    'vaccines'      => $vaccines,
+    'treatments'    => $treatments,
+    'appointments'  => $appointments,
+], 'Detalle de mascota');
