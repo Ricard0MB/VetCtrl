@@ -96,7 +96,7 @@ switch ($action) {
         $hash = password_hash($password, PASSWORD_DEFAULT);
         $stmt = $db->prepare("
             INSERT INTO users (username, email, password, role_id, status, created_at)
-            VALUES (:u, :e, :p, 3, 'active', NOW())
+            VALUES (:u, :e, :p, 2, 'active', NOW())
         ");
         $stmt->execute([':u' => $username, ':e' => $email, ':p' => $hash]);
         $newId = (int)$db->lastInsertId();
