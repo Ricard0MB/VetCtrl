@@ -2,11 +2,22 @@
 // api/index.php
 // Front controller de la API
 
+// 🔥 CORS PRIMERO — antes de cualquier require
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+header('Access-Control-Max-Age: 86400');
+
+// Responder al preflight OPTIONS inmediatamente
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
+
+// Ahora sí los require
 require_once __DIR__ . '/core/response.php';
 require_once __DIR__ . '/core/router.php';
 require_once __DIR__ . '/core/auth.php';
-
-handleCors();
 
 $segments = getUriSegments();
 $method   = getMethod();
