@@ -1,6 +1,6 @@
 <?php
 // api/modules/pets.php
-// Módulo CRUD de mascotas — compatible con Render (lee id/action de query o segmentos)
+// Módulo CRUD de mascotas — compatible con Render
 
 require_once __DIR__ . '/../core/db.php';
 require_once __DIR__ . '/../core/response.php';
@@ -8,10 +8,49 @@ require_once __DIR__ . '/../core/auth.php';
 
 $method   = getMethod();
 $segments = getUriSegments();
-// Acepta /pets/123  Y  index.php?resource=pets&id=123
 $action   = $segments[1] ?? $_GET['id'] ?? null;
 
 switch (true) {
+
+    // ==========================================================
+    // GET /api/pets/search?q=... — Búsqueda (acepta ?id=search o ?action=search)
+    // ==========================================================
+    case $method === 'GET' && ($action === 'search' || (isset($_GET['action']) && $_GET['action'] === 'search')):
+        $user = requireAuth();
+        $db = getDB();
+
+        $q = trim($_GET['q'] ?? '');
+        if ($q === '') jsonError('Falta parámetro q', 400);
+
+        $sql = "SELECT 
+                    p.id, p.name, pt.name AS species_name, b.name AS breed_name,
+                    p.date_of_birth, p.gender,
+                    u.username AS owner_name, u.ci AS owner_ci, u.id AS owner_id,
+                    p.owner_id, p.attendant_id, p.created_at, p.medical_history,
+                    u.email AS owner_email
+                FROM pets p
+                LEFT JOIN pet_types pt ON p.type_id = pt.id
+                LEFT JOIN breeds   b  ON p.breed_id = b.id
+                INNER JOIN users   u  ON p.owner_id = u.id
+                WHERE (p.name LIKE :q OR pt.name LIKE :q OR b.name LIKE :q 
+                       OR u.username LIKE :q OR u.ci LIKE :q)";
+        $params = [':q' => "%$q%"];
+
+        // Filtro por rol
+        if ($user['role_name'] === 'Propietario') {
+            $sql .= " AND p.owner_id = :owner_id";
+            $params[':owner_id'] = $user['id'];
+        } elseif ($user['role_name'] === 'Veterinario') {
+            $sql .= " AND p.attendant_id = :attendant_id";
+            $params[':attendant_id'] = $user['id'];
+        }
+
+        $sql .= " ORDER BY p.name ASC LIMIT 100";
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        jsonSuccess($stmt->fetchAll(), 'Resultados de búsqueda');
+        break;
 
     // ==========================================================
     // GET /api/pets — Listar mascotas (según rol)
@@ -78,40 +117,6 @@ switch (true) {
             'limit' => $p['limit'],
             'total' => count($pets),
         ], 'Listado de mascotas');
-        break;
-
-    // ==========================================================
-    // GET /api/pets/search?q=... — Búsqueda
-    // ==========================================================
-    case $method === 'GET' && $action === 'search':
-        $user = requireAuth();
-        $db = getDB();
-
-        $q = trim($_GET['q'] ?? '');
-        if ($q === '') jsonError('Falta parámetro q', 400);
-
-        $sql = "SELECT 
-                    p.id, p.name, pt.name AS species_name, b.name AS breed_name,
-                    p.date_of_birth, p.gender,
-                    u.username AS owner_name, u.ci AS owner_ci, u.id AS owner_id
-                FROM pets p
-                LEFT JOIN pet_types pt ON p.type_id = pt.id
-                LEFT JOIN breeds   b  ON p.breed_id = b.id
-                INNER JOIN users   u  ON p.owner_id = u.id
-                WHERE (p.name LIKE :q OR pt.name LIKE :q OR b.name LIKE :q 
-                       OR u.username LIKE :q OR u.ci LIKE :q)";
-        $params = [':q' => "%$q%"];
-
-        if ($user['role_name'] === 'Propietario') {
-            $sql .= " AND p.owner_id = :owner_id";
-            $params[':owner_id'] = $user['id'];
-        }
-
-        $sql .= " ORDER BY p.name ASC LIMIT 100";
-
-        $stmt = $db->prepare($sql);
-        $stmt->execute($params);
-        jsonSuccess($stmt->fetchAll(), 'Resultados de búsqueda');
         break;
 
     // ==========================================================
@@ -227,6 +232,21 @@ switch (true) {
             if ($ownerId <= 0) jsonError('Debe especificar owner_id', 422);
         }
 
+        // Validar fecha de nacimiento (no futura)
+        if ($dob !== null) {
+            $dobTimestamp = strtotime($dob);
+            if (!$dobTimestamp) {
+                jsonError('Fecha de nacimiento inválida', 422);
+            }
+            if ($dobTimestamp > time()) {
+                jsonError('La fecha de nacimiento no puede ser futura', 422);
+            }
+            $maxAge = strtotime('-100 years');
+            if ($dobTimestamp < $maxAge) {
+                jsonError('La edad no puede ser mayor a 100 años', 422);
+            }
+        }
+
         $stmt = $db->prepare("SELECT id FROM pet_types WHERE id = :id");
         $stmt->execute([':id' => $typeId]);
         if (!$stmt->fetch()) jsonError('Especie no válida', 422);
@@ -292,6 +312,14 @@ switch (true) {
             }
         }
         if (empty($fields)) jsonError('Nada que actualizar', 422);
+
+        // Validar fecha si viene
+        if (isset($body['date_of_birth']) && $body['date_of_birth'] !== null) {
+            $dobTimestamp = strtotime($body['date_of_birth']);
+            if ($dobTimestamp > time()) {
+                jsonError('La fecha de nacimiento no puede ser futura', 422);
+            }
+        }
 
         $sql = "UPDATE pets SET " . implode(', ', $fields) . " WHERE id = :id";
         $stmt = $db->prepare($sql);
