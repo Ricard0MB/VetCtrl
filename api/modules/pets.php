@@ -22,6 +22,7 @@ switch (true) {
         $q = trim($_GET['q'] ?? '');
         if ($q === '') jsonError('Falta parámetro q', 400);
 
+        // 🔥 Placeholders únicos para cada LIKE (PDO no permite reutilizar)
         $sql = "SELECT 
                     p.id, p.name, pt.name AS species_name, b.name AS breed_name,
                     p.date_of_birth, p.gender,
@@ -32,9 +33,15 @@ switch (true) {
                 LEFT JOIN pet_types pt ON p.type_id = pt.id
                 LEFT JOIN breeds   b  ON p.breed_id = b.id
                 INNER JOIN users   u  ON p.owner_id = u.id
-                WHERE (p.name LIKE :q OR pt.name LIKE :q OR b.name LIKE :q 
-                       OR u.username LIKE :q OR u.ci LIKE :q)";
-        $params = [':q' => "%$q%"];
+                WHERE (p.name LIKE :q1 OR pt.name LIKE :q2 OR b.name LIKE :q3 
+                       OR u.username LIKE :q4 OR u.ci LIKE :q5)";
+        $params = [
+            ':q1' => "%$q%",
+            ':q2' => "%$q%",
+            ':q3' => "%$q%",
+            ':q4' => "%$q%",
+            ':q5' => "%$q%",
+        ];
 
         // Filtro por rol
         if ($user['role_name'] === 'Propietario') {
@@ -88,8 +95,12 @@ switch (true) {
         }
 
         if ($search !== '') {
-            $sql .= " AND (p.name LIKE :s OR pt.name LIKE :s OR b.name LIKE :s OR u.username LIKE :s)";
-            $params[':s'] = "%$search%";
+            // 🔥 Placeholders únicos para cada LIKE
+            $sql .= " AND (p.name LIKE :s1 OR pt.name LIKE :s2 OR b.name LIKE :s3 OR u.username LIKE :s4)";
+            $params[':s1'] = "%$search%";
+            $params[':s2'] = "%$search%";
+            $params[':s3'] = "%$search%";
+            $params[':s4'] = "%$search%";
         }
         if ($species > 0) {
             $sql .= " AND p.type_id = :species";
