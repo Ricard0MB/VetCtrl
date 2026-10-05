@@ -31,19 +31,21 @@ if ($resource === null) {
 }
 
 $routes = [
-    'auth'           => __DIR__ . '/modules/auth.php',
-    'pets'           => __DIR__ . '/modules/pets.php',
-    'owners'         => __DIR__ . '/modules/owners.php',
-    'pet-types'      => __DIR__ . '/modules/pet_types.php',
-    'breeds'         => __DIR__ . '/modules/breeds.php',
-    'appointments'   => __DIR__ . '/modules/appointments.php',
-    'consultations'  => __DIR__ . '/modules/consultations.php',
-    'treatments'     => __DIR__ . '/modules/treatments.php',
-    'vaccines'       => __DIR__ . '/modules/vaccines.php',
-    'vaccine-types'  => __DIR__ . '/modules/vaccine_types.php',
-    'users'          => __DIR__ . '/modules/users.php',
-    'reports'        => __DIR__ . '/modules/reports.php',
-    'admin'          => __DIR__ . '/modules/admin.php',
+    'auth'                => __DIR__ . '/modules/auth.php',
+    'pets'                => __DIR__ . '/modules/pets.php',
+    'owners'              => __DIR__ . '/modules/owners.php',
+    'pet-types'           => __DIR__ . '/modules/pet_types.php',
+    'breeds'              => __DIR__ . '/modules/breeds.php',
+    'appointments'        => __DIR__ . '/modules/appointments.php',
+    'consultations'       => __DIR__ . '/modules/consultations.php',
+    'treatments'          => __DIR__ . '/modules/treatments.php',
+    'vaccines'            => __DIR__ . '/modules/vaccines.php',
+    'vaccine-types'       => __DIR__ . '/modules/vaccine_types.php',
+    'users'               => __DIR__ . '/modules/users.php',
+    'reports'             => __DIR__ . '/modules/reports.php',
+    'admin'               => __DIR__ . '/modules/admin.php',
+    'diseases'            => __DIR__ . '/modules/diseases.php',
+    'treatments-catalog'  => __DIR__ . '/modules/treatments_catalog.php',
 ];
 
 if (!isset($routes[$resource])) {
