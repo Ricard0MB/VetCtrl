@@ -40,7 +40,7 @@ $stmtStats->execute([':id1' => $user['id'], ':id2' => $user['id']]);
 $stats = $stmtStats->fetch();
 
 // 2. Construir el Prompt según el ROL (HEREDOC: no requiere escapar comillas)
-$permisoRegistro = $isOwner ? "NO puedes registrar otras mascotas. Solo el admin/vet puede." : "SÍ puedes registrar mascotas para cualquier dueño.";
+$permisoRegistro = $isOwner ? "NO puedes registrar mascotas. Solo el admin/vet puede." : "SÍ puedes registrar mascotas para cualquier dueño.";
 
 $prompt = <<<PROMPT
 Eres VetBot, el asistente virtual de VetCtrl.
@@ -50,12 +50,16 @@ Mascotas accesibles:
 Regla de tu rol: {$permisoRegistro}
 Estadísticas actuales: {$stats['total_pets']} mascotas, {$stats['citas_pendientes']} citas pendientes.
 
-TIENES 3 ACCIONES. Responde SOLO con JSON si aplica:
-1. AGENDAR CITA: {"accion": "agendar_cita", "pet_id": ID, "fecha": "YYYY-MM-DD HH:MM:SS", "motivo": "texto"}
-2. REGISTRAR MASCOTA (Solo Admin/Vet): {"accion": "registrar_mascota", "nombre": "texto", "especie": "Perro/Gato", "genero": "Macho/Hembra"}
-3. PEDIR ACLARACIÓN: Si el usuario pide algo con una mascota pero hay más de un nombre igual o no queda claro a cuál se refiere, devuelve: {"accion": "pedir_aclaracion", "pregunta": "¿A cuál de estas mascotas te refieres?", "opciones": [{"id": 1, "texto": "Luna (Perro)"}, {"id": 5, "texto": "Luna (Gato)"}]}
+REGLAS DE RESPUESTA (obligatorias):
+- Si el usuario pide AGENDAR una cita -> responde ÚNICAMENTE con este JSON, sin texto adicional:
+  {"accion":"agendar_cita","pet_id":ID,"fecha":"YYYY-MM-DD HH:MM:SS","motivo":"texto"}
+- Si el usuario pide REGISTRAR una mascota y eres Admin/Vet -> responde ÚNICAMENTE con este JSON:
+  {"accion":"registrar_mascota","nombre":"texto","especie":"Perro/Gato","genero":"Macho/Hembra"}
+- Si hay AMBIGÜEDAD (varias mascotas con el mismo nombre, o no queda claro a cuál se refiere) -> responde ÚNICAMENTE con este JSON:
+  {"accion":"pedir_aclaracion","pregunta":"texto","opciones":[{"id":1,"texto":"Luna (Perro)"}]}
+- Para CUALQUIER OTRA COSA (saludos, dudas, consultas, permisos denegados) -> responde en TEXTO PLANO, sin JSON, sin llaves, sin comillas dobles alrededor de la respuesta.
 
-Si es una pregunta normal, responde amablemente.
+NUNCA mezcles texto y JSON en la misma respuesta. NUNCA uses bloques de código.
 
 Pregunta: {$message}
 PROMPT;
@@ -66,9 +70,9 @@ $modelo = getenv('GEMINI_MODEL') ?: 'gemini-2.0-flash';
 $url = "https://generativelanguage.googleapis.com/v1beta/models/{$modelo}:generateContent?key=" . $apiKey;
 
 $data = [
-    "contents" => [["parts" => [["text" => $prompt]]]],
-    "generationConfig" => ["responseMimeType" => "application/json"]
+    "contents" => [["parts" => [["text" => $prompt]]]]
 ];
+
 $ch = curl_init($url);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
@@ -83,19 +87,57 @@ if ($response === false) {
 }
 
 $json = json_decode($response, true);
-$textoIA = $json['candidates'][0]['content']['parts'][0]['text'] ?? '';
-$responsePayload = ['texto' => $textoIA ?: 'No entendí tu solicitud.'];
+$textoIA = trim($json['candidates'][0]['content']['parts'][0]['text'] ?? '');
 
-// 4. Procesar acciones
-try {
-    // Limpieza robusta del JSON (por si el modelo devuelve ```json ... ```)
-    $jsonLimpio = trim($textoIA);
+// LOG de depuración (míralo en Render -> Logs si algo falla)
+error_log("GEMINI RAW: " . $textoIA);
+
+// 4. Parseo tolerante: intenta JSON; si no, muestra texto
+$responsePayload = ['texto' => 'No entendí tu solicitud.'];
+
+if ($textoIA !== '') {
+    // Limpieza: bloques ```json ... ```
+    $jsonLimpio = $textoIA;
     if (preg_match('/```(?:json)?\s*(.*?)\s*```/s', $jsonLimpio, $m)) {
         $jsonLimpio = $m[1];
     }
+    // Comillas tipográficas
+    $jsonLimpio = str_replace(['“', '”', '‘', '’'], ['"', '"', "'", "'"], $jsonLimpio);
+    $jsonLimpio = trim($jsonLimpio);
+
+    // Intento 1: parsear tal cual (o tras limpieza)
     $accionData = json_decode($jsonLimpio, true);
 
-    if ($accionData && isset($accionData['accion'])) {
+    // Intento 2: si falló, extraer el primer objeto {...}
+    if ($accionData === null && preg_match('/\{.*\}/s', $jsonLimpio, $m2)) {
+        $accionData = json_decode($m2[0], true);
+    }
+
+    // Si tiene accion -> procesar abajo
+    // Si NO tiene accion pero es JSON con campo de texto -> mostrar ese texto
+    if (is_array($accionData) && !isset($accionData['accion'])) {
+        foreach (['respuesta', 'texto', 'message', 'reply', 'mensaje'] as $k) {
+            if (!empty($accionData[$k]) && is_string($accionData[$k])) {
+                $responsePayload = ['texto' => $accionData[$k]];
+                break;
+            }
+        }
+        $accionData = null; // no hay acción
+    }
+
+    // Si no es JSON válido -> es texto plano, mostrarlo tal cual
+    if ($accionData === null && !isset($responsePayload['texto']) || ($responsePayload['texto'] === 'No entendí tu solicitud.')) {
+        if (!is_array(json_decode($jsonLimpio, true))) {
+            $responsePayload = ['texto' => $textoIA];
+        }
+    }
+
+    error_log("JSON PARSEADO: " . json_encode($accionData));
+}
+
+// 5. Procesar acciones
+try {
+    if (is_array($accionData) && isset($accionData['accion'])) {
 
         // --- PEDIR ACLARACIÓN (Botones) ---
         if ($accionData['accion'] === 'pedir_aclaracion') {
@@ -111,7 +153,6 @@ try {
             $fecha = $accionData['fecha'] ?? '';
             $motivo = $accionData['motivo'] ?? '';
 
-            // Validar fecha
             $dt = DateTime::createFromFormat('Y-m-d H:i:s', $fecha);
             $fechaValida = $dt && $dt->format('Y-m-d H:i:s') === $fecha && $dt > new DateTime();
 
@@ -120,7 +161,6 @@ try {
             } elseif (!$fechaValida) {
                 $responsePayload = ['texto' => "❌ La fecha '{$fecha}' no es válida o ya pasó. Usa formato YYYY-MM-DD HH:MM:SS."];
             } else {
-                // Seguridad: Si es propietario, verificar que la mascota sea suya
                 $stmtCheck = $db->prepare("SELECT owner_id FROM pets WHERE id = :id");
                 $stmtCheck->execute([':id' => $pet_id]);
                 $dueno = $stmtCheck->fetch();
@@ -148,22 +188,26 @@ try {
                 $especie = $accionData['especie'] ?? '';
                 $genero = $accionData['genero'] ?? '';
 
-                $stmtEsp = $db->prepare("SELECT id FROM pet_types WHERE name LIKE :e LIMIT 1");
-                $stmtEsp->execute([':e' => "%$especie%"]);
-                $tipo = $stmtEsp->fetch();
-
-                if ($tipo) {
-                    $stmt = $db->prepare("INSERT INTO pets (name, owner_id, attendant_id, type_id, gender, created_at) VALUES (:name, :owner, :attendant, :type, :gender, NOW())");
-                    $stmt->execute([':name' => $nombre, ':owner' => $user['id'], ':attendant' => $user['id'], ':type' => $tipo['id'], ':gender' => $genero]);
-                    $responsePayload = ['texto' => "✅ ¡Paciente registrado! He añadido a **{$nombre}** ({$especie}) a tu lista."];
+                if ($nombre === '' || $especie === '') {
+                    $responsePayload = ['texto' => "❌ Me faltan datos para registrar la mascota. Necesito al menos nombre y especie (Perro/Gato)."];
                 } else {
-                    $responsePayload = ['texto' => "No pude registrar la mascota porque la especie '{$especie}' no existe."];
+                    $stmtEsp = $db->prepare("SELECT id FROM pet_types WHERE name LIKE :e LIMIT 1");
+                    $stmtEsp->execute([':e' => "%$especie%"]);
+                    $tipo = $stmtEsp->fetch();
+
+                    if ($tipo) {
+                        $stmt = $db->prepare("INSERT INTO pets (name, owner_id, attendant_id, type_id, gender, created_at) VALUES (:name, :owner, :attendant, :type, :gender, NOW())");
+                        $stmt->execute([':name' => $nombre, ':owner' => $user['id'], ':attendant' => $user['id'], ':type' => $tipo['id'], ':gender' => $genero]);
+                        $responsePayload = ['texto' => "✅ ¡Paciente registrado! He añadido a **{$nombre}** ({$especie}) a tu lista."];
+                    } else {
+                        $responsePayload = ['texto' => "No pude registrar la mascota porque la especie '{$especie}' no existe. Las válidas son: Perro o Gato."];
+                    }
                 }
             }
         }
     }
 } catch (Exception $e) {
-    // Mantiene la respuesta de texto por defecto
+    error_log("CHATBOT EXCEPTION: " . $e->getMessage());
 }
 
 jsonSuccess(['reply' => $responsePayload], 'Respuesta del bot');
