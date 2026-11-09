@@ -46,6 +46,7 @@ $routes = [
     'admin'               => __DIR__ . '/modules/admin.php',
     'diseases'            => __DIR__ . '/modules/diseases.php',
     'treatments-catalog'  => __DIR__ . '/modules/treatments_catalog.php',
+    'chatbot' => __DIR__ . '/modules/chatbot.php',
 ];
 
 if (!isset($routes[$resource])) {
