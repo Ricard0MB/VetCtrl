@@ -27,7 +27,7 @@ $mascotas = $stmtPets->fetchAll();
 
 $listaMascotasTexto = "";
 foreach ($mascotas as $m) {
-    $listaMascotasTexto .= "- ID: {$m['id']}, Nombre: {$m['name']}\n";
+    $listaMascotasTexto .= "- ID: {$m['id']}, Nombre: {$m['name']}, Especie: {$m['species_name']}\n";
 }
 
 // Estadísticas
@@ -54,7 +54,7 @@ REGLAS DE RESPUESTA (obligatorias):
 - Si el usuario pide AGENDAR una cita -> responde ÚNICAMENTE con este JSON, sin texto adicional:
   {"accion":"agendar_cita","pet_id":ID,"fecha":"YYYY-MM-DD HH:MM:SS","motivo":"texto"}
 - Si el usuario pide REGISTRAR una mascota y eres Admin/Vet -> responde ÚNICAMENTE con este JSON:
-  {"accion":"registrar_mascota","nombre":"texto","especie":"Perro/Gato","genero":"Macho/Hembra"}
+  {"accion":"registrar_mascota","nombre":"texto","especie":"texto","genero":"Macho/Hembra"}
 - Si hay AMBIGÜEDAD (varias mascotas con el mismo nombre, o no queda claro a cuál se refiere) -> responde ÚNICAMENTE con este JSON:
   {"accion":"pedir_aclaracion","pregunta":"texto","opciones":[{"id":1,"texto":"Luna (Perro)"}]}
 - Para CUALQUIER OTRA COSA (saludos, dudas, consultas, permisos denegados) -> responde en TEXTO PLANO, sin JSON, sin llaves, sin comillas dobles alrededor de la respuesta.
@@ -69,7 +69,6 @@ $apiKey = getenv('GEMINI_API_KEY');
 if (!$apiKey) {
     jsonError('Error de configuración: Falta la variable GEMINI_API_KEY en el servidor.', 500);
 }
-// 👇 MODELO ACTUALIZADO AQUÍ
 $modelo = getenv('GEMINI_MODEL') ?: 'gemini-3.5-flash';
 $url = "https://generativelanguage.googleapis.com/v1beta/models/{$modelo}:generateContent?key=" . $apiKey;
 
@@ -119,10 +118,8 @@ if ($textoIA !== '') {
     }
 
     if (is_array($parsed) && isset($parsed['accion'])) {
-        // Hay acción válida -> la procesa el bloque 5
         $accionData = $parsed;
     } elseif (is_array($parsed)) {
-        // JSON sin "accion" -> buscar campo de texto
         $textoExtraido = null;
         foreach (['respuesta', 'texto', 'message', 'reply', 'mensaje'] as $k) {
             if (!empty($parsed[$k]) && is_string($parsed[$k])) {
@@ -132,7 +129,6 @@ if ($textoIA !== '') {
         }
         $responsePayload = ['texto' => $textoExtraido ?? $textoIA];
     } else {
-        // No es JSON -> texto plano, mostrarlo tal cual
         $responsePayload = ['texto' => $textoIA];
     }
 
@@ -193,8 +189,9 @@ try {
                 $genero = $accionData['genero'] ?? '';
 
                 if ($nombre === '' || $especie === '') {
-                    $responsePayload = ['texto' => "❌ Me faltan datos para registrar la mascota. Necesito al menos nombre y especie (Perro/Gato)."];
+                    $responsePayload = ['texto' => "❌ Me faltan datos para registrar la mascota. Necesito al menos nombre y especie."];
                 } else {
+                    // Búsqueda dinámica: busca "oveja" en tu tabla pet_types
                     $stmtEsp = $db->prepare("SELECT id FROM pet_types WHERE name LIKE :e LIMIT 1");
                     $stmtEsp->execute([':e' => "%$especie%"]);
                     $tipo = $stmtEsp->fetch();
@@ -204,7 +201,8 @@ try {
                         $stmt->execute([':name' => $nombre, ':owner' => $user['id'], ':attendant' => $user['id'], ':type' => $tipo['id'], ':gender' => $genero]);
                         $responsePayload = ['texto' => "✅ ¡Paciente registrado! He añadido a **{$nombre}** ({$especie}) a tu lista."];
                     } else {
-                        $responsePayload = ['texto' => "No pude registrar la mascota porque la especie '{$especie}' no existe. Las válidas son: Perro o Gato."];
+                        // Mensaje de error dinámico y útil
+                        $responsePayload = ['texto' => "No pude registrar la mascota porque la especie '{$especie}' no está registrada en el sistema. Verifica las especies disponibles en la app."];
                     }
                 }
             }
