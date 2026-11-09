@@ -69,7 +69,8 @@ $apiKey = getenv('GEMINI_API_KEY');
 if (!$apiKey) {
     jsonError('Error de configuración: Falta la variable GEMINI_API_KEY en el servidor.', 500);
 }
-$modelo = getenv('GEMINI_MODEL') ?: 'gemini-2.0-flash';
+// 👇 MODELO ACTUALIZADO AQUÍ
+$modelo = getenv('GEMINI_MODEL') ?: 'gemini-3.5-flash';
 $url = "https://generativelanguage.googleapis.com/v1beta/models/{$modelo}:generateContent?key=" . $apiKey;
 
 $data = [
@@ -94,14 +95,6 @@ $textoIA = trim($json['candidates'][0]['content']['parts'][0]['text'] ?? '');
 
 // LOG de depuración (míralo en Render -> Logs si algo falla)
 error_log("GEMINI RAW: " . $textoIA);
-// TEMPORAL: devolver el raw al frontend para depurar
-if (trim($textoIA) === '' || (isset($body['debug']) && $body['debug'])) {
-    jsonSuccess([
-        'reply' => [
-            'texto' => "🔍 DEBUG RAW: [" . $textoIA . "] | JSON: " . substr($response, 0, 500)
-        ]
-    ], 'debug');
-}
 
 // 4. Parseo tolerante: intenta JSON; si no, muestra texto
 $accionData = null;
