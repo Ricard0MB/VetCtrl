@@ -14,8 +14,13 @@ $body = getJsonBody();
 $message = trim($body['message'] ?? '');
 if (empty($message)) jsonError('El mensaje no puede estar vacío', 400);
 
-// 1. Obtener información del contexto
-$stmtPets = $db->prepare("SELECT id, name, pt.name AS species_name FROM pets p LEFT JOIN pet_types pt ON p.type_id = pt.id WHERE p.owner_id = :id");
+// 1. Obtener información del contexto (CORREGIDO: p.id y p.name)
+$stmtPets = $db->prepare("
+    SELECT p.id, p.name, pt.name AS species_name 
+    FROM pets p 
+    LEFT JOIN pet_types pt ON p.type_id = pt.id 
+    WHERE p.owner_id = :id
+");
 $stmtPets->execute([':id' => $user['id']]);
 $mascotas = $stmtPets->fetchAll();
 
