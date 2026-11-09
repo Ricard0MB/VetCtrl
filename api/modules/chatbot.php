@@ -68,7 +68,7 @@ REGLAS ESTRICTAS:
 Pregunta del usuario: " . $message;
 
 // 3. Llamada a la API de Gemini (Modelo Actualizado a 2.5-flash)
-$apiKey = 'AQ.Ab8RN6LBY5R9RZm4lzufOX_DGqjs8fXHR5Zj7T7aYsFt4yZJEQ'; 
+$apiKey = 'AQ.Ab8RN6KayvMR5uPzBKesHE8XoXiXQT_Y8-IUXXkottni2NOI9g'; 
 $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=" . $apiKey;
 $data = [
     "contents" => [
