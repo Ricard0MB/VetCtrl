@@ -69,8 +69,7 @@ Pregunta del usuario: " . $message;
 
 // 3. Llamada a la API de Gemini (Modelo Actualizado a 2.5-flash)
 $apiKey = 'AQ.Ab8RN6LBY5R9RZm4lzufOX_DGqjs8fXHR5Zj7T7aYsFt4yZJEQ'; 
-$url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" . $apiKey;
-
+$url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=" . $apiKey;
 $data = [
     "contents" => [
         ["parts" => [["text" => $prompt]]]
