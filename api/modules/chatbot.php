@@ -19,7 +19,6 @@ $message = trim($body['message'] ?? '');
 if (empty($message)) jsonError('El mensaje no puede estar vacío', 400);
 
 // 1. Obtener datos reales del usuario para darle contexto a la IA
-// Consultamos sus mascotas (CORREGIDO: pt.name AS species_name)
 $stmtPets = $db->prepare("
     SELECT p.name, pt.name AS species_name 
     FROM pets p 
@@ -68,9 +67,9 @@ REGLAS ESTRICTAS:
 
 Pregunta del usuario: " . $message;
 
-// 3. Llamada a la API de Gemini
+// 3. Llamada a la API de Gemini (Modelo Actualizado a 2.5-flash)
 $apiKey = 'AQ.Ab8RN6LBY5R9RZm4lzufOX_DGqjs8fXHR5Zj7T7aYsFt4yZJEQ'; 
-$url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=" . $apiKey;
+$url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" . $apiKey;
 
 $data = [
     "contents" => [
@@ -92,7 +91,13 @@ if ($err) {
     $botResponse = "Lo siento, mi sistema de IA está desconectado. 😔 Intenta de nuevo en un momento.";
 } else {
     $json = json_decode($response, true);
-    if (isset($json['candidates'][0]['content']['parts'][0]['text'])) {
+    
+    // Verificamos si Google devolvió un error (por ejemplo, API Key inválida)
+    if (isset($json['error'])) {
+        $botResponse = "Error de configuración con la IA: " . $json['error']['message'];
+    } 
+    // Si todo está bien, extraemos la respuesta
+    elseif (isset($json['candidates'][0]['content']['parts'][0]['text'])) {
         $botResponse = $json['candidates'][0]['content']['parts'][0]['text'];
     } else {
         $botResponse = "No pude procesar tu solicitud. Intenta preguntar por tus mascotas o vacunas.";
