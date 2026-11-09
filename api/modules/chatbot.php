@@ -91,6 +91,14 @@ $textoIA = trim($json['candidates'][0]['content']['parts'][0]['text'] ?? '');
 
 // LOG de depuración (míralo en Render -> Logs si algo falla)
 error_log("GEMINI RAW: " . $textoIA);
+// TEMPORAL: devolver el raw al frontend para depurar
+if (trim($textoIA) === '' || (isset($body['debug']) && $body['debug'])) {
+    jsonSuccess([
+        'reply' => [
+            'texto' => "🔍 DEBUG RAW: [" . $textoIA . "] | JSON: " . substr($response, 0, 500)
+        ]
+    ], 'debug');
+}
 
 // 4. Parseo tolerante: intenta JSON; si no, muestra texto
 $accionData = null;
