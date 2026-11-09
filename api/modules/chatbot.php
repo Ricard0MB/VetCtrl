@@ -93,6 +93,7 @@ $textoIA = trim($json['candidates'][0]['content']['parts'][0]['text'] ?? '');
 error_log("GEMINI RAW: " . $textoIA);
 
 // 4. Parseo tolerante: intenta JSON; si no, muestra texto
+$accionData = null;
 $responsePayload = ['texto' => 'No entendí tu solicitud.'];
 
 if ($textoIA !== '') {
@@ -105,31 +106,30 @@ if ($textoIA !== '') {
     $jsonLimpio = str_replace(['“', '”', '‘', '’'], ['"', '"', "'", "'"], $jsonLimpio);
     $jsonLimpio = trim($jsonLimpio);
 
-    // Intento 1: parsear tal cual (o tras limpieza)
-    $accionData = json_decode($jsonLimpio, true);
+    // Intento 1: parsear tal cual
+    $parsed = json_decode($jsonLimpio, true);
 
     // Intento 2: si falló, extraer el primer objeto {...}
-    if ($accionData === null && preg_match('/\{.*\}/s', $jsonLimpio, $m2)) {
-        $accionData = json_decode($m2[0], true);
+    if (!is_array($parsed) && preg_match('/\{.*\}/s', $jsonLimpio, $m2)) {
+        $parsed = json_decode($m2[0], true);
     }
 
-    // Si tiene accion -> procesar abajo
-    // Si NO tiene accion pero es JSON con campo de texto -> mostrar ese texto
-    if (is_array($accionData) && !isset($accionData['accion'])) {
+    if (is_array($parsed) && isset($parsed['accion'])) {
+        // Hay acción válida -> la procesa el bloque 5
+        $accionData = $parsed;
+    } elseif (is_array($parsed)) {
+        // JSON sin "accion" -> buscar campo de texto
+        $textoExtraido = null;
         foreach (['respuesta', 'texto', 'message', 'reply', 'mensaje'] as $k) {
-            if (!empty($accionData[$k]) && is_string($accionData[$k])) {
-                $responsePayload = ['texto' => $accionData[$k]];
+            if (!empty($parsed[$k]) && is_string($parsed[$k])) {
+                $textoExtraido = $parsed[$k];
                 break;
             }
         }
-        $accionData = null; // no hay acción
-    }
-
-    // Si no es JSON válido -> es texto plano, mostrarlo tal cual
-    if ($accionData === null && !isset($responsePayload['texto']) || ($responsePayload['texto'] === 'No entendí tu solicitud.')) {
-        if (!is_array(json_decode($jsonLimpio, true))) {
-            $responsePayload = ['texto' => $textoIA];
-        }
+        $responsePayload = ['texto' => $textoExtraido ?? $textoIA];
+    } else {
+        // No es JSON -> texto plano, mostrarlo tal cual
+        $responsePayload = ['texto' => $textoIA];
     }
 
     error_log("JSON PARSEADO: " . json_encode($accionData));
