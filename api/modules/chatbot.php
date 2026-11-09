@@ -1,13 +1,11 @@
 <?php
 // api/modules/chatbot.php
-// Módulo de Chatbot con IA y capacidad de consultar la BD
 
 require_once __DIR__ . '/../core/db.php';
 require_once __DIR__ . '/../core/response.php';
 require_once __DIR__ . '/../core/auth.php';
 
 $method = getMethod();
-$segments = getUriSegments();
 
 if ($method !== 'POST') {
     jsonError('Método no permitido', 405);
@@ -21,14 +19,19 @@ $message = trim($body['message'] ?? '');
 if (empty($message)) jsonError('El mensaje no puede estar vacío', 400);
 
 // 1. Obtener datos reales del usuario para darle contexto a la IA
-// Consultamos cuántas mascotas tiene
-$stmtPets = $db->prepare("SELECT name, species_name FROM pets p LEFT JOIN pet_types pt ON p.type_id = pt.id WHERE owner_id = :id");
+// Consultamos sus mascotas (CORREGIDO: pt.name AS species_name)
+$stmtPets = $db->prepare("
+    SELECT p.name, pt.name AS species_name 
+    FROM pets p 
+    LEFT JOIN pet_types pt ON p.type_id = pt.id 
+    WHERE p.owner_id = :id
+");
 $stmtPets->execute([':id' => $user['id']]);
 $mascotas = $stmtPets->fetchAll();
 
 $mascotasTexto = empty($mascotas) ? "Ninguna" : "";
 foreach ($mascotas as $m) {
-    $mascotasTexto .= "- " . $m['name'] . " (" . $m['species_name'] . ")\n";
+    $mascotasTexto .= "- " . $m['name'] . " (" . ($m['species_name'] ?? 'Especie desconocida') . ")\n";
 }
 
 // Consultamos vacunas pendientes
@@ -44,13 +47,13 @@ $vacunas = $stmtVacunas->fetchAll();
 
 $vacunasTexto = empty($vacunas) ? "Ninguna pendiente" : "";
 foreach ($vacunas as $v) {
-    $vacunasTexto .= "- " . $v['pet_name'] . ": " . $v['vaccine_name'] . " (Vence: " . $v['next_due_date'] . ")\n";
+    $vacunasTexto .= "- " . $v['pet_name'] . ": " . ($v['vaccine_name'] ?? 'Vacuna') . " (Vence: " . $v['next_due_date'] . ")\n";
 }
 
-// 2. Construir el Prompt del Sistema (las instrucciones estrictas para la IA)
+// 2. Construir el Prompt del Sistema
 $prompt = "Eres VetBot, el asistente virtual de la clínica veterinaria VetCtrl.
-El usuario que te habla se llama '{$user['username']}' y tiene el rol de '{$user['role_name']}'.
-Aquí tienes su información real actual de la base de datos (ÚSALA para responder):
+El usuario se llama '{$user['username']}' y tiene el rol de '{$user['role_name']}'.
+Aquí tienes su información real actual de la base de datos:
 MASCOTAS DEL USUARIO:
 $mascotasTexto
 VACUNAS PRÓXIMAS A VENCER:
@@ -59,9 +62,9 @@ $vacunasTexto
 REGLAS ESTRICTAS:
 1. Responde de forma amable, breve y profesional.
 2. Si el usuario pregunta por sus mascotas o vacunas, usa la información de arriba.
-3. Si el usuario quiere agendar una cita, indícale que puede ir a la pestaña 'Nueva Cita' o al Dashboard.
-4. NO inventes datos que no estén en la lista. Si no sabes algo de la clínica, di que no tienes esa información.
-5. Si te preguntan cosas médicas (síntomas, enfermedades), actúa como un veterinario dando consejos generales, pero aclara que deben traer a la mascota a la clínica para un diagnóstico real.
+3. Si el usuario quiere agendar una cita, indícale que vaya a la pestaña 'Nueva Cita' en el Dashboard.
+4. NO inventes datos que no estén en la lista.
+5. Si te preguntan cosas médicas, actúa como un veterinario dando consejos generales, pero aclara que deben traer a la mascota a la clínica para un diagnóstico real.
 
 Pregunta del usuario: " . $message;
 
