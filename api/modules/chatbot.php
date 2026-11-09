@@ -6,100 +6,85 @@ require_once __DIR__ . '/../core/response.php';
 require_once __DIR__ . '/../core/auth.php';
 
 $method = getMethod();
-
-if ($method !== 'POST') {
-    jsonError('Método no permitido', 405);
-}
+if ($method !== 'POST') jsonError('Método no permitido', 405);
 
 $user = requireAuth();
 $db = getDB();
 $body = getJsonBody();
-
 $message = trim($body['message'] ?? '');
 if (empty($message)) jsonError('El mensaje no puede estar vacío', 400);
 
-// 1. Obtener datos reales del usuario para darle contexto a la IA
-$stmtPets = $db->prepare("
-    SELECT p.name, pt.name AS species_name 
-    FROM pets p 
-    LEFT JOIN pet_types pt ON p.type_id = pt.id 
-    WHERE p.owner_id = :id
-");
+// 1. Obtener información del contexto
+$stmtPets = $db->prepare("SELECT id, name, pt.name AS species_name FROM pets p LEFT JOIN pet_types pt ON p.type_id = pt.id WHERE p.owner_id = :id");
 $stmtPets->execute([':id' => $user['id']]);
 $mascotas = $stmtPets->fetchAll();
 
-$mascotasTexto = empty($mascotas) ? "Ninguna" : "";
+$listaMascotasTexto = "";
 foreach ($mascotas as $m) {
-    $mascotasTexto .= "- " . $m['name'] . " (" . ($m['species_name'] ?? 'Especie desconocida') . ")\n";
+    $listaMascotasTexto .= "- ID: {$m['id']}, Nombre: {$m['name']}\n";
 }
 
-// Consultamos vacunas pendientes
-$stmtVacunas = $db->prepare("
-    SELECT p.name as pet_name, v.next_due_date, vt.name as vaccine_name 
-    FROM vaccines v
-    JOIN pets p ON v.pet_id = p.id
-    LEFT JOIN vaccine_types vt ON v.vaccine_type_id = vt.id
-    WHERE p.owner_id = :id AND v.next_due_date <= DATE_ADD(CURDATE(), INTERVAL 60 DAY)
-");
-$stmtVacunas->execute([':id' => $user['id']]);
-$vacunas = $stmtVacunas->fetchAll();
+// 2. Prompt con Instrucciones para ACCIONES
+$prompt = "Eres VetBot, el asistente de VetCtrl. El usuario es '{$user['username']}'.
+MASCOTAS REGISTRADAS DEL USUARIO:
+$listaMascotasTexto
 
-$vacunasTexto = empty($vacunas) ? "Ninguna pendiente" : "";
-foreach ($vacunas as $v) {
-    $vacunasTexto .= "- " . $v['pet_name'] . ": " . ($v['vaccine_name'] ?? 'Vacuna') . " (Vence: " . $v['next_due_date'] . ")\n";
-}
-
-// 2. Construir el Prompt del Sistema
-$prompt = "Eres VetBot, el asistente virtual de la clínica veterinaria VetCtrl.
-El usuario se llama '{$user['username']}' y tiene el rol de '{$user['role_name']}'.
-Aquí tienes su información real actual de la base de datos:
-MASCOTAS DEL USUARIO:
-$mascotasTexto
-VACUNAS PRÓXIMAS A VENCER:
-$vacunasTexto
-
-REGLAS ESTRICTAS:
-1. Responde de forma amable, breve y profesional.
-2. Si el usuario pregunta por sus mascotas o vacunas, usa la información de arriba.
-3. Si el usuario quiere agendar una cita, indícale que vaya a la pestaña 'Nueva Cita' en el Dashboard.
-4. NO inventes datos que no estén en la lista.
-5. Si te preguntan cosas médicas, actúa como un veterinario dando consejos generales, pero aclara que deben traer a la mascota a la clínica para un diagnóstico real.
+INSTRUCCIONES:
+1. Si el usuario pide agendar una cita, DEBES responder ÚNICAMENTE con un objeto JSON con este formato exacto (sin texto extra):
+   {\"accion\": \"agendar_cita\", \"pet_id\": ID_MASCOTA, \"fecha\": \"YYYY-MM-DD HH:MM:SS\", \"motivo\": \"motivo de la cita\"}
+   * Usa el ID de la mascota de la lista de arriba.
+   * Asume que el horario es de 08:00 a 18:00 y debes calcular la fecha exacta basándote en lo que pide el usuario (ej: 'mañana a las 10').
+2. Si el usuario hace una pregunta general o médica, responde normalmente de forma amable.
+3. Si no sabes de qué habla, pide aclaración.
 
 Pregunta del usuario: " . $message;
 
-// 3. Llamada a la API de Gemini (Modelo Actualizado a 2.5-flash)
-$apiKey = 'AQ.Ab8RN6KayvMR5uPzBKesHE8XoXiXQT_Y8-IUXXkottni2NOI9g'; 
+// 3. Llamada a la API de Gemini
+$apiKey = 'AQ.Ab8RN6KayvMR5uPzBKesHE8XoXiXQT_Y8-IUXXkottni2NOI9g'; // Tu clave activa
 $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=" . $apiKey;
-$data = [
-    "contents" => [
-        ["parts" => [["text" => $prompt]]]
-    ]
-];
 
+$data = ["contents" => [["parts" => [["text" => $prompt]]]]];
 $ch = curl_init($url);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
 curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
 curl_setopt($ch, CURLOPT_TIMEOUT, 15);
-
 $response = curl_exec($ch);
-$err = curl_error($ch);
 curl_close($ch);
 
-if ($err) {
-    $botResponse = "Lo siento, mi sistema de IA está desconectado. 😔 Intenta de nuevo en un momento.";
-} else {
-    $json = json_decode($response, true);
-    
-    // Verificamos si Google devolvió un error (por ejemplo, API Key inválida)
-    if (isset($json['error'])) {
-        $botResponse = "Error de configuración con la IA: " . $json['error']['message'];
-    } 
-    // Si todo está bien, extraemos la respuesta
-    elseif (isset($json['candidates'][0]['content']['parts'][0]['text'])) {
-        $botResponse = $json['candidates'][0]['content']['parts'][0]['text'];
-    } else {
-        $botResponse = "No pude procesar tu solicitud. Intenta preguntar por tus mascotas o vacunas.";
+$json = json_decode($response, true);
+$textoIA = $json['candidates'][0]['content']['parts'][0]['text'] ?? '';
+$botResponse = $textoIA;
+
+// 4. Detectar si la IA decidió ejecutar una acción
+if (strpos($textoIA, '"accion": "agendar_cita"') !== false) {
+    // Limpiamos el texto por si Gemini agregó las típicas comillas triples de Markdown ```json
+    $jsonLimpio = trim(str_replace(['```json', '```'], '', $textoIA));
+    $accionData = json_decode($jsonLimpio, true);
+
+    if ($accionData && isset($accionData['pet_id'])) {
+        $pet_id = (int)$accionData['pet_id'];
+        $fecha = $accionData['fecha'];
+        $motivo = $accionData['motivo'];
+
+        try {
+            // Insertar la cita en la base de datos
+            $stmtInsert = $db->prepare("INSERT INTO appointments (pet_id, attendant_id, appointment_date, reason, status, created_at) VALUES (:pet_id, :attendant_id, :date, :reason, 'PENDIENTE', NOW())");
+            $stmtInsert->execute([
+                ':pet_id' => $pet_id,
+                ':attendant_id' => $user['id'],
+                ':date' => $fecha,
+                ':reason' => "Agendada por IA: " . $motivo
+            ]);
+            
+            // Buscar el nombre de la mascota para la respuesta
+            $nombreMascota = "tu mascota";
+            foreach ($mascotas as $m) { if ($m['id'] == $pet_id) $nombreMascota = $m['name']; }
+
+            $botResponse = "✅ ¡Listo! He agendado la cita para **{$nombreMascota}** el día **{$fecha}** por el motivo: *{$motivo}*. Puedes verificarla en la pestaña 'Mis Citas'.";
+        } catch (PDOException $e) {
+            $botResponse = "Lo siento, intenté agendar la cita pero hubo un error en el sistema.";
+        }
     }
 }
 
