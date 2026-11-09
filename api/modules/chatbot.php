@@ -65,7 +65,10 @@ Pregunta: {$message}
 PROMPT;
 
 // 3. Llamada a Gemini (key y modelo desde variables de entorno)
-$apiKey = getenv('GEMINI_API_KEY') ?: 'AQ.Ab8RN6KayvMR5uPzBKesHE8XoXiXQT_Y8-IUXXkottni2NOI9g';
+$apiKey = getenv('GEMINI_API_KEY');
+if (!$apiKey) {
+    jsonError('Error de configuración: Falta la variable GEMINI_API_KEY en el servidor.', 500);
+}
 $modelo = getenv('GEMINI_MODEL') ?: 'gemini-2.0-flash';
 $url = "https://generativelanguage.googleapis.com/v1beta/models/{$modelo}:generateContent?key=" . $apiKey;
 
