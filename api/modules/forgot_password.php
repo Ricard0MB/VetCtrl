@@ -98,5 +98,5 @@ try {
 
 } catch (Exception $e) {
     error_log("PDO Error en forgot_password: " . $e->getMessage());
-    jsonError(Error interno en la base de datos), 500); 
+    jsonError('Error interno en la base de datos'), 500); 
 }
