@@ -11,11 +11,11 @@ $body = getJsonBody();
 $cita_id = $body['cita_id'] ?? null;
 $monto_usd = $body['monto_usd'] ?? 0;
 
-// 1. Obtener tasa BCV oficial desde Cotizave (Endpoint directo)
-$ch = curl_init('https://api.cotizave.com/v2/fx/VE/rates/ve-bcv');
+// 1. Obtener tasa BCV oficial desde Cotizave (URL exacta de la documentación)
+$ch = curl_init('https://api.cotizave.com/v1/fx/rates'); 
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    'X-API-Key: ' . getenv('COTIZAVE_API_KEY'),
-    'Accept: application/json' // 👈 Forzamos a que la respuesta sea JSON
+    'X-API-Key: ' . getenv('COTIZAVE_API_KEY'), // 👈 Asegúrate de que en Render se llame así
+    'Accept: application/json'
 ]);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 $res = curl_exec($ch);
@@ -27,16 +27,9 @@ if ($res === false || $curl_error_cotizave) {
 }
 
 $data = json_decode($res, true);
-
-// 👇 El endpoint /v2 devuelve el campo "rate" directamente
-$tasa_bcv = $data['rate'] ?? 0;
-
-if ($tasa_bcv <= 0) {
-    jsonError('No se pudo obtener la tasa BCV. Respuesta de Cotizave: ' . $res, 500);
-}
-
-// 👇 Buscamos la tasa oficial del BCV (market = "reference")
 $tasa_bcv = 0;
+
+// Cotizave devuelve un arreglo con varias tasas. Buscamos la oficial ("reference").
 if (isset($data['rates']) && is_array($data['rates'])) {
     foreach ($data['rates'] as $rate) {
         if (isset($rate['market']) && $rate['market'] === 'reference') {
@@ -44,10 +37,15 @@ if (isset($data['rates']) && is_array($data['rates'])) {
             break;
         }
     }
+} 
+// Por si la respuesta viene directa (dependiendo de la versión de la API)
+elseif (isset($data['rate'])) {
+    $tasa_bcv = $data['rate'];
 }
 
 if ($tasa_bcv <= 0) {
-    jsonError('No se pudo obtener la tasa BCV de referencia. Respuesta de Cotizave: ' . $res, 500);
+    // Si falla, mostramos la respuesta cruda de Cotizave para ver qué está pasando
+    jsonError('No se pudo obtener la tasa BCV. Respuesta de Cotizave: ' . $res, 500);
 }
 
 $monto_ves = $monto_usd * $tasa_bcv;
