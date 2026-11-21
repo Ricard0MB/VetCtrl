@@ -11,10 +11,10 @@ $body = getJsonBody();
 $cita_id = $body['cita_id'] ?? null;
 $monto_usd = $body['monto_usd'] ?? 0;
 
-// 1. Obtener tasa BCV oficial desde Cotizave (URL exacta de la documentación)
-$ch = curl_init('https://api.cotizave.com/v1/fx/rates'); 
+// 1. Obtener tasa BCV oficial desde Cotizave (Endpoint correcto según documentación)
+$ch = curl_init('https://api.cotizave.com/v1/fx/rates/reference'); // 👈 URL corregida
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    'X-API-Key: ' . getenv('COTIZAVE_API_KEY'), // 👈 Asegúrate de que en Render se llame así
+    'X-API-Key: ' . getenv('COTIZAVE_API_KEY'),
     'Accept: application/json'
 ]);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -27,24 +27,12 @@ if ($res === false || $curl_error_cotizave) {
 }
 
 $data = json_decode($res, true);
-$tasa_bcv = 0;
 
-// Cotizave devuelve un arreglo con varias tasas. Buscamos la oficial ("reference").
-if (isset($data['rates']) && is_array($data['rates'])) {
-    foreach ($data['rates'] as $rate) {
-        if (isset($rate['market']) && $rate['market'] === 'reference') {
-            $tasa_bcv = $rate['mid'] ?? 0;
-            break;
-        }
-    }
-} 
-// Por si la respuesta viene directa (dependiendo de la versión de la API)
-elseif (isset($data['rate'])) {
-    $tasa_bcv = $data['rate'];
-}
+// El endpoint /v1/fx/rates/reference devuelve directamente el objeto de la tasa
+$tasa_bcv = $data['mid'] ?? 0; // 👈 El campo correcto es "mid"
 
 if ($tasa_bcv <= 0) {
-    // Si falla, mostramos la respuesta cruda de Cotizave para ver qué está pasando
+    // Si falla, mostramos la respuesta cruda para diagnosticar
     jsonError('No se pudo obtener la tasa BCV. Respuesta de Cotizave: ' . $res, 500);
 }
 
@@ -57,8 +45,8 @@ $wayuPayload = [
     'product_description' => 'Cita #' . $cita_id,
 ];
 
-// ⚠️ IMPORTANTE: Esta URL es un EJEMPLO. Debes consultar la documentación oficial de Wayu Pay
-// y colocar aquí el endpoint real para crear intenciones de pago.
+// ⚠️ IMPORTANTE: Debes consultar la documentación oficial de Wayu Pay para obtener la URL real.
+// La siguiente es una URL de ejemplo.
 $ch = curl_init('https://api.wayu.com/v1/checkout'); 
 curl_setopt($ch, CURLOPT_POST, true);
 curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($wayuPayload));
