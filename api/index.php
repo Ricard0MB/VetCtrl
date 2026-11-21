@@ -48,6 +48,8 @@ $routes = [
     'treatments-catalog'  => __DIR__ . '/modules/treatments_catalog.php',
     'chatbot'             => __DIR__ . '/modules/chatbot.php',
     'forgot-password'     => __DIR__ . '/modules/forgot_password.php',
+    'payments' => __DIR__ . '/modules/payments.php',
+    'webhook'  => __DIR__ . '/modules/webhook.php',
 ];
 
 if (!isset($routes[$resource])) {
