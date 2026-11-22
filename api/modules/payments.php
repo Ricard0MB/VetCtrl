@@ -28,7 +28,7 @@ if ($res === false || $curl_error_cotizave || $http_code_cotizave !== 200) {
 }
 
 $data = json_decode($res, true);
-$tasa_bcv = $data['rate'] ?? 0; // El campo correcto es 'rate'
+$tasa_bcv = $data['mid'] ?? 0; // El campo correcto es 'mid'
 
 if ($tasa_bcv <= 0) {
     jsonError('No se pudo obtener la tasa BCV. Respuesta de Cotizave: ' . $res, 500);
