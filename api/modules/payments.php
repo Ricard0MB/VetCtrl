@@ -36,31 +36,34 @@ if ($tasa_bcv <= 0) {
 
 $monto_ves = $monto_usd * $tasa_bcv;
 
-// --- 2. Crear link de pago en WayuPay (CORREGIDO) ---
+// --- 2. Crear link de pago en WayuPay (sandbox) ---
 $wayuPayload = [
     'amount' => ['value' => $monto_usd, 'currency' => 'USD'],
     'product_name' => 'Servicio Veterinario',
-    'product_description' => 'Cita #' . $cita_id,
+    'product_description' => 'Cita #' . $cita_id, // requerido siempre
 ];
 $payloadJson = json_encode($wayuPayload);
 
-// Generar firma HMAC-SHA256 usando la clave secreta
-$secretKey = getenv('WAYU_SECRET_KEY');
-$publicKey = getenv('WAYU_PUBLIC_KEY'); // Necesitas la clave pública también
+$publicKey = getenv('WAYU_PUBLIC_KEY'); // pk_sbox_...
+$secretKey = getenv('WAYU_SECRET_KEY'); // sk_sbox_...
 
-if (!$secretKey || !$publicKey) {
+if (!$publicKey || !$secretKey) {
     jsonError('Faltan las claves de WayuPay en las variables de entorno.', 500);
 }
 
-$signature = hash_hmac('sha256', $payloadJson, $secretKey);
+// Firma: HMAC-SHA256( publicKey + ":" + timestamp , secretKey )
+$timestamp = (string) time();
+$message   = $publicKey . ':' . $timestamp;
+$signature = hash_hmac('sha256', $message, $secretKey);
 
-$ch = curl_init('https://api.wayu.app/api/v1/links');
+$ch = curl_init('https://api-sandbox.wayu.app/checkout/generate-payment-url');
 curl_setopt($ch, CURLOPT_POST, true);
 curl_setopt($ch, CURLOPT_POSTFIELDS, $payloadJson);
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
     'Content-Type: application/json',
-    'x-public-key: ' . $publicKey,
-    'x-signature: ' . $signature
+    'X-Public-Key: ' . $publicKey,
+    'X-Signature: '  . $signature,
+    'X-Timestamp: '  . $timestamp,
 ]);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 $wayuRes = curl_exec($ch);
@@ -68,7 +71,7 @@ $http_code_wayu = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 $curl_error_wayu = curl_error($ch);
 curl_close($ch);
 
-// --- 3. Validar la respuesta de WayuPay ---
+// --- 3. Validar respuesta de WayuPay ---
 if ($wayuRes === false || $curl_error_wayu) {
     jsonError('Error de conexión con WayuPay: ' . $curl_error_wayu, 500);
 }
@@ -76,16 +79,15 @@ if ($wayuRes === false || $curl_error_wayu) {
 $wayuData = json_decode($wayuRes, true);
 
 if ($http_code_wayu < 200 || $http_code_wayu >= 300) {
-    $msj_error = $wayuData['message'] ?? $wayuData['error'] ?? $wayuRes;
+    $msj_error = $wayuData['message'] ?? $wayuData['detail'] ?? $wayuRes;
     jsonError('WayuPay rechazó la petición (HTTP ' . $http_code_wayu . '): ' . $msj_error, 500);
 }
 
-// El SDK oficial usa 'generatePaymentLink' y 'transactionId'
-$payment_link = $wayuData['generatePaymentLink'] ?? $wayuData['payment_link'] ?? $wayuData['url'] ?? $wayuData['link'] ?? null;
-$transaction_id = $wayuData['transactionId'] ?? $wayuData['transaction_id'] ?? $wayuData['id'] ?? null;
+$payment_link    = $wayuData['payment_url']    ?? null;
+$transaction_id  = $wayuData['transaction_id'] ?? null;
 
 if (!$payment_link) {
-    jsonError('WayuPay no devolvió un link válido. Respuesta: ' . json_encode($wayuData), 500);
+    jsonError('WayuPay no devolvió payment_url. Respuesta: ' . json_encode($wayuData), 500);
 }
 
 // --- 4. Guardar en la BD ---
