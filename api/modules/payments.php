@@ -54,7 +54,7 @@ if (!$secretKey || !$publicKey) {
 
 $signature = hash_hmac('sha256', $payloadJson, $secretKey);
 
-$ch = curl_init('https://services-wayu-checkout-production.up.railway.app/api/v1/links');
+$ch = curl_init('https://api.wayu.app/api/v1/links');
 curl_setopt($ch, CURLOPT_POST, true);
 curl_setopt($ch, CURLOPT_POSTFIELDS, $payloadJson);
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
