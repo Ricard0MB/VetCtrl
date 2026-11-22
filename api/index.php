@@ -49,7 +49,7 @@ $routes = [
     'chatbot'             => __DIR__ . '/modules/chatbot.php',
     'forgot-password'     => __DIR__ . '/modules/forgot_password.php',
     'payments' => __DIR__ . '/modules/payments.php',
-    'webhook'  => __DIR__ . '/modules/webhook.php',
+    'webhook'  => __DIR__ . '/modules/payments_webhook.php',
     'prices' => __DIR__ . '/modules/prices.php'
 ];
 
