@@ -8,24 +8,36 @@ $user = requireAuth();
 $db = getDB();
 $method = $_SERVER['REQUEST_METHOD'];
 
+// Helper para verificar si el usuario autenticado es administrador
+// En roles: 1 = Veterinario, 2 = Propietario, 3 = admin
+function esAdmin(array $user): bool {
+    $roleId = intval($user['role_id'] ?? $user['id_rol'] ?? 0);
+    $roleName = strtolower(trim((string)($user['role'] ?? $user['rol'] ?? $user['role_name'] ?? '')));
+
+    return ($roleId === 3) || in_array($roleName, ['admin', 'administrador'], true);
+}
+
 // GET: Cualquier usuario autenticado puede ver los precios vigentes
 if ($method === 'GET') {
-    $stmt = $db->query("SELECT id, service_key, label, price_usd FROM service_prices ORDER BY id ASC");
-    $prices = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    jsonSuccess($prices);
+    try {
+        $stmt = $db->query("SELECT id, service_key, label, price_usd FROM service_prices ORDER BY id ASC");
+        $prices = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        jsonSuccess($prices);
+    } catch (Exception $e) {
+        jsonError('Error al obtener las tarifas: ' . $e->getMessage(), 500);
+    }
 }
 
 // POST / PUT: Solo el administrador puede actualizar los precios
 if ($method === 'POST' || $method === 'PUT') {
-    // Ajusta esta validación según cómo guardes el rol en tu $user (ej. 'admin' o role_id == 1)
-    if (($user['role'] ?? '') !== 'admin') {
+    if (!esAdmin($user)) {
         jsonError('No tienes permisos para modificar tarifas.', 403);
     }
 
     $body = getJsonBody();
-    $items = $body['prices'] ?? [];
+    $items = $body['prices'] ?? null;
 
-    if (empty($items) || !is_array($items)) {
+    if (!is_array($items) || empty($items)) {
         jsonError('Datos de tarifas inválidos.', 400);
     }
 
@@ -34,13 +46,14 @@ if ($method === 'POST' || $method === 'PUT') {
         $stmt = $db->prepare("UPDATE service_prices SET price_usd = ? WHERE service_key = ?");
 
         foreach ($items as $item) {
-            $key = $item['service_key'] ?? '';
-            $price = floatval($item['price_usd'] ?? 0);
+            $key = trim((string)($item['service_key'] ?? ''));
+            $price = filter_var($item['price_usd'] ?? null, FILTER_VALIDATE_FLOAT);
 
-            if ($price <= 0) {
-                throw new Exception("El precio para '$key' debe ser mayor a 0.");
+            if ($key === '' || $price === false || $price <= 0) {
+                throw new Exception("El precio para '{$key}' debe ser un número mayor a 0.");
             }
-            $stmt->execute([$price, $key]);
+
+            $stmt->execute([round($price, 2), $key]);
         }
 
         $db->commit();
@@ -52,3 +65,5 @@ if ($method === 'POST' || $method === 'PUT') {
         jsonError($e->getMessage(), 400);
     }
 }
+
+jsonError('Método no permitido.', 405);
