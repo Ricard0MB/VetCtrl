@@ -50,6 +50,7 @@ $routes = [
     'forgot-password'     => __DIR__ . '/modules/forgot_password.php',
     'payments' => __DIR__ . '/modules/payments.php',
     'webhook'  => __DIR__ . '/modules/webhook.php',
+    'prices' => __DIR__ . '/modules/prices.php'
 ];
 
 if (!isset($routes[$resource])) {
